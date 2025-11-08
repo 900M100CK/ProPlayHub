@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "expo-router": "^6.0.14",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "i": "^0.3.7",
+    "npm": "^11.6.2"
+  }
+}
