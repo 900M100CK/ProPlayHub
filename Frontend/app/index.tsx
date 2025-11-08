@@ -1,15 +1,11 @@
-import { Text, View } from "react-native";
+import { Redirect } from 'expo-router';
+import React from 'react';
 
-export default function Index() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
-    </View>
-  );
+/**
+ * Đây là tệp gốc của thư mục 'app'.
+ * Khi người dùng mở ứng dụng, tệp này sẽ được tải.
+ * Chúng ta dùng <Redirect> để tự động chuyển hướng họ đến trang đăng nhập.
+ */
+export default function AppIndex() {
+  return <Redirect href="./page/login" />;
 }
