@@ -1,5 +1,6 @@
-import bcrypt from "bcrypt";
-import User from "../models/User.js"; 
+import User from "../models/User.js";
+import crypto from "crypto";
+import { sendVerificationEmail } from "../utils/sendVerificationEmail.js";
 import { generateTokens } from "../utils/generateTokens.js";
 
 export const login = async (req, res) => {
@@ -16,7 +17,7 @@ export const login = async (req, res) => {
         { username: loginIdentifier.toLowerCase() },
         { email: loginIdentifier.toLowerCase() }
       ]
-    }).select('+password'); 
+    }).select('+password');
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(400).json({ message: "Invalid credentials" });
@@ -26,19 +27,12 @@ export const login = async (req, res) => {
     const { accessToken, refreshToken } = await generateTokens(user._id);
 
     // Set refresh token in HTTP-only cookie
-    // res.cookie('refreshToken', refreshToken, {
-    //   httpOnly: true, // Prevents XSS attacks
-    //   secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-    //   sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // ✅ IMPROVED: lax for development
-    //   maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    // });
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true, // Prevents XSS attacks
-      secure: true, // Set to true if using HTTPS
-      sameSite: 'none', // Adjust as needed
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
-    
 
     // Prepare user object without password
     const userObj = user.toObject();
@@ -48,7 +42,7 @@ export const login = async (req, res) => {
       message: "User logged in successfully",
       accessToken,
       user: userObj,
-      expiresIn: process.env.ACCESS_TOKEN_TTL, // 15 minutes (should match ACCESS_TOKEN_TTL)
+      expiresIn: "15", // 15 minutes
     });
 
   } catch (error) {
@@ -59,85 +53,68 @@ export const login = async (req, res) => {
 
 export const register = async (req, res) => {
   try {
-    const {
-      username,
-      email,
-      password,
-      name,
-      displayName,
-      age,
-      location,
-      address,
-      gamingPlatformPreferences,
-    } = req.body;
+    const { username, email, password, name } = req.body;
 
-    // Validate required fields
-    const required = { username, email, password, name, displayName, age, location, address, gamingPlatformPreferences };
-    const missing = Object.keys(required).find((key) => !required[key]);
-    if (missing) {
-      return res.status(400).json({ message: `Please provide ${missing}.` });
+    if (!username || !email || !password || !name) {
+      return res.status(400).json({ message: "Please provide name, username, email, and password." });
     }
 
-    // ✅ ADDED: Validate gamingPlatformPreferences is an array
-    if (!Array.isArray(gamingPlatformPreferences) || gamingPlatformPreferences.length === 0) {
-      return res.status(400).json({ 
-        message: "gamingPlatformPreferences must be a non-empty array." 
-      });
-    }
-
-    // ✅ ADDED: Validate password strength
     if (password.length < 8) {
-      return res.status(400).json({ 
-        message: "Password must be at least 8 characters long." 
-      });
+      return res.status(400).json({ message: "Password must be at least 8 characters long." });
     }
 
-    // Normalize username and email
     const normalizedUsername = username.toLowerCase().trim();
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check for existing user
     const existingUser = await User.findOne({
       $or: [{ username: normalizedUsername }, { email: normalizedEmail }],
     });
-
     if (existingUser) {
       const field = existingUser.username === normalizedUsername ? "Username" : "Email";
       return res.status(400).json({ message: `${field} already in use.` });
     }
 
-    // Create new user (password will be hashed by pre-save hook)
+    // TẠO TOKEN XÁC THỰC
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
+    const verificationTokenExpires = Date.now() + 15 * 60 * 1000; // 15 phút
+
     const newUser = new User({
       username: normalizedUsername,
       email: normalizedEmail,
-      password, // Will be hashed automatically
+      password,
       name: name.trim(),
-      displayName: displayName.trim(),
-      age: Number(age),
-      location: location.trim(),
-      address: address.trim(),
-      gamingPlatformPreferences,
+      displayName: normalizedUsername,
+      verificationToken: hashedToken,
+      verificationTokenExpires,
     });
 
     await newUser.save();
 
-    // Prepare response without password
+    // GỬI EMAIL
+    try {
+      await sendVerificationEmail(normalizedEmail, verificationToken);
+    } catch (emailError) {
+      console.error("Email send failed:", emailError);
+      // Không fail đăng ký nếu email lỗi
+    }
+
     const userObj = newUser.toObject();
     delete userObj.password;
 
     return res.status(201).json({
-      message: "User registered successfully. Please login to continue.",
+      message: "Registration successful! Please check your email to verify your account.",
       user: userObj,
     });
 
   } catch (error) {
-    // Handle validation errors
+    // === XỬ LÝ LỖI VALIDATION ===
     if (error.name === "ValidationError") {
       const messages = Object.values(error.errors).map((e) => e.message).join(", ");
       return res.status(400).json({ message: "Validation failed", details: messages });
     }
 
-    // Handle duplicate key errors
+    // === XỬ LÝ TRÙNG LẶP (MongoDB duplicate key) ===
     if (error.code === 11000) {
       const field = Object.keys(error.keyValue)[0];
       const value = error.keyValue[field];
@@ -147,6 +124,68 @@ export const register = async (req, res) => {
     }
 
     console.error("Registration Error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+export const completeProfile = async (req, res) => {
+  try {
+    const { displayName, age, location, address, gamingPlatformPreferences } = req.body;
+    const userId = req.user._id; // từ middleware auth
+
+    // Validate
+    if (!Array.isArray(gamingPlatformPreferences) || gamingPlatformPreferences.length === 0) {
+      return res.status(400).json({ message: "Please select at least one gaming platform." });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { displayName, age, location, address, gamingPlatformPreferences },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    return res.json({ message: "Profile completed!", user: updatedUser });
+  } catch (error) {
+    // xử lý lỗi validation
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((e) => e.message).join(", ");
+      return res.status(400).json({ message: "Validation failed", details: messages });
+    }
+  }
+};
+// Thêm vào authControllers.js
+export const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ message: "Token is required." });
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      verificationToken: hashedToken,
+      verificationTokenExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token." });
+    }
+
+    user.isEmailVerified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpires = undefined;
+    await user.save();
+
+    return res.status(200).json({
+      message: "Email verified successfully!",
+      redirectTo: "/complete-profile", // Frontend sẽ chuyển hướng
+    });
+
+  } catch (error) {
+    console.error("Verify Email Error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
