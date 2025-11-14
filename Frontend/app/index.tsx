@@ -7,5 +7,5 @@ import React from 'react';
  * Chúng ta dùng <Redirect> để tự động chuyển hướng họ đến trang đăng nhập.
  */
 export default function AppIndex() {
-  return <Redirect href="./page/login" />;
+  return <Redirect href="./home/home" />;
 }
