@@ -1,0 +1,143 @@
+import React, { useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+  ActivityIndicator,
+} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import { Link } from 'expo-router';
+import { z } from 'zod';
+import { useAuthStore } from '../stores/authStore'; // Import store
+import { useState } from 'react';
+import { authStyles as styles } from '../styles/authStyles'; // Import style chung
+
+// 1. Định nghĩa schema xác thực với Zod
+const ForgotPasswordSchema = z.object({
+  email: z.string().email({ message: 'Địa chỉ email không hợp lệ.' }),
+});
+
+const ForgotPasswordScreen: React.FC = () => {
+  // Lấy state và actions từ Zustand store
+  // errorMessage và successMessage từ store sẽ là lỗi/thành công từ API
+  const {
+    email,
+    isLoading,
+    errorMessage,
+    successMessage,
+    setEmail,
+    sendPasswordResetEmail,
+    resetAuthForms,
+  } = useAuthStore();
+
+  // State cục bộ cho lỗi xác thực phía client
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Reset form khi component unmount để tránh rò rỉ state
+  useEffect(() => {
+    return () => {
+      resetAuthForms();
+    };
+  }, [resetAuthForms]);
+
+  // 2. Hàm xử lý khi nhấn nút "Gửi mã OTP"
+  const handleSendOTP = () => {
+    // Reset lỗi trước mỗi lần thử
+    setValidationError(null);
+
+    // 3. Thực hiện xác thực bằng Zod
+    const result = ForgotPasswordSchema.safeParse({ email });
+
+    if (!result.success) {
+      // Nếu xác thực thất bại, hiển thị lỗi đầu tiên
+      setValidationError(result.error.issues[0].message);
+    } else {
+      // Nếu xác thực thành công, gọi action từ store để gửi yêu cầu API
+      sendPasswordResetEmail();
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.flex}
+    >
+      <SafeAreaView style={styles.container}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.innerContainer}>
+            
+            <View style={styles.header}>
+              <Text style={styles.title}>Quên Mật khẩu</Text>
+              <Text style={styles.subtitle}>Nhập email của bạn để nhận mã OTP.</Text>
+            </View>
+
+            {validationError && (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{validationError}</Text>
+              </View>
+            )}
+
+            {errorMessage && (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+
+            {successMessage && (
+              <View style={styles.successContainer}>
+                <Text style={styles.successText}>{successMessage}</Text>
+              </View>
+            )}
+
+            {/* Chỉ hiển thị form nếu chưa gửi thành công */}
+            {!successMessage && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Email</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="email@example.com"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.button, isLoading && styles.buttonDisabled]}
+                  disabled={isLoading}
+                  onPress={handleSendOTP} // 4. Sử dụng hàm xử lý mới
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.buttonText}>Gửi mã OTP</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+
+            <View style={styles.bottomLinkContainer}>
+              <Link href="./login" asChild>
+                <TouchableOpacity>
+                  <Text style={styles.bottomLinkActionText}>Quay lại Đăng nhập</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+
+          </View>
+        </TouchableWithoutFeedback>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
+  );
+};
+
+export default ForgotPasswordScreen;

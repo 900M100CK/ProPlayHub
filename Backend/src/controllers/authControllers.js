@@ -1,6 +1,6 @@
 import User from "../models/User.js";
 import crypto from "crypto";
-import { sendVerificationEmail } from "../utils/sendVerificationEmail.js";
+import { sendVerificationEmail } from "../libs/email.js";
 import { generateTokens } from "../utils/generateTokens.js";
 
 export const login = async (req, res) => {
@@ -93,7 +93,7 @@ export const register = async (req, res) => {
 
     // GỬI EMAIL
     try {
-      await sendVerificationEmail(normalizedEmail, verificationToken);
+      await sendVerificationEmail(normalizedEmail, name.trim(), verificationToken);
     } catch (emailError) {
       console.error("Email send failed:", emailError);
       // Không fail đăng ký nếu email lỗi
@@ -154,10 +154,10 @@ export const completeProfile = async (req, res) => {
     }
   }
 };
-// Thêm vào authControllers.js
+// Thay đổi: Hàm này giờ là một API endpoint được gọi bởi app, không phải redirect link
 export const verifyEmail = async (req, res) => {
   try {
-    const { token } = req.query;
+    const { token } = req.body; // Lấy token từ body của request POST
 
     if (!token) {
       return res.status(400).json({ message: "Token is required." });
@@ -179,9 +179,9 @@ export const verifyEmail = async (req, res) => {
     user.verificationTokenExpires = undefined;
     await user.save();
 
+    // Trả về thông báo thành công, app sẽ xử lý việc chuyển hướng
     return res.status(200).json({
       message: "Email verified successfully!",
-      redirectTo: "/complete-profile", // Frontend sẽ chuyển hướng
     });
 
   } catch (error) {

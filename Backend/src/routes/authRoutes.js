@@ -9,7 +9,7 @@ router.post("/register", register);
 
 router.post("/login", login);
 
-router.get("/verify-email", verifyEmail);
+router.post("/verify-email", verifyEmail);
 
 // router.put('/profile', auth, completeProfile)
 
