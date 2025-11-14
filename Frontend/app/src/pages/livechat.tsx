@@ -272,8 +272,8 @@ const styles = StyleSheet.create({
   },
   chatCard: {
     width: "100%",
-    maxWidth: 360,
-    height: "90%",
+    maxWidth: 400,
+    height: "95%",
     backgroundColor: "#F9FAFB",
     borderRadius: 22,
     overflow: "hidden",
