@@ -1,6 +1,5 @@
 import { StyleSheet } from 'react-native';
 
-
 export const homeStyles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -294,3 +293,9 @@ export const authStyles = StyleSheet.create({
     fontSize: 14,
   },
 });
+
+import React from 'react';
+
+const DummyAuthStylesScreen = () => null;
+
+export default DummyAuthStylesScreen;
