@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Staff Live Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: #0f172a;
+        color: #e5e7eb;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      header {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #020617;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #9ca3af;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #ef4444;
+      }
+
+      main {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+
+      /* LEFT: ROOM LIST */
+
+      aside#rooms-panel {
+        width: 280px;
+        border-right: 1px solid rgba(148, 163, 184, 0.4);
+        background: #020617;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .rooms-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+      }
+
+      .rooms-header h2 {
+        font-size: 14px;
+        margin: 0;
+        color: #e5e7eb;
+      }
+
+      #refresh-rooms {
+        border: none;
+        background: #111827;
+        color: #e5e7eb;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      #room-list {
+        flex: 1;
+        overflow-y: auto;
+      }
+
+      .room-item {
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .room-item:hover {
+        background: #111827;
+      }
+
+      .room-item.active {
+        background: #1d2435;
+      }
+
+      .room-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #e5e7eb;
+      }
+
+      .room-sub {
+        font-size: 11px;
+        color: #9ca3af;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .room-meta {
+        font-size: 10px;
+        color: #6b7280;
+        margin-top: 2px;
+      }
+
+      /* RIGHT: CHAT PANEL */
+
+      section#chat-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 8px 12px;
+        min-width: 0;
+      }
+
+      #chat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      #current-room-label {
+        font-size: 13px;
+        color: #9ca3af;
+      }
+
+      #delete-room-btn {
+        border: none;
+        background: #b91c1c;
+        color: #fee2e2;
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        cursor: pointer;
+      }
+
+      #delete-room-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      #messages {
+        flex: 1;
+        overflow-y: auto;
+        background: #020617;
+        border-radius: 12px;
+        padding: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        margin-bottom: 8px;
+      }
+
+      .msg-row {
+        display: flex;
+        margin-bottom: 6px;
+      }
+
+      .msg-self {
+        justify-content: flex-end;
+      }
+
+      .msg-other {
+        justify-content: flex-start;
+      }
+
+      .bubble {
+        max-width: 70%;
+        padding: 8px 10px;
+        border-radius: 12px;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
+      .bubble-self {
+        background: #4f46e5;
+        color: #eef2ff;
+        border-bottom-right-radius: 2px;
+      }
+
+      .bubble-other {
+        background: #111827;
+        color: #e5e7eb;
+        border-bottom-left-radius: 2px;
+        border: 1px solid rgba(75, 85, 99, 0.8);
+      }
+
+      .username {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-bottom: 2px;
+      }
+
+      form#send-form {
+        display: flex;
+        gap: 8px;
+        padding: 4px 0;
+      }
+
+      #message-input {
+        flex: 1;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        background: #020617;
+        color: #e5e7eb;
+      }
+
+      #message-input:focus {
+        outline: none;
+        border-color: #6366f1;
+      }
+
+      #send-btn {
+        padding: 8px 16px;
+        border-radius: 999px;
+        border: none;
+        background: #4f46e5;
+        color: #f9fafb;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      #send-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .empty-state {
+        font-size: 13px;
+        color: #6b7280;
+        text-align: center;
+        margin-top: 40px;
+      }
+
+      @media (max-width: 768px) {
+        aside#rooms-panel {
+          width: 200px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Staff Live Chat</h1>
+      <div class="status">
+        <div id="status-dot" class="dot"></div>
+        <span id="status-text">Disconnected</span>
+      </div>
+    </header>
+
+    <main>
+      <!-- LEFT: LIST ROOM / USER -->
+      <aside id="rooms-panel">
+        <div class="rooms-header">
+          <h2>Cuộc hội thoại</h2>
+          <button id="refresh-rooms">↻</button>
+        </div>
+        <div id="room-list"></div>
+      </aside>
+
+      <!-- RIGHT: CHAT PANEL -->
+      <section id="chat-panel">
+        <div id="chat-header">
+          <div id="current-room-label">
+            Chọn 1 cuộc hội thoại ở bên trái để bắt đầu.
+          </div>
+          <button id="delete-room-btn" disabled>Xoá cuộc trò chuyện</button>
+        </div>
+
+        <div id="messages">
+          <div class="empty-state">Chưa có tin nhắn nào được hiển thị.</div>
+        </div>
+
+        <form id="send-form">
+          <input
+            id="message-input"
+            type="text"
+            placeholder="Nhập tin nhắn trả lời khách..."
+            autocomplete="off"
+          />
+          <button type="submit" id="send-btn" disabled>Gửi</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const STAFF_USER = {
+        id: "staff_001",
+        username: "Support Staff",
+      };
+
+      let currentRoomId = "";
+      let currentRoomName = "";
+      let socket = null;
+      let roomsCache = [];
+
+      const statusDot = document.getElementById("status-dot");
+      const statusText = document.getElementById("status-text");
+      const roomListDiv = document.getElementById("room-list");
+      const refreshRoomsBtn = document.getElementById("refresh-rooms");
+      const messagesDiv = document.getElementById("messages");
+      const sendForm = document.getElementById("send-form");
+      const messageInput = document.getElementById("message-input");
+      const sendBtn = document.getElementById("send-btn");
+      const currentRoomLabel = document.getElementById("current-room-label");
+      const deleteRoomBtn = document.getElementById("delete-room-btn");
+
+      // ===== SOCKET =====
+      socket = io({
+        transports: ["websocket"],
+      });
+
+      socket.on("connect", () => {
+        statusDot.style.backgroundColor = "#22c55e";
+        statusText.textContent = "Connected";
+        console.log("✅ Socket connected as staff:", socket.id);
+      });
+
+      socket.on("connect_error", (err) => {
+        console.error("❌ connect_error:", err.message);
+      });
+
+      socket.on("disconnect", () => {
+        statusDot.style.backgroundColor = "#ef4444";
+        statusText.textContent = "Disconnected";
+        console.log("⚠️ Socket disconnected");
+      });
+
+      // Nhận lịch sử từ server khi join room
+      socket.on("chat:history", (history = []) => {
+        messagesDiv.innerHTML = "";
+        if (!history.length) {
+          messagesDiv.innerHTML =
+            '<div class="empty-state">Chưa có tin nhắn trong room này.</div>';
+          return;
+        }
+        history.forEach(addMessageToUI);
+        scrollToBottom();
+      });
+
+      // Nhận tin nhắn mới
+      socket.on("chat:message", (msg) => {
+        if (!msg) return;
+
+        // nếu tin này thuộc room đang mở thì hiển thị
+        if (msg.roomId === currentRoomId) {
+          if (messagesDiv.querySelector(".empty-state")) {
+            messagesDiv.innerHTML = "";
+          }
+          addMessageToUI(msg);
+          scrollToBottom();
+        }
+
+        // update lại danh sách room
+        refreshRooms();
+      });
+
+      // ===== ROOM LIST =====
+      async function loadRooms() {
+        try {
+          const res = await fetch("/api/chat/rooms");
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          roomsCache = data;
+          renderRooms();
+        } catch (err) {
+          console.error("❌ loadRooms error:", err);
+          roomListDiv.innerHTML =
+            '<div class="empty-state" style="padding: 12px;">Lỗi tải danh sách cuộc hội thoại.</div>';
+        }
+      }
+
+      function renderRooms() {
+        roomListDiv.innerHTML = "";
+
+        if (!roomsCache.length) {
+          roomListDiv.innerHTML =
+            '<div class="empty-state" style="padding: 12px; text-align: left;">Chưa có cuộc hội thoại nào.</div>';
+          resetCurrentRoomUI();
+          return;
+        }
+
+        roomsCache.forEach((room) => {
+          const item = document.createElement("div");
+          item.className =
+            "room-item" + (room.roomId === currentRoomId ? " active" : "");
+          item.dataset.roomId = room.roomId;
+
+          const title = document.createElement("div");
+          title.className = "room-title";
+          title.textContent = room.lastUsername || room.roomId;
+
+          const sub = document.createElement("div");
+          sub.className = "room-sub";
+          sub.textContent = room.lastMessageText || "(no message)";
+
+          const meta = document.createElement("div");
+          meta.className = "room-meta";
+          const time = room.lastMessageAt
+            ? new Date(room.lastMessageAt).toLocaleString()
+            : "";
+          meta.textContent = room.roomId + (time ? " • " + time : "");
+
+          item.appendChild(title);
+          item.appendChild(sub);
+          item.appendChild(meta);
+
+          item.addEventListener("click", () => {
+            handleSelectRoom(room.roomId, room.lastUsername);
+          });
+
+          roomListDiv.appendChild(item);
+        });
+
+        // Nếu chưa chọn room nào, auto chọn room đầu tiên
+        if (!currentRoomId && roomsCache.length > 0) {
+          const first = roomsCache[0];
+          handleSelectRoom(first.roomId, first.lastUsername);
+        }
+      }
+
+      function handleSelectRoom(roomId, lastUsername) {
+        if (!socket || !socket.connected) return;
+
+        currentRoomId = roomId;
+        currentRoomName = lastUsername || roomId;
+        currentRoomLabel.textContent = `Đang chat với: ${currentRoomName} (room: ${roomId})`;
+
+        // highlight item active
+        const items = roomListDiv.querySelectorAll(".room-item");
+        items.forEach((el) => {
+          el.classList.toggle("active", el.dataset.roomId === roomId);
+        });
+
+        // reset nội dung + show loading
+        messagesDiv.innerHTML =
+          '<div class="empty-state">Đang tải lịch sử tin nhắn...</div>';
+
+        // join room để backend gửi history
+        socket.emit("join", {
+          roomId,
+          userId: STAFF_USER.id,
+          username: STAFF_USER.username,
+        });
+
+        sendBtn.disabled = false;
+        deleteRoomBtn.disabled = false;
+      }
+
+      function resetCurrentRoomUI() {
+        currentRoomId = "";
+        currentRoomName = "";
+        currentRoomLabel.textContent =
+          "Chọn 1 cuộc hội thoại ở bên trái để bắt đầu.";
+        messagesDiv.innerHTML =
+          '<div class="empty-state">Chưa có tin nhắn nào được hiển thị.</div>';
+        sendBtn.disabled = true;
+        deleteRoomBtn.disabled = true;
+      }
+
+      function scrollToBottom() {
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      function addMessageToUI(msg) {
+        const isSelf = msg.userId === STAFF_USER.id;
+
+        const row = document.createElement("div");
+        row.className = "msg-row " + (isSelf ? "msg-self" : "msg-other");
+
+        const bubble = document.createElement("div");
+        bubble.className =
+          "bubble " + (isSelf ? "bubble-self" : "bubble-other");
+
+        if (!isSelf) {
+          const uname = document.createElement("div");
+          uname.className = "username";
+          uname.textContent = msg.username || "User";
+          bubble.appendChild(uname);
+        }
+
+        const textNode = document.createElement("div");
+        textNode.textContent = msg.text;
+        bubble.appendChild(textNode);
+
+        row.appendChild(bubble);
+        messagesDiv.appendChild(row);
+      }
+
+      // ===== XOÁ CẢ ROOM =====
+      deleteRoomBtn.addEventListener("click", async () => {
+        if (!currentRoomId) return;
+
+        const ok = confirm(
+          `Bạn có chắc muốn xoá toàn bộ cuộc trò chuyện với "${currentRoomName}" (room: ${currentRoomId})?`
+        );
+        if (!ok) return;
+
+        try {
+          const res = await fetch(
+            `/api/chat/rooms/${encodeURIComponent(currentRoomId)}`,
+            {
+              method: "DELETE",
+            }
+          );
+
+          if (!res.ok) {
+            const errText = await res.text();
+            console.error("❌ lỗi xoá room:", errText);
+            alert("Xoá cuộc trò chuyện thất bại!");
+            return;
+          }
+
+          resetCurrentRoomUI();
+          refreshRooms();
+        } catch (err) {
+          console.error("❌ delete room error:", err);
+          alert("Có lỗi khi xoá cuộc trò chuyện!");
+        }
+      });
+
+      // ===== GỬI TIN NHẮN =====
+      sendForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = messageInput.value.trim();
+        if (!text || !socket || !socket.connected || !currentRoomId) return;
+
+        const payload = {
+          roomId: currentRoomId,
+          text,
+          userId: STAFF_USER.id,
+          username: STAFF_USER.username,
+        };
+
+        socket.emit("chat:message", payload, (res) => {
+          if (!res || !res.ok) {
+            console.error("❌ gửi lỗi:", res && res.error);
+          }
+        });
+
+        messageInput.value = "";
+      });
+
+      function refreshRooms() {
+        loadRooms();
+      }
+      refreshRoomsBtn.addEventListener("click", refreshRooms);
+
+      // load lần đầu + auto refresh
+      loadRooms();
+      setInterval(refreshRooms, 10000);
+    </script>
+  </body>
+</html>
