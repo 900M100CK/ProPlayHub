@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import io, { Socket } from "socket.io-client";
 import { useAuthStore } from "../stores/authStore"; // lấy user login
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
 interface ChatMessage {
   id: string;
@@ -30,11 +32,12 @@ const SOCKET_URL = "http://10.0.2.2:3000";
 
 export default function LivechatScreen() {
   const { user } = useAuthStore() as any;
+  const router = useRouter(); // 👉 dùng cho nút back
 
   const userId: string | undefined = user?._id || user?.id;
-  const username: string =
-    user?.username || user?.email || "Guest";
+  const username: string = user?.username || user?.email || "Guest";
 
+  // mỗi user 1 room
   const ROOM_ID = userId ?? "guest_room";
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -180,7 +183,16 @@ export default function LivechatScreen() {
         <View style={styles.screenBg}>
           <View style={styles.chatCard}>
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Support Chat</Text>
+              <View style={styles.headerRow}>
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={() => router.back()}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Support Chat</Text>
+              </View>
             </View>
             <View
               style={[
@@ -207,14 +219,26 @@ export default function LivechatScreen() {
       >
         <View style={styles.screenBg}>
           <View style={styles.chatCard}>
-            {/* Header */}
+            {/* Header có nút back */}
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Support Chat</Text>
-              <Text style={styles.headerSubtitle}>
-                {isConnected
-                  ? "Online • Usually replies in minutes"
-                  : "Offline"}
-              </Text>
+              <View style={styles.headerRow}>
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={() => router.back()}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                <View>
+                  <Text style={styles.headerTitle}>Support Chat</Text>
+                  <Text style={styles.headerSubtitle}>
+                    {isConnected
+                      ? "Online • Usually replies in minutes"
+                      : "Offline"}
+                  </Text>
+                </View>
+              </View>
             </View>
 
             {/* Messages */}
@@ -288,6 +312,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 10,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 8,
   },
   headerTitle: {
     fontSize: 18,

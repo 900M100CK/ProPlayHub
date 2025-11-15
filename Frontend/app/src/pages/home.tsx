@@ -2,8 +2,8 @@
 // ============================================
 // Home Dashboard Screen
 // ============================================
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from "react";
+import { useRouter } from "expo-router";
 
 import {
   View,
@@ -15,10 +15,10 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-const API_BASE_URL = 'http://10.0.2.2:3000'; // chỉnh đúng IP + port backend
+const API_BASE_URL = "http://10.0.2.2:3000"; // chỉnh đúng IP + port backend
 
 // Kiểu dữ liệu gói dịch vụ
 type SubscriptionPackage = {
@@ -43,7 +43,10 @@ const extractDiscountPercent = (label?: string): number | null => {
 };
 
 // Helper: tính giá sau giảm
-const calculateDiscountedPrice = (basePrice: number, discountLabel?: string): number => {
+const calculateDiscountedPrice = (
+  basePrice: number,
+  discountLabel?: string
+): number => {
   const percent = extractDiscountPercent(discountLabel);
   if (!percent) return basePrice;
   const discounted = basePrice * (1 - percent / 100);
@@ -51,7 +54,7 @@ const calculateDiscountedPrice = (basePrice: number, discountLabel?: string): nu
 };
 
 const HomeScreen = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [allPackages, setAllPackages] = useState<SubscriptionPackage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,16 +70,16 @@ const HomeScreen = () => {
 
         const res = await fetch(`${API_BASE_URL}/api/packages`);
         const data = await res.json();
-        console.log('Packages from API:', data); // kiểm tra số lượng trong Metro
+        console.log("Packages from API:", data); // kiểm tra số lượng trong Metro
 
         if (!res.ok) {
-          throw new Error(data.message || 'Failed to fetch packages');
+          throw new Error(data.message || "Failed to fetch packages");
         }
 
         setAllPackages(data);
       } catch (err: any) {
-        console.error('Fetch packages error:', err);
-        setError(err.message || 'Error fetching packages');
+        console.error("Fetch packages error:", err);
+        setError(err.message || "Error fetching packages");
       } finally {
         setLoading(false);
       }
@@ -97,7 +100,7 @@ const HomeScreen = () => {
   return (
     <SafeAreaView style={homeStyles.container}>
       <StatusBar barStyle="light-content" />
-      
+
       {/* Header Section */}
       <View style={homeStyles.header}>
         <View style={homeStyles.headerContent}>
@@ -105,18 +108,36 @@ const HomeScreen = () => {
 
           {/* Nhóm icon message + notification */}
           <View style={homeStyles.iconGroup}>
-            <TouchableOpacity style={homeStyles.headerIconButton}>
-              <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFFFFF" />
+            {/* Nhấn vào icon chat để sang trang livechat */}
+            <TouchableOpacity
+              style={homeStyles.headerIconButton}
+              onPress={() => router.push("./livechat")}
+            >
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={24}
+                color="#FFFFFF"
+              />
             </TouchableOpacity>
+
             <TouchableOpacity style={homeStyles.headerIconButton}>
-              <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color="#FFFFFF"
+              />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Search Bar */}
         <View style={homeStyles.searchContainer}>
-          <Ionicons name="search-outline" size={20} color="#D1D5DB" style={homeStyles.searchIcon} />
+          <Ionicons
+            name="search-outline"
+            size={20}
+            color="#D1D5DB"
+            style={homeStyles.searchIcon}
+          />
           <TextInput
             style={homeStyles.searchInput}
             placeholder="Search packages..."
@@ -151,9 +172,14 @@ const HomeScreen = () => {
               </View>
 
               {seasonalPackages.map((pkg) => {
-                const discountPercent = extractDiscountPercent(pkg.discountLabel);
+                const discountPercent = extractDiscountPercent(
+                  pkg.discountLabel
+                );
                 const originalPrice = pkg.basePrice;
-                const finalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel);
+                const finalPrice = calculateDiscountedPrice(
+                  pkg.basePrice,
+                  pkg.discountLabel
+                );
 
                 return (
                   <TouchableOpacity
@@ -161,7 +187,7 @@ const HomeScreen = () => {
                     style={homeStyles.seasonalCard}
                     onPress={() =>
                       router.push({
-                        pathname: './src/pages/packageDetail',
+                        pathname: "./src/pages/packageDetail",
                         params: { slug: pkg.slug },
                       })
                     }
@@ -169,7 +195,9 @@ const HomeScreen = () => {
                     {/* Badge giảm giá góc phải */}
                     {pkg.discountLabel && (
                       <View style={homeStyles.seasonalBadge}>
-                        <Text style={homeStyles.seasonalBadgeText}>{pkg.discountLabel}</Text>
+                        <Text style={homeStyles.seasonalBadgeText}>
+                          {pkg.discountLabel}
+                        </Text>
                       </View>
                     )}
 
@@ -208,7 +236,10 @@ const HomeScreen = () => {
             {filteredRecommended.map((pkg) => {
               const discountPercent = extractDiscountPercent(pkg.discountLabel);
               const originalPrice = pkg.basePrice;
-              const finalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel);
+              const finalPrice = calculateDiscountedPrice(
+                pkg.basePrice,
+                pkg.discountLabel
+              );
 
               return (
                 <View key={pkg.slug} style={homeStyles.packageCard}>
@@ -236,7 +267,7 @@ const HomeScreen = () => {
                     style={homeStyles.viewButton}
                     onPress={() =>
                       router.push({
-                        pathname: './src/pages/packageDetail',
+                        pathname: "./src/pages/packageDetail",
                         params: { slug: pkg.slug },
                       })
                     }
@@ -254,13 +285,13 @@ const HomeScreen = () => {
       <View style={homeStyles.bottomNav}>
         <TouchableOpacity
           style={homeStyles.navItem}
-          onPress={() => router.push('./src/home/home')}
+          onPress={() => router.push("./src/home/home")}
         >
           <Ionicons name="home" size={24} color="#A855F7" />
         </TouchableOpacity>
         <TouchableOpacity
           style={homeStyles.navItem}
-          onPress={() => router.push('./src/home/home')} // sau này đổi sang browsePackages nếu có
+          onPress={() => router.push("./src/home/home")} // sau này đổi sang browsePackages nếu có
         >
           <Ionicons name="cube-outline" size={24} color="#9CA3AF" />
         </TouchableOpacity>
@@ -278,37 +309,37 @@ const HomeScreen = () => {
 const homeStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
   },
   header: {
-    backgroundColor: '#818CF8',
+    backgroundColor: "#818CF8",
     paddingHorizontal: 16,
     paddingTop: 50,
     paddingBottom: 20,
   },
   headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   welcomeText: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: "bold",
+    color: "#FFFFFF",
   },
   iconGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerIconButton: {
     padding: 4,
     marginLeft: 12,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -319,7 +350,7 @@ const homeStyles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   content: {
     flex: 1,
@@ -329,11 +360,11 @@ const homeStyles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
-    color: '#EF4444',
+    color: "#EF4444",
     fontSize: 14,
   },
   section: {
@@ -341,8 +372,8 @@ const homeStyles = StyleSheet.create({
     paddingTop: 20,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   sectionIcon: {
@@ -351,8 +382,8 @@ const homeStyles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: "600",
+    color: "#1F2937",
   },
 
   // Seasonal card
@@ -360,70 +391,70 @@ const homeStyles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 12,
-    backgroundColor: '#F97316', // cam nổi bật
-    position: 'relative',
+    backgroundColor: "#F97316", // cam nổi bật
+    position: "relative",
   },
   seasonalBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 10,
-    backgroundColor: '#FBBF24',
+    backgroundColor: "#FBBF24",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
   },
   seasonalBadgeText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: "700",
+    color: "#1F2937",
   },
   seasonalName: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
     marginBottom: 4,
   },
   seasonalType: {
     fontSize: 13,
-    color: '#FDE68A',
+    color: "#FDE68A",
     marginBottom: 12,
   },
   priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
 
   // Giá trên Home
   originalPrice: {
     fontSize: 14,
-    color: '#FEE2E2',
-    textDecorationLine: 'line-through',
+    color: "#FEE2E2",
+    textDecorationLine: "line-through",
   },
   finalPrice: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   originalPriceSmall: {
     fontSize: 12,
-    color: '#9CA3AF',
-    textDecorationLine: 'line-through',
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
   },
   finalPriceSmall: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#A855F7',
+    fontWeight: "600",
+    color: "#A855F7",
   },
 
   packageCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -434,35 +465,35 @@ const homeStyles = StyleSheet.create({
   },
   packageName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: "600",
+    color: "#1F2937",
     marginBottom: 2,
   },
   packageTypeSmall: {
     fontSize: 12,
-    color: '#6B7280',
+    color: "#6B7280",
     marginBottom: 4,
   },
   viewButton: {
-    backgroundColor: '#818CF8',
+    backgroundColor: "#818CF8",
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 8,
   },
   viewButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 
   bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    justifyContent: 'space-around',
+    justifyContent: "space-around",
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
   },
   navItem: {
     padding: 8,
