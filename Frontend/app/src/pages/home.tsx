@@ -187,7 +187,7 @@ const HomeScreen = () => {
                     style={homeStyles.seasonalCard}
                     onPress={() =>
                       router.push({
-                        pathname: "./src/pages/packageDetail",
+                        pathname: "./packageDetail",
                         params: { slug: pkg.slug },
                       })
                     }
@@ -267,7 +267,7 @@ const HomeScreen = () => {
                     style={homeStyles.viewButton}
                     onPress={() =>
                       router.push({
-                        pathname: "./src/pages/packageDetail",
+                        pathname: "./packageDetail",
                         params: { slug: pkg.slug },
                       })
                     }
@@ -285,13 +285,13 @@ const HomeScreen = () => {
       <View style={homeStyles.bottomNav}>
         <TouchableOpacity
           style={homeStyles.navItem}
-          onPress={() => router.push("./src/home/home")}
+          onPress={() => router.push("./home")}
         >
           <Ionicons name="home" size={24} color="#A855F7" />
         </TouchableOpacity>
         <TouchableOpacity
           style={homeStyles.navItem}
-          onPress={() => router.push("./src/home/home")} // sau này đổi sang browsePackages nếu có
+          onPress={() => router.push("./home")} // sau này đổi sang browsePackages nếu có
         >
           <Ionicons name="cube-outline" size={24} color="#9CA3AF" />
         </TouchableOpacity>

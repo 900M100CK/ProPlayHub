@@ -16,7 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-const API_BASE_URL = 'http://192.168.1.149:3000';
+const API_BASE_URL = 'http://10.0.2.2:3000';
 
 // Helper: lấy số % từ discountLabel
 const extractDiscountPercent = (label?: string): number | null => {
@@ -203,7 +203,7 @@ const detailStyles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#374151',
-    paddingVertical: 16,
+    paddingVertical: 30,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
