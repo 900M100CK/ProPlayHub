@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_BASE_URL = 'http://192.168.1.149:3000'; // chỉnh đúng IP + port backend
+const API_BASE_URL = 'http://10.0.2.2:3000'; // chỉnh đúng IP + port backend
 
 // Kiểu dữ liệu gói dịch vụ
 type SubscriptionPackage = {
@@ -161,7 +161,7 @@ const HomeScreen = () => {
                     style={homeStyles.seasonalCard}
                     onPress={() =>
                       router.push({
-                        pathname: '/src/home/packageDetail',
+                        pathname: './src/pages/packageDetail',
                         params: { slug: pkg.slug },
                       })
                     }
@@ -236,7 +236,7 @@ const HomeScreen = () => {
                     style={homeStyles.viewButton}
                     onPress={() =>
                       router.push({
-                        pathname: '/src/home/packageDetail',
+                        pathname: './src/pages/packageDetail',
                         params: { slug: pkg.slug },
                       })
                     }
@@ -254,13 +254,13 @@ const HomeScreen = () => {
       <View style={homeStyles.bottomNav}>
         <TouchableOpacity
           style={homeStyles.navItem}
-          onPress={() => router.push('/src/home/home')}
+          onPress={() => router.push('./src/home/home')}
         >
           <Ionicons name="home" size={24} color="#A855F7" />
         </TouchableOpacity>
         <TouchableOpacity
           style={homeStyles.navItem}
-          onPress={() => router.push('/src/home/home')} // sau này đổi sang browsePackages nếu có
+          onPress={() => router.push('./src/home/home')} // sau này đổi sang browsePackages nếu có
         >
           <Ionicons name="cube-outline" size={24} color="#9CA3AF" />
         </TouchableOpacity>
@@ -283,7 +283,7 @@ const homeStyles = StyleSheet.create({
   header: {
     backgroundColor: '#818CF8',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 50,
     paddingBottom: 20,
   },
   headerContent: {

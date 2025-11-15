@@ -1,7 +1,7 @@
 // scripts/seedPackages.js
 import dotenv from "dotenv";
 import connectDB from "../src/libs/db.js";
-import SubscriptionPackage from "../src/models/home/SubscriptionPackage.js";
+import SubscriptionPackage from "../src/models/SubscriptionPackage.js";
 
 dotenv.config();
 

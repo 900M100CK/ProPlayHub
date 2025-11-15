@@ -1,4 +1,4 @@
-// app/src/home/packageDetail.tsx
+
 // ============================================
 // Package Detail Screen
 // ============================================
@@ -165,7 +165,7 @@ const PackageDetailScreen = () => {
               style={detailStyles.subscribeButton}
               onPress={() =>
                 router.push({
-                  pathname: '/src/home/customizePackage',
+                  pathname: './src/pages/customizePackage',
                   params: { slug: pkg.slug },
                 })
               }

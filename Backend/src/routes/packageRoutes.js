@@ -1,6 +1,6 @@
 // src/routes/packageRoutes.js
 import express from "express";
-import SubscriptionPackage from "../models/home/SubscriptionPackage.js";
+import SubscriptionPackage from "../models/SubscriptionPackage.js";
 
 const router = express.Router();
 
