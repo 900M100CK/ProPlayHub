@@ -11,6 +11,9 @@ import connectDB from "./libs/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import Message from "./models/Message.js";
 
+//home page package routes
+import packageRoutes from "./routes/packageRoutes.js"; 
+
 dotenv.config();
 
 const app = express();
@@ -29,6 +32,10 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // Routes auth
 app.use("/api/auth", authRoutes);
+
+// Routes package
+app.use("/api/packages", packageRoutes);
+
 
 // Test route
 app.get("/", (req, res) => {
@@ -194,3 +201,7 @@ connectDB()
     console.error("❌ MongoDB connection error:", err);
     process.exit(1);
   });
+
+
+// app.use("/api/auth", authRoutes);
+app.use("/api/packages", packageRoutes);
