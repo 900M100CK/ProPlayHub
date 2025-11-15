@@ -162,7 +162,7 @@ const PackageDetailScreen = () => {
               style={detailStyles.subscribeButton}
               onPress={() =>
                 router.push({
-                  pathname: './checkout',   // 👈 TRANG PAYMENT / CHECKOUT
+                  pathname: './checkout',
                   params: { slug: pkg.slug },
                 })
               }
