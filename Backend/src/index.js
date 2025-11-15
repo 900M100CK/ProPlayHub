@@ -13,6 +13,7 @@ import Message from "./models/Message.js";
 
 //home page package routes
 import packageRoutes from "./routes/packageRoutes.js"; 
+import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 
 dotenv.config();
 
@@ -205,3 +206,4 @@ connectDB()
 
 // app.use("/api/auth", authRoutes);
 app.use("/api/packages", packageRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);

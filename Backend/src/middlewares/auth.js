@@ -16,7 +16,7 @@ const auth = async (req, res, next) => {
     // 2. Xác minh token
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
     } catch (err) {
       if (err.name === "TokenExpiredError") {
         return res.status(401).json({ message: "Token expired. Please refresh." });

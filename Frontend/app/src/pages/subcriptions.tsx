@@ -1,0 +1,403 @@
+// app/src/pages/subscriptions.tsx
+import React, { useEffect, useState } from "react";
+import {
+  SafeAreaView,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+  StatusBar,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useAuthStore } from "../stores/authStore";
+
+const API_BASE_URL = "http://10.0.2.2:3000";
+
+type SubscriptionStatus = "active" | "inactive" | "cancelled";
+
+interface UserSubscription {
+  _id: string;
+  packageSlug: string;
+  packageName: string;
+  period: string;
+  pricePerPeriod: number;
+  status: SubscriptionStatus;
+  startedAt?: string;
+  nextBillingDate?: string;
+  cancelledAt?: string;
+}
+
+const formatMonthYear = (input?: string) => {
+  if (!input) return "";
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-GB", {
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatFullDate = (input?: string) => {
+  if (!input) return "";
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const MySubscriptionsScreen = () => {
+  const router = useRouter();
+  const { user, accessToken } = useAuthStore() as any;
+
+  const [subs, setSubs] = useState<UserSubscription[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    const fetchSubs = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch(`${API_BASE_URL}/api/subscriptions/me`, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken
+              ? { Authorization: `Bearer ${accessToken}` }
+              : {}),
+          },
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || "Failed to fetch subscriptions");
+        }
+
+        setSubs(data);
+      } catch (err: any) {
+        console.error("Fetch subscriptions error:", err);
+        setError(err.message || "Error fetching subscriptions");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubs();
+  }, [accessToken]);
+
+  // Nếu chưa login
+  if (!user || !accessToken) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centered}>
+          <Text style={{ color: "#6B7280" }}>
+            You need to login to view your subscriptions.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+
+      {/* Top dark bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle}>My Subscriptions</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      {/* Content */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.pageTitle}>My Subscriptions</Text>
+
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#8B5CF6" />
+          </View>
+        ) : error ? (
+          <View style={styles.centered}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : subs.length === 0 ? (
+          <View style={styles.centered}>
+            <Text style={{ color: "#6B7280" }}>
+              You don&apos;t have any subscriptions yet.
+            </Text>
+          </View>
+        ) : (
+          subs.map((sub) => {
+            const isActive = sub.status === "active";
+
+            const startedText = sub.startedAt
+              ? `Active since ${formatMonthYear(sub.startedAt)}`
+              : "Active";
+
+            const nextBillingText = sub.nextBillingDate
+              ? `Next billing: ${formatFullDate(sub.nextBillingDate)}`
+              : "";
+
+            const cancelledText = sub.cancelledAt
+              ? `Cancelled on ${formatMonthYear(sub.cancelledAt)}`
+              : "Inactive";
+
+            return (
+              <View
+                key={sub._id}
+                style={[
+                  styles.card,
+                  !isActive && styles.cardInactiveBackground,
+                ]}
+              >
+                {/* Header row: name + badge */}
+                <View style={styles.cardHeaderRow}>
+                  <View>
+                    <Text style={styles.packageName}>{sub.packageName}</Text>
+                    <Text style={styles.subStatusText}>
+                      {isActive ? startedText : cancelledText}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      isActive
+                        ? styles.statusBadgeActive
+                        : styles.statusBadgeInactive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        isActive
+                          ? styles.statusBadgeTextActive
+                          : styles.statusBadgeTextInactive,
+                      ]}
+                    >
+                      {isActive ? "Active" : "Inactive"}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Next billing + price */}
+                {isActive && (
+                  <View style={{ marginTop: 8 }}>
+                    {nextBillingText !== "" && (
+                      <Text style={styles.nextBillingText}>
+                        {nextBillingText}
+                      </Text>
+                    )}
+                    <Text style={styles.priceText}>
+                      £{sub.pricePerPeriod.toFixed(2)}
+                      <Text style={styles.pricePeriod}> {sub.period}</Text>
+                    </Text>
+                  </View>
+                )}
+
+                {!isActive && (
+                  <View style={{ height: 8 }} />
+                )}
+
+                {/* Footer buttons */}
+                <View style={styles.cardFooter}>
+                  {isActive ? (
+                    <>
+                      <TouchableOpacity style={styles.manageButton}>
+                        <Text style={styles.manageButtonText}>Manage</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={styles.upgradeButton}>
+                        <Text style={styles.upgradeButtonText}>Upgrade</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity style={styles.reactivateButton}>
+                      <Text style={styles.reactivateButtonText}>
+                        Reactivate
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+export default MySubscriptionsScreen;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+  },
+  topBar: {
+    height: 64,
+    backgroundColor: "#111827",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+  backButton: {
+    padding: 4,
+  },
+  topBarTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  pageTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 16,
+  },
+  centered: {
+    marginTop: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 14,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  cardInactiveBackground: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  packageName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  subStatusText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  statusBadgeActive: {
+    backgroundColor: "#DCFCE7",
+  },
+  statusBadgeInactive: {
+    backgroundColor: "#E5E7EB",
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  statusBadgeTextActive: {
+    color: "#16A34A",
+  },
+  statusBadgeTextInactive: {
+    color: "#4B5563",
+  },
+  nextBillingText: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 4,
+  },
+  priceText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#A855F7",
+  },
+  pricePeriod: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: "#6B7280",
+  },
+  cardFooter: {
+    marginTop: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  manageButton: {
+    flex: 1,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#A855F7",
+    paddingVertical: 10,
+    alignItems: "center",
+    marginRight: 8,
+  },
+  manageButtonText: {
+    color: "#A855F7",
+    fontWeight: "600",
+  },
+  upgradeButton: {
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: "#A855F7",
+    paddingVertical: 10,
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  upgradeButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  reactivateButton: {
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: "#E5E7EB",
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  reactivateButtonText: {
+    color: "#4B5563",
+    fontWeight: "600",
+  },
+});
