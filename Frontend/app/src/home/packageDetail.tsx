@@ -159,15 +159,16 @@ const PackageDetailScreen = () => {
             ))}
           </View>
 
-          {/* Footer: nút Subscribe */}
+          {/* Footer: nút Subscribe -> sang Customize */}
           <View style={detailStyles.packageFooter}>
             <TouchableOpacity
               style={detailStyles.subscribeButton}
-              onPress={() => {
-                // TODO: sau này chuyển sang trang checkout
-                // router.push({ pathname: '/src/checkout', params: { slug: pkg.slug } });
-                console.log('Subscribe clicked');
-              }}
+              onPress={() =>
+                router.push({
+                  pathname: '/src/home/customizePackage',
+                  params: { slug: pkg.slug },
+                })
+              }
             >
               <Text style={detailStyles.subscribeButtonText}>Subscribe</Text>
             </TouchableOpacity>
