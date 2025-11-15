@@ -1,7 +1,4 @@
-
-// ============================================
-// Package Detail Screen
-// ============================================
+// app/src/pages/packageDetail.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -159,13 +156,13 @@ const PackageDetailScreen = () => {
             ))}
           </View>
 
-          {/* Footer: nút Subscribe -> sang Customize */}
+          {/* Footer: nút Subscribe -> sang Checkout */}
           <View style={detailStyles.packageFooter}>
             <TouchableOpacity
               style={detailStyles.subscribeButton}
               onPress={() =>
                 router.push({
-                  pathname: './src/pages/customizePackage',
+                  pathname: './checkout',   // 👈 TRANG PAYMENT / CHECKOUT
                   params: { slug: pkg.slug },
                 })
               }
