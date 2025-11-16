@@ -89,22 +89,20 @@ export const register = async (req, res) => {
       verificationTokenExpires,
     });
 
+    // Lưu người dùng vào DB trước
     await newUser.save();
 
-    // GỬI EMAIL
+    // GỬI EMAIL - Chỉ gửi khi đã lưu user thành công
     try {
       await sendVerificationEmail(normalizedEmail, name.trim(), verificationToken);
     } catch (emailError) {
       console.error("Email send failed:", emailError);
-      // Không fail đăng ký nếu email lỗi
+      // Không làm gián đoạn quá trình đăng ký nếu gửi email thất bại,
+      // nhưng có thể thêm logic để xử lý (ví dụ: cho phép người dùng yêu cầu gửi lại email)
     }
-
-    const userObj = newUser.toObject();
-    delete userObj.password;
 
     return res.status(201).json({
       message: "Registration successful! Please check your email to verify your account.",
-      user: userObj,
     });
 
   } catch (error) {
