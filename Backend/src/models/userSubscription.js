@@ -10,7 +10,6 @@ const SubscriptionSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Thông tin gói tại thời điểm đăng ký (denormalized cho đơn giản)
     packageSlug: { type: String, required: true },
     packageName: { type: String, required: true },
     period: { type: String, default: "per month" }, // ví dụ: "per month"
