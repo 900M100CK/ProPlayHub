@@ -29,6 +29,8 @@ type User = {
   _id: string;
   email: string;
   name: string;
+  username?: string;
+  displayName?: string;
   isEmailVerified: boolean;
   age?: number;
   location?: string;
@@ -52,10 +54,13 @@ type AuthState = {
   setEmail: (email: string) => void;
   setPassword: (password: string) => void;
   setRememberMe: (remember: boolean) => void;
+  setUser: (user: User | null) => void;
+  setAccessToken: (token: string | null) => void;
   togglePasswordVisibility: () => void;
-  loadRememberedEmail: () => Promise<void>;
+  loadRememberedCredentials: () => Promise<void>; // Load cả email và password đã lưu
   login: () => Promise<void>;
   register: () => Promise<void>;
+  logout: () => Promise<void>; // Thêm logout action
   sendPasswordResetEmail: () => Promise<void>; // Thêm action mới
   resetAuthForms: () => void;
 };
@@ -80,20 +85,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setEmail: (email) => set({ email }),
   setPassword: (password) => set({ password }),
   setRememberMe: (remember) => set({ rememberMe: remember }),
+  setUser: (user) => set({ user }),
+  setAccessToken: (token) => set({ accessToken: token }),
   togglePasswordVisibility: () => set((state) => ({ isPasswordVisible: !state.isPasswordVisible })),
   resetAuthForms: () => set({
     name: '', username: '', email: '', password: '', successMessage: null,
     errorMessage: null, isLoading: false
   }),
 
-  loadRememberedEmail: async () => {
+  loadRememberedCredentials: async () => {
     try {
       const rememberedEmail = await AsyncStorage.getItem('rememberedEmail');
-      if (rememberedEmail !== null) {
+      const rememberedPassword = await AsyncStorage.getItem('rememberedPassword');
+      
+      if (rememberedEmail !== null && rememberedPassword !== null) {
+        set({ 
+          email: rememberedEmail, 
+          password: rememberedPassword,
+          rememberMe: true 
+        });
+      } else if (rememberedEmail !== null) {
+        // Chỉ có email, không có password (trường hợp cũ)
         set({ email: rememberedEmail, rememberMe: true });
       }
     } catch (e) {
-      console.error('Failed to load remembered email.', e);
+      console.error('Failed to load remembered credentials.', e);
     }
   },
 
@@ -130,13 +146,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.log('Đăng nhập thành công:', data);
       
       if (rememberMe) {
+        // Lưu cả email và password để tự động điền lần sau
         await AsyncStorage.setItem('rememberedEmail', email);
+        await AsyncStorage.setItem('rememberedPassword', password);
       } else {
+        // Xóa email và password đã lưu nếu không tick ghi nhớ
         await AsyncStorage.removeItem('rememberedEmail');
+        await AsyncStorage.removeItem('rememberedPassword');
       }
 
-      // Lưu accessToken và user info vào state
-      // TODO: Để bảo mật hơn, accessToken nên được lưu vào SecureStore
+      // Lưu accessToken và user info vào state và AsyncStorage
+      // Lưu accessToken vào AsyncStorage để persist session
+      if (data.accessToken) {
+        await AsyncStorage.setItem('accessToken', data.accessToken);
+      }
+      if (data.user) {
+        await AsyncStorage.setItem('user', JSON.stringify(data.user));
+      }
+
+      // Set accessToken vào apiClient headers
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+
       set({ user: data.user, accessToken: data.accessToken, errorMessage: null });
 
       // --- ĐIỀU HƯỚNG THÔNG MINH ---
@@ -147,10 +177,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         data.user.gamingPlatformPreferences.length > 0;
 
       // Nếu email đã xác thực nhưng hồ sơ chưa hoàn chỉnh -> điều hướng đến trang complete-profile
-      const redirectTo = (data.user.isEmailVerified && !profileIsComplete) ? './complete-profile' : '../(tabs)/home';
+      const redirectTo = (data.user.isEmailVerified && !profileIsComplete) ? './completeProfile' : './home';
+
+      // Redirect tự động, không cần chờ user click OK
+      setTimeout(() => {
+        router.replace(redirectTo);
+      }, 500); // Delay nhỏ để user thấy message
 
       Alert.alert('Đăng nhập thành công!', 'Chào mừng trở lại!', [
-        { text: 'OK', onPress: () => router.replace(redirectTo) }
+        { text: 'OK' }
       ]);
       
     } catch (error) {
@@ -190,19 +225,49 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await apiClient.post('/auth/register', validationResult.data);
 
-      // 4. Handle success
+      // 4. Handle success - Auto login sau khi đăng ký
       console.log('Đăng ký thành công:', response.data);
+      
+      const data = response.data;
+      
+      // Lưu accessToken và user info vào state và AsyncStorage (auto login)
+      // Lưu accessToken vào AsyncStorage để persist session
+      if (data.accessToken) {
+        await AsyncStorage.setItem('accessToken', data.accessToken);
+      }
+      if (data.user) {
+        await AsyncStorage.setItem('user', JSON.stringify(data.user));
+      }
+
+      // Set accessToken vào apiClient headers
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+
+      set({ 
+        user: data.user, 
+        accessToken: data.accessToken, 
+        errorMessage: null,
+        isLoading: false 
+      });
+
+      // Check xem profile đã complete chưa
+      const profileIsComplete = 
+        data.user.age && 
+        data.user.location && 
+        data.user.gamingPlatformPreferences && 
+        data.user.gamingPlatformPreferences.length > 0;
+
+      // Điều hướng (không cần Alert, tự động redirect)
+      const redirectTo = !profileIsComplete ? './completeProfile' : './home';
+
+      // Tự động redirect, không cần user click OK
+      setTimeout(() => {
+        router.replace(redirectTo);
+      }, 500); // Delay nhỏ để user thấy message
+
       Alert.alert(
-        'Đăng ký thành công!',
-        'Chúng tôi đã gửi một liên kết xác thực đến email của bạn. Vui lòng kiểm tra hộp thư đến.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              router.replace('./login');
-            },
-          },
-        ]
+        'Đăng ký thành công! 🎉',
+        'Chúng tôi đã gửi email chào mừng đến bạn. Bạn đã được đăng nhập tự động.',
+        [{ text: 'OK' }]
       );
     } catch (error) {
       console.error('Lỗi đăng ký:', error);
@@ -214,6 +279,58 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } finally {
       // 5. Stop loading
       set({ isLoading: false });
+    }
+  },
+
+  logout: async () => {
+    try {
+      // Try to call logout API (optional, không block nếu fail)
+      try {
+        const token = get().accessToken;
+        if (token) {
+          // Set token temporarily for logout request
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          await apiClient.post('/auth/logout');
+        }
+      } catch (apiError) {
+        console.log('Logout API call failed (non-critical):', apiError);
+        // Không throw error, tiếp tục clear local storage
+      }
+
+      // Clear AsyncStorage
+      await AsyncStorage.removeItem('accessToken');
+      await AsyncStorage.removeItem('user');
+      await AsyncStorage.removeItem('rememberedEmail');
+      await AsyncStorage.removeItem('rememberedPassword'); // Xóa password đã lưu khi logout
+      
+      // Clear apiClient headers
+      apiClient.defaults.headers.common['Authorization'] = '';
+      
+      // Reset store state
+      set({ 
+        user: null, 
+        accessToken: null,
+        name: '',
+        username: '',
+        email: '',
+        password: '',
+        errorMessage: null,
+        successMessage: null,
+      });
+      
+      // Navigate to login - đảm bảo luôn chạy
+      setTimeout(() => {
+        router.replace('./login');
+      }, 100);
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if there's an error, clear state and navigate
+      AsyncStorage.multiRemove(['accessToken', 'user', 'rememberedEmail', 'rememberedPassword']).catch(() => {});
+      set({ user: null, accessToken: null });
+      apiClient.defaults.headers.common['Authorization'] = '';
+      setTimeout(() => {
+        router.replace('./login');
+      }, 100);
     }
   },
 

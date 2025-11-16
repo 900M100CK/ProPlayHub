@@ -69,7 +69,7 @@ const OrderConfirmationScreen = () => {
           {/* Buttons */}
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={() => router.push("/src/pages/subcriptions")}
+            onPress={() => router.push("./subcriptions")}
           >
             <Text style={styles.primaryButtonText}>View My Subscriptions</Text>
           </TouchableOpacity>

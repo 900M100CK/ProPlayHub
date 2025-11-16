@@ -9,11 +9,21 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useCartStore, CartItem } from '../stores/cartStore';
+import { useAuthStore } from '../stores/authStore';
 
-const API_BASE_URL = 'http://10.0.2.2:3000';
+// Auto-detect API URL based on platform
+// Android emulator: 10.0.2.2
+// iOS simulator: localhost
+// Physical device: use your computer's local IP (e.g., 192.168.1.100)
+const API_BASE_URL = Platform.OS === 'android' 
+  ? 'http://10.0.2.2:3000'
+  : 'http://localhost:3000';
 
 // Helper: lấy số % từ discountLabel
 const extractDiscountPercent = (label?: string): number | null => {
@@ -37,6 +47,10 @@ const PackageDetailScreen = () => {
   const [pkg, setPkg] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { addToCart, isInCart, removeFromCart } = useCartStore();
+  const { accessToken, user } = useAuthStore();
+  const [itemInCart, setItemInCart] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -47,22 +61,31 @@ const PackageDetailScreen = () => {
         setError(null);
 
         const res = await fetch(`${API_BASE_URL}/api/packages/${slug}`);
-        const data = await res.json();
-
+        
         if (!res.ok) {
-          throw new Error(data.message || 'Failed to fetch package detail');
+          const errorData = await res.json().catch(() => ({ message: 'Failed to fetch package detail' }));
+          throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
         }
 
+        const data = await res.json();
         setPkg(data);
+        
+        // Kiểm tra xem item đã có trong cart chưa
+        if (data) {
+          const inCart = isInCart(data.slug);
+          setItemInCart(inCart);
+        }
       } catch (err: any) {
         console.error('Fetch package detail error:', err);
-        setError(err.message || 'Error fetching package detail');
+        const errorMessage = err?.message || 'Error fetching package detail. Please check if backend is running.';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
     };
 
     fetchDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   if (loading) {
@@ -76,7 +99,49 @@ const PackageDetailScreen = () => {
   if (error) {
     return (
       <SafeAreaView style={detailStyles.container}>
-        <Text style={detailStyles.errorText}>{error}</Text>
+        <View style={detailStyles.header}>
+          <TouchableOpacity style={detailStyles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={detailStyles.headerTitle}>Package Details</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={detailStyles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+          <Text style={detailStyles.errorText}>{error}</Text>
+          <Text style={detailStyles.errorSubText}>
+            Please make sure backend server is running at {API_BASE_URL}
+          </Text>
+          <TouchableOpacity
+            style={detailStyles.retryButton}
+            onPress={() => {
+              setError(null);
+              // Trigger refetch
+              if (slug) {
+                const fetchDetail = async () => {
+                  try {
+                    setLoading(true);
+                    setError(null);
+                    const res = await fetch(`${API_BASE_URL}/api/packages/${slug}`);
+                    if (!res.ok) {
+                      const errorData = await res.json().catch(() => ({ message: 'Failed to fetch package detail' }));
+                      throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+                    }
+                    const data = await res.json();
+                    setPkg(data);
+                  } catch (err: any) {
+                    setError(err?.message || 'Error fetching package detail');
+                  } finally {
+                    setLoading(false);
+                  }
+                };
+                fetchDetail();
+              }
+            }}
+          >
+            <Text style={detailStyles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -92,6 +157,51 @@ const PackageDetailScreen = () => {
   const discountPercent = extractDiscountPercent(pkg.discountLabel);
   const originalPrice = pkg.basePrice;
   const finalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel);
+
+  // Handle add to cart
+  const handleAddToCart = async () => {
+    if (!pkg) return;
+
+    // Kiểm tra đăng nhập
+    if (!accessToken || !user) {
+      Alert.alert(
+        'Yêu cầu đăng nhập',
+        'Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          { text: 'Đăng nhập', onPress: () => router.push('./login') }
+        ]
+      );
+      return;
+    }
+
+    const cartItem: CartItem = {
+      _id: pkg._id,
+      slug: pkg.slug,
+      name: pkg.name,
+      category: pkg.category,
+      type: pkg.type,
+      basePrice: pkg.basePrice,
+      period: pkg.period || '/month',
+      discountLabel: pkg.discountLabel,
+      features: pkg.features || [],
+      isSeasonalOffer: pkg.isSeasonalOffer || false,
+      tags: pkg.tags || [],
+      finalPrice: finalPrice,
+    };
+
+    const success = await addToCart(cartItem);
+    if (success === true) {
+      setItemInCart(true);
+    }
+  };
+
+  // Handle remove from cart
+  const handleRemoveFromCart = () => {
+    if (!pkg) return;
+    removeFromCart(pkg.slug);
+    setItemInCart(false);
+  };
 
   return (
     <SafeAreaView style={detailStyles.container}>
@@ -156,19 +266,39 @@ const PackageDetailScreen = () => {
             ))}
           </View>
 
-          {/* Footer: nút Subscribe -> sang Checkout */}
+          {/* Footer: nút Add to Cart và Subscribe */}
           <View style={detailStyles.packageFooter}>
-            <TouchableOpacity
-              style={detailStyles.subscribeButton}
-              onPress={() =>
-                router.push({
-                  pathname: './checkout',
-                  params: { slug: pkg.slug },
-                })
-              }
-            >
-              <Text style={detailStyles.subscribeButtonText}>Subscribe</Text>
-            </TouchableOpacity>
+            <View style={detailStyles.buttonRow}>
+              {itemInCart ? (
+                <TouchableOpacity
+                  style={[detailStyles.cartButton, detailStyles.removeButton]}
+                  onPress={handleRemoveFromCart}
+                >
+                  <Ionicons name="cart" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={detailStyles.cartButtonText}>Xóa khỏi giỏ</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[detailStyles.cartButton, detailStyles.addButton]}
+                  onPress={handleAddToCart}
+                >
+                  <Ionicons name="cart-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={detailStyles.cartButtonText}>Thêm vào giỏ</Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity
+                style={detailStyles.subscribeButton}
+                onPress={() =>
+                  router.push({
+                    pathname: './checkout',
+                    params: { slug: pkg.slug },
+                  })
+                }
+              >
+                <Text style={detailStyles.subscribeButtonText}>Subscribe</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -290,7 +420,31 @@ const detailStyles = StyleSheet.create({
   },
   packageFooter: {
     marginTop: 8,
-    alignItems: 'flex-end',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  cartButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  addButton: {
+    backgroundColor: '#10B981',
+  },
+  removeButton: {
+    backgroundColor: '#EF4444',
+  },
+  cartButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   subscribeButton: {
     backgroundColor: '#A855F7',
@@ -334,8 +488,34 @@ const detailStyles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: '#EF4444',
+    fontWeight: '600',
     textAlign: 'center',
-    marginTop: 40,
+    marginTop: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorSubText: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+    marginHorizontal: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: '#A855F7',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

@@ -14,6 +14,7 @@ import Message from "./models/Message.js";
 //home page package routes
 import packageRoutes from "./routes/packageRoutes.js"; 
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
+import discountRoutes from "./routes/discountRoutes.js";
 
 dotenv.config();
 
@@ -36,6 +37,12 @@ app.use("/api/auth", authRoutes);
 
 // Routes package
 app.use("/api/packages", packageRoutes);
+
+// Routes subscriptions
+app.use("/api/subscriptions", subscriptionRoutes);
+
+// Routes discounts
+app.use("/api/discounts", discountRoutes);
 
 
 // Test route
@@ -202,8 +209,3 @@ connectDB()
     console.error("❌ MongoDB connection error:", err);
     process.exit(1);
   });
-
-
-// app.use("/api/auth", authRoutes);
-app.use("/api/packages", packageRoutes);
-app.use("/api/subscriptions", subscriptionRoutes);

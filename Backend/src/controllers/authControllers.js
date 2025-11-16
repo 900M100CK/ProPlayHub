@@ -1,6 +1,7 @@
 import User from "../models/User.js";
+import Session from "../models/Session.js";
 import crypto from "crypto";
-import { sendVerificationEmail } from "../libs/email.js";
+import { sendVerificationEmail, sendWelcomeEmail } from "../libs/email.js";
 import { generateTokens } from "../utils/generateTokens.js";
 
 export const login = async (req, res) => {
@@ -74,37 +75,45 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: `${field} already in use.` });
     }
 
-    // TẠO TOKEN XÁC THỰC
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
-    const verificationTokenExpires = Date.now() + 15 * 60 * 1000; // 15 phút
-
+    // TẠO USER MỚI - KHÔNG CẦN XÁC THỰC EMAIL
     const newUser = new User({
       username: normalizedUsername,
       email: normalizedEmail,
       password,
       name: name.trim(),
       displayName: normalizedUsername,
-      verificationToken: hashedToken,
-      verificationTokenExpires,
+      isEmailVerified: true, // Tự động set verified
     });
 
     await newUser.save();
 
-    // GỬI EMAIL
+    // GỬI WELCOME EMAIL (không bắt buộc xác thực)
     try {
-      await sendVerificationEmail(normalizedEmail, name.trim(), verificationToken);
+      await sendWelcomeEmail(normalizedEmail, name.trim(), normalizedUsername);
     } catch (emailError) {
-      console.error("Email send failed:", emailError);
+      console.error("Welcome email send failed:", emailError);
       // Không fail đăng ký nếu email lỗi
     }
+
+    // Tự động đăng nhập user sau khi đăng ký
+    const { accessToken, refreshToken } = await generateTokens(newUser._id);
+
+    // Set refresh token in HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
 
     const userObj = newUser.toObject();
     delete userObj.password;
 
     return res.status(201).json({
-      message: "Registration successful! Please check your email to verify your account.",
+      message: "Registration successful! Welcome to ProPlayHub!",
       user: userObj,
+      accessToken,
+      expiresIn: "15", // 15 minutes
     });
 
   } catch (error) {
@@ -127,7 +136,31 @@ export const register = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+export const logout = async (req, res) => {
+  try {
+    const userId = req.user._id; // từ middleware auth
 
+    // Xóa tất cả sessions của user
+    await Session.deleteMany({ userId });
+
+    // Clear refresh token cookie
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+    });
+
+    return res.status(200).json({
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    console.error("Logout Error:", error);
+    // Vẫn trả về success để frontend có thể clear local storage
+    return res.status(200).json({
+      message: "Logged out successfully",
+    });
+  }
+};
 
 export const completeProfile = async (req, res) => {
   try {
@@ -186,6 +219,69 @@ export const verifyEmail = async (req, res) => {
 
   } catch (error) {
     console.error("Verify Email Error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// GET /api/auth/me - Lấy thông tin user hiện tại
+export const getCurrentUser = async (req, res) => {
+  try {
+    // req.user đã được set bởi auth middleware
+    const user = await User.findById(req.user._id).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    return res.status(200).json({
+      user: user.toObject(),
+    });
+  } catch (error) {
+    console.error("Get Current User Error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// PUT /api/auth/profile - Update profile
+export const updateProfile = async (req, res) => {
+  try {
+    const { displayName, age, location, address, gamingPlatformPreferences, name } = req.body;
+    const userId = req.user._id; // từ middleware auth
+
+    const updateData = {};
+    if (displayName !== undefined) updateData.displayName = displayName;
+    if (age !== undefined) updateData.age = age;
+    if (location !== undefined) updateData.location = location;
+    if (address !== undefined) updateData.address = address;
+    if (gamingPlatformPreferences !== undefined) {
+      if (!Array.isArray(gamingPlatformPreferences)) {
+        return res.status(400).json({ message: "gamingPlatformPreferences must be an array." });
+      }
+      updateData.gamingPlatformPreferences = gamingPlatformPreferences;
+    }
+    if (name !== undefined) updateData.name = name;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    return res.status(200).json({
+      message: "Profile updated successfully!",
+      user: updatedUser.toObject(),
+    });
+  } catch (error) {
+    // xử lý lỗi validation
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((e) => e.message).join(", ");
+      return res.status(400).json({ message: "Validation failed", details: messages });
+    }
+    console.error("Update Profile Error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
