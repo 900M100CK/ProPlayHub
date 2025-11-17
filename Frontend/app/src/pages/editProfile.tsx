@@ -25,9 +25,9 @@ const ProfileScreen = () => {
     // Example: router.replace('/login');
   };
 
-//   const navigateToAchievements = () => {
-//     router.push('/src/home/achievements');
-//   };
+  const navigateToAchievements = () => {
+    router.push('/src/pages/achievements');
+  };
 
   const navigateToSettings = () => {
     router.push('/src/pages/settings');
@@ -113,7 +113,7 @@ const ProfileScreen = () => {
         </View>
 
         <View style={styles.sectionCard}>
-          <TouchableOpacity style={styles.row}>
+          <TouchableOpacity style={styles.row} onPress={navigateToAchievements}>
             <View style={styles.rowLeft}>
               <Ionicons name="share-social-outline" size={30} color="#8B5CF6" />
               <Text style={styles.rowText}>Gaming Achievements</Text>
