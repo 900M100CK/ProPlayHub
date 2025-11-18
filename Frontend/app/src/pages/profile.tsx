@@ -1,0 +1,678 @@
+// app/src/pages/profile.tsx
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  ActivityIndicator,
+  Alert,
+  Platform,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuthStore } from "../stores/authStore";
+import apiClient from "../api/axiosConfig";
+import axios from "axios";
+
+// Auto-detect API URL based on platform
+const API_BASE_URL = Platform.OS === 'android' 
+  ? 'http://10.0.2.2:3000'
+  : 'http://localhost:3000';
+
+const ProfileScreen = () => {
+  const router = useRouter();
+  const { user, accessToken, setUser, setAccessToken } = useAuthStore();
+
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    username: "",
+    email: "",
+    displayName: "",
+    age: "",
+    location: "",
+    address: "",
+    gamingPlatformPreferences: [] as string[],
+  });
+
+  const [originalData, setOriginalData] = useState(formData);
+
+  // Load user data
+  useEffect(() => {
+    loadUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Try to get token from store or storage
+      let token = accessToken;
+      if (!token) {
+        token = await AsyncStorage.getItem('accessToken');
+        if (token) {
+          setAccessToken(token);
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+      }
+
+      if (!token) {
+        Alert.alert(
+          'Yêu cầu đăng nhập',
+          'Bạn cần đăng nhập để xem profile.',
+          [
+            { text: 'Hủy', style: 'cancel', onPress: () => router.back() },
+            { text: 'Đăng nhập', onPress: () => router.replace('./login') },
+          ]
+        );
+        return;
+      }
+
+      // Load from store first
+      if (user) {
+        updateFormData(user);
+        setLoading(false);
+      }
+
+      // Fetch fresh data from API
+      const response = await axios.get(`${API_BASE_URL}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.user) {
+        updateFormData(response.data.user);
+        setUser(response.data.user);
+        await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
+      }
+    } catch (err: any) {
+      console.error('Load user data error:', err);
+      if (err.response?.status === 401) {
+        // Token expired, redirect to login
+        await AsyncStorage.removeItem('accessToken');
+        await AsyncStorage.removeItem('user');
+        setAccessToken(null);
+        setUser(null);
+        Alert.alert(
+          'Phiên đăng nhập đã hết hạn',
+          'Vui lòng đăng nhập lại.',
+          [{ text: 'Đăng nhập', onPress: () => router.replace('./login') }]
+        );
+      } else {
+        setError(err.response?.data?.message || 'Không thể tải thông tin profile.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateFormData = (userData: any) => {
+    const data = {
+      name: userData.name || "",
+      username: userData.username || "",
+      email: userData.email || "",
+      displayName: userData.displayName || userData.username || "",
+      age: userData.age ? String(userData.age) : "",
+      location: userData.location || "",
+      address: userData.address || "",
+      gamingPlatformPreferences: userData.gamingPlatformPreferences || [],
+    };
+    setFormData(data);
+    setOriginalData(data);
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      const token = accessToken || await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Lỗi', 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        router.replace('./login');
+        return;
+      }
+
+      const updatePayload: any = {};
+      if (formData.displayName !== originalData.displayName) {
+        updatePayload.displayName = formData.displayName;
+      }
+      if (formData.age !== originalData.age) {
+        updatePayload.age = formData.age ? parseInt(formData.age) : null;
+      }
+      if (formData.location !== originalData.location) {
+        updatePayload.location = formData.location;
+      }
+      if (formData.address !== originalData.address) {
+        updatePayload.address = formData.address;
+      }
+      if (JSON.stringify(formData.gamingPlatformPreferences) !== JSON.stringify(originalData.gamingPlatformPreferences)) {
+        updatePayload.gamingPlatformPreferences = formData.gamingPlatformPreferences;
+      }
+      if (formData.name !== originalData.name) {
+        updatePayload.name = formData.name;
+      }
+
+      const response = await axios.put(
+        `${API_BASE_URL}/api/auth/profile`,
+        updatePayload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.user) {
+        updateFormData(response.data.user);
+        setUser(response.data.user);
+        await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
+        setEditing(false);
+        Alert.alert('Thành công', 'Đã cập nhật profile thành công!');
+      }
+    } catch (err: any) {
+      console.error('Save profile error:', err);
+      const errorMsg = err.response?.data?.message || err.response?.data?.details || 'Không thể cập nhật profile.';
+      setError(errorMsg);
+      Alert.alert('Lỗi', errorMsg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setFormData(originalData);
+    setEditing(false);
+    setError(null);
+  };
+
+  const togglePlatform = (platform: string) => {
+    if (!editing) return;
+    setFormData(prev => {
+      const current = prev.gamingPlatformPreferences || [];
+      const updated = current.includes(platform)
+        ? current.filter(p => p !== platform)
+        : [...current, platform];
+      return { ...prev, gamingPlatformPreferences: updated };
+    });
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={profileStyles.container}>
+        <View style={profileStyles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B5CF6" />
+          <Text style={profileStyles.loadingText}>Đang tải...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={profileStyles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* Header */}
+      <View style={profileStyles.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={profileStyles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={profileStyles.headerTitle}>Profile</Text>
+        {!editing ? (
+          <TouchableOpacity
+            onPress={() => setEditing(true)}
+            style={profileStyles.editButton}
+          >
+            <Ionicons name="pencil" size={22} color="#8B5CF6" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 22 }} />
+        )}
+      </View>
+
+      <ScrollView style={profileStyles.content} showsVerticalScrollIndicator={false}>
+        {/* Avatar Section */}
+        <View style={profileStyles.avatarSection}>
+          <View style={profileStyles.avatarContainer}>
+            <Ionicons name="person" size={64} color="#8B5CF6" />
+          </View>
+          <Text style={profileStyles.displayName}>
+            {formData.displayName || formData.name || formData.username || "User"}
+          </Text>
+          <Text style={profileStyles.username}>@{formData.username || "username"}</Text>
+        </View>
+
+        {/* Profile Information */}
+        <View style={profileStyles.section}>
+          <Text style={profileStyles.sectionTitle}>Thông tin cá nhân</Text>
+
+          {/* Name */}
+          <View style={profileStyles.inputGroup}>
+            <Text style={profileStyles.label}>Tên</Text>
+            {editing ? (
+              <TextInput
+                style={profileStyles.input}
+                value={formData.name}
+                onChangeText={(text) => setFormData({ ...formData, name: text })}
+                placeholder="Nhập tên của bạn"
+              />
+            ) : (
+              <Text style={profileStyles.value}>{formData.name || "Chưa cập nhật"}</Text>
+            )}
+          </View>
+
+          {/* Email */}
+          <View style={profileStyles.inputGroup}>
+            <Text style={profileStyles.label}>Email</Text>
+            <Text style={profileStyles.value}>{formData.email}</Text>
+          </View>
+
+          {/* Display Name */}
+          <View style={profileStyles.inputGroup}>
+            <Text style={profileStyles.label}>Tên hiển thị</Text>
+            {editing ? (
+              <TextInput
+                style={profileStyles.input}
+                value={formData.displayName}
+                onChangeText={(text) => setFormData({ ...formData, displayName: text })}
+                placeholder="Tên hiển thị"
+              />
+            ) : (
+              <Text style={profileStyles.value}>{formData.displayName || "Chưa cập nhật"}</Text>
+            )}
+          </View>
+
+          {/* Age */}
+          <View style={profileStyles.inputGroup}>
+            <Text style={profileStyles.label}>Tuổi</Text>
+            {editing ? (
+              <TextInput
+                style={profileStyles.input}
+                value={formData.age}
+                onChangeText={(text) => setFormData({ ...formData, age: text.replace(/[^0-9]/g, '') })}
+                placeholder="Nhập tuổi"
+                keyboardType="numeric"
+              />
+            ) : (
+              <Text style={profileStyles.value}>{formData.age || "Chưa cập nhật"}</Text>
+            )}
+          </View>
+
+          {/* Location */}
+          <View style={profileStyles.inputGroup}>
+            <Text style={profileStyles.label}>Vị trí</Text>
+            {editing ? (
+              <TextInput
+                style={profileStyles.input}
+                value={formData.location}
+                onChangeText={(text) => setFormData({ ...formData, location: text })}
+                placeholder="Nhập vị trí"
+              />
+            ) : (
+              <Text style={profileStyles.value}>{formData.location || "Chưa cập nhật"}</Text>
+            )}
+          </View>
+
+          {/* Address */}
+          <View style={profileStyles.inputGroup}>
+            <Text style={profileStyles.label}>Địa chỉ</Text>
+            {editing ? (
+              <TextInput
+                style={[profileStyles.input, profileStyles.textArea]}
+                value={formData.address}
+                onChangeText={(text) => setFormData({ ...formData, address: text })}
+                placeholder="Nhập địa chỉ"
+                multiline
+                numberOfLines={3}
+              />
+            ) : (
+              <Text style={profileStyles.value}>{formData.address || "Chưa cập nhật"}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Gaming Platforms */}
+        <View style={profileStyles.section}>
+          <Text style={profileStyles.sectionTitle}>Nền tảng chơi game</Text>
+          <View style={profileStyles.platformsContainer}>
+            {['PC', 'PlayStation', 'Xbox'].map((platform) => (
+              <TouchableOpacity
+                key={platform}
+                style={[
+                  profileStyles.platformButton,
+                  formData.gamingPlatformPreferences.includes(platform) &&
+                    profileStyles.platformButtonSelected,
+                  !editing && profileStyles.platformButtonDisabled,
+                ]}
+                onPress={() => togglePlatform(platform)}
+                disabled={!editing}
+              >
+                <Ionicons
+                  name={
+                    platform === 'PC'
+                      ? 'desktop-outline'
+                      : platform === 'PlayStation'
+                      ? 'game-controller-outline'
+                      : 'hardware-chip-outline'
+                  }
+                  size={20}
+                  color={
+                    formData.gamingPlatformPreferences.includes(platform)
+                      ? '#FFFFFF'
+                      : '#6B7280'
+                  }
+                />
+                <Text
+                  style={[
+                    profileStyles.platformText,
+                    formData.gamingPlatformPreferences.includes(platform) &&
+                      profileStyles.platformTextSelected,
+                  ]}
+                >
+                  {platform}
+                </Text>
+                {formData.gamingPlatformPreferences.includes(platform) && (
+                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Error Message */}
+        {error && (
+          <View style={profileStyles.errorContainer}>
+            <Text style={profileStyles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Edit Buttons */}
+        {editing && (
+          <View style={profileStyles.editActions}>
+            <TouchableOpacity
+              style={[profileStyles.button, profileStyles.cancelButton]}
+              onPress={handleCancel}
+              disabled={saving}
+            >
+              <Text style={profileStyles.cancelButtonText}>Hủy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[profileStyles.button, profileStyles.saveButton, saving && profileStyles.buttonDisabled]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={profileStyles.saveButtonText}>Lưu</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Navigation Links */}
+        <View style={profileStyles.section}>
+          <TouchableOpacity
+            style={profileStyles.linkItem}
+            onPress={() => router.push('./subcriptions')}
+          >
+            <Ionicons name="card-outline" size={24} color="#4B5563" />
+            <Text style={profileStyles.linkText}>Đăng ký của tôi</Text>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={profileStyles.linkItem}
+            onPress={() => router.push('./achievementScreen')}
+          >
+            <Ionicons name="trophy-outline" size={24} color="#4B5563" />
+            <Text style={profileStyles.linkText}>Thành tựu</Text>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Logout Button */}
+        <TouchableOpacity style={profileStyles.logoutButton} onPress={() => router.replace('./login')}>
+          <Ionicons name="log-out-outline" size={24} color="#EF4444" />
+          <Text style={profileStyles.logoutButtonText}>Đăng xuất</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const profileStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  header: {
+    height: 60,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  editButton: {
+    padding: 4,
+  },
+  content: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6B7280",
+  },
+  avatarSection: {
+    alignItems: "center",
+    paddingVertical: 32,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  avatarContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  displayName: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  username: {
+    fontSize: 16,
+    color: "#6B7280",
+  },
+  section: {
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginBottom: 8,
+  },
+  value: {
+    fontSize: 16,
+    color: "#111827",
+  },
+  input: {
+    fontSize: 16,
+    color: "#111827",
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  platformsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  platformButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    backgroundColor: "#F9FAFB",
+  },
+  platformButtonSelected: {
+    backgroundColor: "#8B5CF6",
+    borderColor: "#8B5CF6",
+  },
+  platformButtonDisabled: {
+    opacity: 0.6,
+  },
+  platformText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginLeft: 8,
+  },
+  platformTextSelected: {
+    color: "#FFFFFF",
+  },
+  errorContainer: {
+    backgroundColor: "#FEF2F2",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    marginHorizontal: 16,
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 14,
+  },
+  editActions: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 16,
+    marginTop: 16,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#F3F4F6",
+  },
+  saveButton: {
+    backgroundColor: "#8B5CF6",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#4B5563",
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  linkItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  linkText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#111827",
+    marginLeft: 12,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    marginTop: 24,
+    marginHorizontal: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+  },
+  logoutButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#EF4444",
+    marginLeft: 8,
+  },
+});
+
+export default ProfileScreen;
+

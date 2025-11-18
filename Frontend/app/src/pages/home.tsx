@@ -4,6 +4,8 @@
 // ============================================
 import React, { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuthStore } from "../stores/authStore";
 
 import {
   View,
@@ -15,10 +17,18 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useCartStore } from "../stores/cartStore";
 
-const API_BASE_URL = "http://10.0.2.2:3000"; // chỉnh đúng IP + port backend
+// Auto-detect API URL based on platform
+// Android emulator: 10.0.2.2
+// iOS simulator: localhost
+// Physical device: use your computer's local IP (e.g., 192.168.1.100)
+const API_BASE_URL = Platform.OS === 'android' 
+  ? 'http://10.0.2.2:3000'
+  : 'http://localhost:3000';
 
 // Kiểu dữ liệu gói dịch vụ
 type SubscriptionPackage = {
@@ -58,8 +68,49 @@ const HomeScreen = () => {
   const [allPackages, setAllPackages] = useState<SubscriptionPackage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>("Player");
 
   const router = useRouter();
+  const { user } = useAuthStore();
+  const { items: cartItems, loadCartFromStorage } = useCartStore();
+  const cartItemCount = cartItems.length;
+
+  // Load user info for welcome message
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      try {
+        // First try to get from authStore
+        if (user?.username) {
+          setUsername(user.username);
+          return;
+        }
+        if (user?.name) {
+          setUsername(user.name);
+          return;
+        }
+
+        // If not in store, try AsyncStorage
+        const storedUser = await AsyncStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          if (parsedUser.username) {
+            setUsername(parsedUser.username);
+          } else if (parsedUser.name) {
+            setUsername(parsedUser.name);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load user info:', err);
+      }
+    };
+
+    loadUserInfo();
+  }, [user]);
+
+  // Load cart from storage when component mounts
+  useEffect(() => {
+    loadCartFromStorage();
+  }, [loadCartFromStorage]);
 
   // Fetch toàn bộ packages từ backend
   useEffect(() => {
@@ -69,17 +120,20 @@ const HomeScreen = () => {
         setError(null);
 
         const res = await fetch(`${API_BASE_URL}/api/packages`);
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ message: 'Failed to fetch packages' }));
+          throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+        }
+
         const data = await res.json();
         console.log("Packages from API:", data); // kiểm tra số lượng trong Metro
-
-        if (!res.ok) {
-          throw new Error(data.message || "Failed to fetch packages");
-        }
 
         setAllPackages(data);
       } catch (err: any) {
         console.error("Fetch packages error:", err);
-        setError(err.message || "Error fetching packages");
+        const errorMessage = err?.message || 'Error fetching packages. Please check if backend is running.';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -88,14 +142,43 @@ const HomeScreen = () => {
     fetchPackages();
   }, []);
 
+  // Helper function để search packages
+  const searchPackages = (packages: SubscriptionPackage[], query: string): SubscriptionPackage[] => {
+    if (!query.trim()) {
+      return packages;
+    }
+
+    const searchLower = query.toLowerCase().trim();
+    
+    return packages.filter((pkg) => {
+      // Tìm theo name
+      const nameMatch = pkg.name.toLowerCase().includes(searchLower);
+      
+      // Tìm theo category
+      const categoryMatch = pkg.category.toLowerCase().includes(searchLower);
+      
+      // Tìm theo type
+      const typeMatch = pkg.type.toLowerCase().includes(searchLower);
+      
+      // Tìm theo tags
+      const tagsMatch = pkg.tags?.some((tag) => 
+        tag.toLowerCase().includes(searchLower)
+      ) || false;
+      
+      // Tìm theo slug
+      const slugMatch = pkg.slug.toLowerCase().includes(searchLower);
+      
+      return nameMatch || categoryMatch || typeMatch || tagsMatch || slugMatch;
+    });
+  };
+
   // Tách seasonal và recommended
   const seasonalPackages = allPackages.filter((p) => p.isSeasonalOffer);
   const recommendedPackages = allPackages.filter((p) => !p.isSeasonalOffer);
 
-  // Lọc theo search (áp dụng cho recommended)
-  const filteredRecommended = recommendedPackages.filter((pkg) =>
-    pkg.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Áp dụng search cho cả seasonal và recommended
+  const filteredSeasonal = searchPackages(seasonalPackages, searchQuery);
+  const filteredRecommended = searchPackages(recommendedPackages, searchQuery);
 
   return (
     <SafeAreaView style={homeStyles.container}>
@@ -104,9 +187,9 @@ const HomeScreen = () => {
       {/* Header Section */}
       <View style={homeStyles.header}>
         <View style={homeStyles.headerContent}>
-          <Text style={homeStyles.welcomeText}>Welcome, Player!</Text>
+          <Text style={homeStyles.welcomeText}>Welcome, {username}!</Text>
 
-          {/* Nhóm icon message + notification */}
+          {/* Nhóm icon message + notification + profile */}
           <View style={homeStyles.iconGroup}>
             {/* Nhấn vào icon chat để sang trang livechat */}
             <TouchableOpacity
@@ -127,6 +210,18 @@ const HomeScreen = () => {
                 color="#FFFFFF"
               />
             </TouchableOpacity>
+
+            {/* Profile icon */}
+            <TouchableOpacity
+              style={homeStyles.headerIconButton}
+              onPress={() => router.push("./profile")}
+            >
+              <Ionicons
+                name="person-outline"
+                size={24}
+                color="#FFFFFF"
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -140,11 +235,24 @@ const HomeScreen = () => {
           />
           <TextInput
             style={homeStyles.searchInput}
-            placeholder="Search packages..."
+            placeholder="Tìm kiếm gói dịch vụ..."
             placeholderTextColor="#D1D5DB"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            returnKeyType="search"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery("")}
+              style={homeStyles.clearButton}
+            >
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color="#D1D5DB"
+              />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -155,7 +263,38 @@ const HomeScreen = () => {
         </View>
       ) : error ? (
         <View style={homeStyles.loadingContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
           <Text style={homeStyles.errorText}>{error}</Text>
+          <Text style={homeStyles.errorSubText}>
+            Please make sure backend server is running at {API_BASE_URL}
+          </Text>
+          <TouchableOpacity
+            style={homeStyles.retryButton}
+            onPress={() => {
+              setError(null);
+              // Trigger refetch
+              const fetchPackages = async () => {
+                try {
+                  setLoading(true);
+                  setError(null);
+                  const res = await fetch(`${API_BASE_URL}/api/packages`);
+                  if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({ message: 'Failed to fetch packages' }));
+                    throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+                  }
+                  const data = await res.json();
+                  setAllPackages(data);
+                } catch (err: any) {
+                  setError(err?.message || 'Error fetching packages');
+                } finally {
+                  setLoading(false);
+                }
+              };
+              fetchPackages();
+            }}
+          >
+            <Text style={homeStyles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView
@@ -164,14 +303,19 @@ const HomeScreen = () => {
           showsVerticalScrollIndicator={true}
         >
           {/* Seasonal Offers - các gói isSeasonalOffer === true */}
-          {seasonalPackages.length > 0 && (
+          {filteredSeasonal.length > 0 && (
             <View style={homeStyles.section}>
               <View style={homeStyles.sectionHeader}>
                 <Text style={homeStyles.sectionIcon}>🔥</Text>
                 <Text style={homeStyles.sectionTitle}>Seasonal Offers</Text>
+                {searchQuery.length > 0 && (
+                  <Text style={homeStyles.searchResultCount}>
+                    ({filteredSeasonal.length} kết quả)
+                  </Text>
+                )}
               </View>
 
-              {seasonalPackages.map((pkg) => {
+              {filteredSeasonal.map((pkg) => {
                 const discountPercent = extractDiscountPercent(
                   pkg.discountLabel
                 );
@@ -231,9 +375,15 @@ const HomeScreen = () => {
             <View style={homeStyles.sectionHeader}>
               <Text style={homeStyles.sectionIcon}>📦</Text>
               <Text style={homeStyles.sectionTitle}>Recommended Packages</Text>
+              {searchQuery.length > 0 && (
+                <Text style={homeStyles.searchResultCount}>
+                  ({filteredRecommended.length} kết quả)
+                </Text>
+              )}
             </View>
 
-            {filteredRecommended.map((pkg) => {
+            {filteredRecommended.length > 0 ? (
+              filteredRecommended.map((pkg) => {
               const discountPercent = extractDiscountPercent(pkg.discountLabel);
               const originalPrice = pkg.basePrice;
               const finalPrice = calculateDiscountedPrice(
@@ -276,8 +426,37 @@ const HomeScreen = () => {
                   </TouchableOpacity>
                 </View>
               );
-            })}
+            })) : (
+              <View style={homeStyles.noResultsContainer}>
+                <Ionicons name="search-outline" size={48} color="#9CA3AF" />
+                <Text style={homeStyles.noResultsText}>
+                  Không tìm thấy kết quả cho &ldquo;{searchQuery}&rdquo;
+                </Text>
+                <Text style={homeStyles.noResultsSubText}>
+                  Hãy thử tìm kiếm với từ khóa khác
+                </Text>
+              </View>
+            )}
           </View>
+
+          {/* Hiển thị thông báo nếu không có kết quả nào cả */}
+          {searchQuery.length > 0 && filteredSeasonal.length === 0 && filteredRecommended.length === 0 && (
+            <View style={homeStyles.noResultsContainer}>
+              <Ionicons name="search-outline" size={64} color="#9CA3AF" />
+              <Text style={homeStyles.noResultsText}>
+                Không tìm thấy kết quả nào
+              </Text>
+              <Text style={homeStyles.noResultsSubText}>
+                Không có gói dịch vụ nào khớp với &ldquo;{searchQuery}&rdquo;
+              </Text>
+              <TouchableOpacity
+                style={homeStyles.clearSearchButton}
+                onPress={() => setSearchQuery("")}
+              >
+                <Text style={homeStyles.clearSearchButtonText}>Xóa tìm kiếm</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       )}
 
@@ -291,15 +470,24 @@ const HomeScreen = () => {
         </TouchableOpacity>
         <TouchableOpacity
           style={homeStyles.navItem}
-          onPress={() => router.push("./home")} // sau này đổi sang browsePackages nếu có
+          onPress={() => router.push("./subscriptions")}
         >
-          <Ionicons name="cube-outline" size={24} color="#9CA3AF" />
+          <Ionicons name="receipt-outline" size={24} color="#9CA3AF" />
         </TouchableOpacity>
-        <TouchableOpacity style={homeStyles.navItem}>
-          <Ionicons name="cart-outline" size={24} color="#9CA3AF" />
-        </TouchableOpacity>
-        <TouchableOpacity style={homeStyles.navItem}>
-          <Ionicons name="person-outline" size={24} color="#9CA3AF" />
+        <TouchableOpacity 
+          style={homeStyles.navItem}
+          onPress={() => router.push('./cart')}
+        >
+          <View style={homeStyles.cartIconContainer}>
+            <Ionicons name="cart-outline" size={24} color="#9CA3AF" />
+            {cartItemCount > 0 && (
+              <View style={homeStyles.cartBadge}>
+                <Text style={homeStyles.cartBadgeText}>
+                  {cartItemCount > 99 ? '99+' : cartItemCount}
+                </Text>
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -352,6 +540,10 @@ const homeStyles = StyleSheet.create({
     fontSize: 14,
     color: "#FFFFFF",
   },
+  clearButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
   content: {
     flex: 1,
   },
@@ -365,7 +557,29 @@ const homeStyles = StyleSheet.create({
   },
   errorText: {
     color: "#EF4444",
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 12,
+    textAlign: "center",
+  },
+  errorSubText: {
+    color: "#6B7280",
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: "center",
+    marginHorizontal: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: "#818CF8",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   section: {
     paddingHorizontal: 16,
@@ -375,6 +589,7 @@ const homeStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
+    justifyContent: "space-between",
   },
   sectionIcon: {
     fontSize: 20,
@@ -384,6 +599,12 @@ const homeStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#1F2937",
+    flex: 1,
+  },
+  searchResultCount: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
   },
 
   // Seasonal card
@@ -497,6 +718,59 @@ const homeStyles = StyleSheet.create({
   },
   navItem: {
     padding: 8,
+  },
+  cartIconContainer: {
+    position: 'relative',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  cartBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  noResultsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  noResultsSubText: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  clearSearchButton: {
+    marginTop: 24,
+    backgroundColor: "#818CF8",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  clearSearchButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
 

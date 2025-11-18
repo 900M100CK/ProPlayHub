@@ -32,12 +32,13 @@ const LoginScreen: React.FC = () => {
     setRememberMe,
     togglePasswordVisibility,
     login,
-    loadRememberedEmail,
+    loadRememberedCredentials,
   } = useAuthStore();
 
   useEffect(() => {
-    loadRememberedEmail();
-  }, []);
+    loadRememberedCredentials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Chỉ chạy một lần khi component mount
 
   // --- Giao diện (UI) cho Subtask 1 ---
   return (

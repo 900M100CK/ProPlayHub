@@ -77,7 +77,51 @@ export const sendVerificationEmail = async (to, name, token) => {
   }
 };
 
-// 4. Hàm gửi email chứa mã OTP để đặt lại mật khẩu
+// 4. Hàm tạo nội dung welcome email (HTML)
+const createWelcomeEmailHTML = (name, username) => {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+      <h2 style="color: #4f46e5;">Chào mừng ${name} đến với ProPlayHub! 🎮</h2>
+      <p>Xin chào ${name},</p>
+      <p>Cảm ơn bạn đã đăng ký tài khoản ProPlayHub. Chúng tôi rất vui mừng được chào đón bạn!</p>
+      <div style="background: #f0f0f0; padding: 15px; border-radius: 6px; margin: 16px 0;">
+        <p><strong>Tài khoản của bạn:</strong></p>
+        <p>Username: <strong>${username}</strong></p>
+      </div>
+      <p>Bây giờ bạn có thể:</p>
+      <ul>
+        <li>Khám phá các gói subscription game độc quyền</li>
+        <li>Tận hưởng các tính năng cao cấp</li>
+        <li>Nhận các ưu đãi đặc biệt</li>
+      </ul>
+      <p>Hãy bắt đầu hành trình gaming của bạn ngay hôm nay!</p>
+      <hr/>
+      <p>Nếu bạn có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng tôi.</p>
+      <p>Trân trọng,<br/>Đội ngũ ProPlayHub</p>
+    </div>
+  `;
+};
+
+// 5. Hàm gửi welcome email (không cần xác thực)
+export const sendWelcomeEmail = async (to, name, username) => {
+  const mailOptions = {
+    from: `"ProPlayHub" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+    to: to,
+    subject: 'Chào mừng đến với ProPlayHub! 🎮',
+    html: createWelcomeEmailHTML(name, username),
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Welcome email sent successfully to ${to}`);
+  } catch (error) {
+    console.error('Error sending welcome email:', error);
+    // Không ném lỗi để không làm fail đăng ký
+    // Chỉ log để biết có vấn đề với email service
+  }
+};
+
+// 6. Hàm gửi email chứa mã OTP để đặt lại mật khẩu
 export const sendPasswordResetOTP = async (to, name, otp) => {
   const mailOptions = {
     from: `"ProPlayHub" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,

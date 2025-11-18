@@ -11,7 +11,7 @@ const CompleteProfileScreen = () => {
   // 3. Viết hàm handleCompleteProfile để gọi API (ví dụ: /api/users/complete-profile)
   //    - Bạn sẽ cần lấy accessToken từ authStore để xác thực request.
   // 4. Sau khi cập nhật thành công, điều hướng người dùng đến trang chủ.
-  //    router.replace('./(tabs)/home');
+  //    router.replace('./home');
   
   return (
     <SafeAreaView style={styles.container}>
@@ -28,7 +28,7 @@ const CompleteProfileScreen = () => {
           onPress={() => {
             // Tạm thời điều hướng để kiểm tra luồng
             console.log("Lưu thông tin...");
-            router.replace('./(tabs)/home');
+            router.replace('./home');
           }} 
         />
       </View>
