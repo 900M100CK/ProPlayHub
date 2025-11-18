@@ -1,5 +1,5 @@
 // app/src/pages/checkout.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ const API_BASE_URL = Platform.OS === 'android'
   ? 'http://10.0.2.2:3000'
   : 'http://localhost:3000';
 
+// ====== HELPER DISCOUNT ======
 const extractDiscountPercent = (label?: string): number | null => {
   if (!label) return null;
   const match = label.match(/(\d+)\s*%/);
@@ -46,6 +47,37 @@ const calcDiscountedPrice = (basePrice: number, label?: string) => {
     discountAmount: Number((basePrice - final).toFixed(2)),
   };
 };
+
+// ====== MOCK PAYMENT METHODS (demo) ======
+type PaymentMethod = {
+  id: string;
+  brand: string;
+  last4: string;
+  holder: string;
+  isDefault?: boolean;
+};
+
+const MOCK_METHODS: PaymentMethod[] = [
+  {
+    id: "pm_visa_4242",
+    brand: "Visa",
+    last4: "4242",
+    holder: "John Smith",
+    isDefault: true,
+  },
+  {
+    id: "pm_mc_5522",
+    brand: "Mastercard",
+    last4: "5522",
+    holder: "John Smith",
+  },
+  {
+    id: "pm_ppal",
+    brand: "PayPal",
+    last4: "—",
+    holder: "john@example.com",
+  },
+];
 
 const CheckoutScreen = () => {
   const router = useRouter();
@@ -650,9 +682,7 @@ const CheckoutScreen = () => {
 
           <View style={checkoutStyles.rowBetweenTotal}>
             <Text style={checkoutStyles.totalLabel}>Total</Text>
-            <Text style={checkoutStyles.totalValue}>
-              £{final.toFixed(2)}
-            </Text>
+            <Text style={checkoutStyles.totalValue}>£{final.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -722,6 +752,7 @@ const CheckoutScreen = () => {
         <View style={checkoutStyles.card}>
           <Text style={checkoutStyles.cardTitle}>Payment Method</Text>
 
+          {/* Ô đang chọn */}
           <View style={checkoutStyles.paymentBox}>
             <View style={checkoutStyles.row}>
               <Ionicons 
@@ -751,6 +782,54 @@ const CheckoutScreen = () => {
               <Text style={checkoutStyles.changeText}>Change</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Danh sách method để Change */}
+          {showMethodList && (
+            <View style={checkoutStyles.methodList}>
+              {paymentMethods.map((method) => {
+                const isActive = method.id === selectedMethodId;
+                return (
+                  <TouchableOpacity
+                    key={method.id}
+                    style={[
+                      checkoutStyles.methodItem,
+                      isActive && checkoutStyles.methodItemActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedMethodId(method.id);
+                      setShowMethodList(false);
+                    }}
+                  >
+                    <View style={checkoutStyles.row}>
+                      <Ionicons
+                        name="card-outline"
+                        size={20}
+                        color={isActive ? "#8B5CF6" : "#4B5563"}
+                      />
+                      <View style={{ marginLeft: 10 }}>
+                        <Text
+                          style={[
+                            checkoutStyles.methodTitle,
+                            isActive && checkoutStyles.methodTitleActive,
+                          ]}
+                        >
+                          {method.brand}
+                        </Text>
+                        <Text style={checkoutStyles.methodSub}>
+                          {method.brand === "PayPal"
+                            ? method.holder
+                            : `•••• •••• •••• ${method.last4}`}
+                        </Text>
+                      </View>
+                    </View>
+                    {isActive && (
+                      <Text style={checkoutStyles.methodTag}>Selected</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -789,7 +868,7 @@ const CheckoutScreen = () => {
           disabled={submitting}
         >
           <Text style={checkoutStyles.completeButtonText}>
-            {submitting ? 'Processing…' : 'Complete Order'}
+            Complete Order
           </Text>
         </Pressable>
       </View>
@@ -971,25 +1050,25 @@ const CheckoutScreen = () => {
 const checkoutStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
   },
   header: {
     height: 80,
     paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   backButton: {
     padding: 4,
   },
   headerTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   content: {
     flex: 1,
@@ -997,29 +1076,29 @@ const checkoutStyles = StyleSheet.create({
     paddingTop: 16,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
     marginBottom: 12,
   },
   rowBetween: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 6,
   },
   rowBetweenTotal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
   },
   itemName: {
     fontSize: 14,
@@ -1069,24 +1148,24 @@ const checkoutStyles = StyleSheet.create({
   },
   discountLabel: {
     fontSize: 13,
-    color: '#10B981',
+    color: "#10B981",
   },
   discountValue: {
     fontSize: 13,
-    color: '#10B981',
+    color: "#10B981",
   },
   totalLabel: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   totalValue: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#A855F7',
+    fontWeight: "700",
+    color: "#A855F7",
   },
   discountRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: 8,
   },
   discountInput: {
@@ -1094,10 +1173,10 @@ const checkoutStyles = StyleSheet.create({
     height: 40,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: "#D1D5DB",
     paddingHorizontal: 12,
-    backgroundColor: '#F9FAFB',
-    color: '#111827',
+    backgroundColor: "#F9FAFB",
+    color: "#111827",
     marginRight: 8,
   },
   discountButton: {
@@ -1109,8 +1188,8 @@ const checkoutStyles = StyleSheet.create({
     minWidth: 80,
   },
   discountButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
   discountInputError: {
     borderColor: '#EF4444',
@@ -1170,23 +1249,23 @@ const checkoutStyles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderColor: "#E5E7EB",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   cardNumber: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   cardSub: {
     fontSize: 12,
-    color: '#6B7280',
+    color: "#6B7280",
     marginTop: 2,
   },
   changeText: {
@@ -1262,9 +1341,9 @@ const checkoutStyles = StyleSheet.create({
   },
   footer: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
     paddingVertical: 30,
     elevation: 8, // Android shadow
     shadowColor: '#000', // iOS shadow
@@ -1273,15 +1352,15 @@ const checkoutStyles = StyleSheet.create({
     shadowRadius: 4,
   },
   completeButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: "#8B5CF6",
     paddingVertical: 14,
     borderRadius: 999,
-    alignItems: 'center',
+    alignItems: "center",
   },
   completeButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   errorText: {
     marginTop: 40,
