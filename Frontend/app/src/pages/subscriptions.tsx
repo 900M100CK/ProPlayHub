@@ -400,8 +400,7 @@ const SubscriptionsScreen = () => {
                       style={subscriptionStyles.cancelButton}
                       onPress={() => handleCancelSubscription(subscription)}
                     >
-                      <Ionicons name="close-circle-outline" size={18} color={colors.textPrimary} />
-                      <Text style={subscriptionStyles.cancelButtonText}>Cancel subscription</Text>
+                      <Text style={subscriptionStyles.cancelButtonText}>Cancel Subscription</Text>
                     </TouchableOpacity>
                   </View>
                 )}

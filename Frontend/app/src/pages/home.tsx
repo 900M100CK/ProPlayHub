@@ -235,7 +235,7 @@ const HomeScreen = () => {
           />
           <TextInput
             style={homeStyles.searchInput}
-            placeholder="Tìm kiếm gói dịch vụ..."
+            placeholder="Search..."
             placeholderTextColor="#D1D5DB"
             value={searchQuery}
             onChangeText={setSearchQuery}

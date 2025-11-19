@@ -314,12 +314,6 @@ const PackageDetailScreen = () => {
             <View>
               <Text style={detailStyles.packageName}>{pkg.name}</Text>
               <Text style={detailStyles.packageType}>{pkg.type}</Text>
-              {hasActiveSubscription && (
-                <View style={detailStyles.subscribedIndicator}>
-                  <Ionicons name="checkmark-circle" size={14} color="#047857" />
-                  <Text style={detailStyles.subscribedIndicatorText}>Already subscribed</Text>
-                </View>
-              )}
             </View>
 
             {pkg.discountLabel && (
@@ -386,7 +380,7 @@ const PackageDetailScreen = () => {
                   onPress={handleAddToCart}
                 >
                   <Ionicons name="cart-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={detailStyles.cartButtonText}>Thêm vào giỏ</Text>
+                  <Text style={detailStyles.cartButtonText}>Add to Cart</Text>
                 </TouchableOpacity>
               ))}
               
