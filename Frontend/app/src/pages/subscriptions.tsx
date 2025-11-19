@@ -68,10 +68,21 @@ const SubscriptionsScreen = () => {
         return;
       }
 
-      const response = await apiClient.get('/api/subscriptions/me');
+      // Ensure token is set in headers
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      const response = await apiClient.get('/subscriptions/me', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       setSubscriptions(response.data || []);
     } catch (err: any) {
       console.error('Load subscriptions error:', err);
+      console.error('Request URL:', err?.config?.url || 'Unknown');
+      console.error('Full URL:', err?.config?.baseURL + err?.config?.url || 'Unknown');
+      console.error('Response status:', err?.response?.status);
+      console.error('Response data:', err?.response?.data);
       if (err?.response?.status === 401) {
         // Unauthorized - clear token and redirect
         await AsyncStorage.removeItem('accessToken');

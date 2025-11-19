@@ -176,6 +176,8 @@ const CheckoutScreen = () => {
           // Nếu không có slug, dùng cart items
           if (currentCartItems.length > 0) {
             setCheckoutItems(currentCartItems);
+            // Set pkg từ cart item đầu tiên để có thể complete order
+            setPkg(currentCartItems[0]);
           } else {
             // Nếu cart trống, load package đầu tiên để test
             const res = await fetch(`${API_BASE_URL}/api/packages`);
@@ -419,8 +421,9 @@ const CheckoutScreen = () => {
       
       console.log('✅ [Complete Order] Token validated, proceeding with order...');
 
-      // phòng trường hợp slug/name bị thiếu
-      if (!pkg?.slug || !pkg?.name) {
+      // phòng trường hợp slug/name bị thiếu - sử dụng checkoutItems[0] làm fallback
+      const packageData = pkg || checkoutItems[0];
+      if (!packageData?.slug || !packageData?.name) {
         Alert.alert('Error', 'Missing package data. Please try again.');
         return;
       }
@@ -453,9 +456,9 @@ const CheckoutScreen = () => {
 
       // 🔸 BODY GỬI ĐÚNG THEO BACKEND: packageSlug / packageName / pricePerPeriod / period
       const body = {
-        packageSlug: pkg.slug,
-        packageName: pkg.name,
-        period: pkg.period || '/month',
+        packageSlug: packageData.slug,
+        packageName: packageData.name,
+        period: packageData.period || '/month',
         pricePerPeriod: final,          // number, ví dụ 25.49
         nextBillingDate: nextBillingDate.toISOString(),
         // Additional info for future use:
@@ -512,8 +515,8 @@ const CheckoutScreen = () => {
               // ➜ Điều hướng sang Order Confirmation
               console.log('🔄 [Complete Order] Redirecting to orderConfirmation...');
               console.log('🔄 [Complete Order] Params:', {
-                slug: pkg.slug,
-                packageName: pkg.name,
+                slug: packageData.slug,
+                packageName: packageData.name,
                 price: final.toFixed(2),
                 subscriptionId: sub._id,
                 paymentMethod: selectedPaymentMethod.name || selectedPaymentMethod.type,
@@ -523,8 +526,8 @@ const CheckoutScreen = () => {
               router.replace({
                 pathname: './orderConfirmation',
                 params: {
-                  slug: pkg.slug,
-                  packageName: pkg.name,
+                  slug: packageData.slug,
+                  packageName: packageData.name,
                   price: final.toFixed(2),
                   subscriptionId: sub._id,
                   paymentMethod: selectedPaymentMethod.name || selectedPaymentMethod.type,
@@ -782,54 +785,6 @@ const CheckoutScreen = () => {
               <Text style={checkoutStyles.changeText}>Change</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Danh sách method để Change */}
-          {showMethodList && (
-            <View style={checkoutStyles.methodList}>
-              {paymentMethods.map((method) => {
-                const isActive = method.id === selectedMethodId;
-                return (
-                  <TouchableOpacity
-                    key={method.id}
-                    style={[
-                      checkoutStyles.methodItem,
-                      isActive && checkoutStyles.methodItemActive,
-                    ]}
-                    onPress={() => {
-                      setSelectedMethodId(method.id);
-                      setShowMethodList(false);
-                    }}
-                  >
-                    <View style={checkoutStyles.row}>
-                      <Ionicons
-                        name="card-outline"
-                        size={20}
-                        color={isActive ? "#8B5CF6" : "#4B5563"}
-                      />
-                      <View style={{ marginLeft: 10 }}>
-                        <Text
-                          style={[
-                            checkoutStyles.methodTitle,
-                            isActive && checkoutStyles.methodTitleActive,
-                          ]}
-                        >
-                          {method.brand}
-                        </Text>
-                        <Text style={checkoutStyles.methodSub}>
-                          {method.brand === "PayPal"
-                            ? method.holder
-                            : `•••• •••• •••• ${method.last4}`}
-                        </Text>
-                      </View>
-                    </View>
-                    {isActive && (
-                      <Text style={checkoutStyles.methodTag}>Selected</Text>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
         </View>
       </ScrollView>
 
