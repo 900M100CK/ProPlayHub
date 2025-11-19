@@ -564,7 +564,7 @@ const subscriptionStyles = StyleSheet.create({
     borderRadius: radius.md,
   },
   statusActive: {
-    backgroundColor: '#064E3B',
+    backgroundColor: '#a9f0cb',
   },
   statusCancelled: {
     backgroundColor: '#7F1D1D',
