@@ -9,7 +9,6 @@ import {
   SafeAreaView,
   ScrollView,
   StatusBar,
-  Alert,
   ActivityIndicator,
   Platform,
   Modal,
@@ -22,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
 import apiClient from '../api/axiosConfig';
+import { useToast } from '../components/ToastProvider';
 
 // Auto-detect API URL based on platform
 // Android emulator: 10.0.2.2
@@ -84,7 +84,8 @@ const CheckoutScreen = () => {
   const { slug } = useLocalSearchParams<{ slug?: string }>();
 
   const { accessToken } = useAuthStore() as any;
-  const { loadCartFromStorage } = useCartStore();
+  const { loadCartFromStorage, clearCart } = useCartStore();
+  const { showToast } = useToast();
 
   const [pkg, setPkg] = useState<any | null>(null);
   const [checkoutItems, setCheckoutItems] = useState<any[]>([]);
@@ -149,16 +150,16 @@ const CheckoutScreen = () => {
         setLoading(true);
         setError(null);
         
-        // Load cart items trước
+        // Load cart items first
         await loadCartFromStorage();
         
-        // Đợi một chút để cart items được update trong store
+        // Wait briefly so the cart items get updated inside the store
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Lấy cart items mới nhất từ store
+        // Read the newest cart items from the store
         const currentCartItems = useCartStore.getState().items;
         
-        // Nếu có slug, fetch package theo slug (checkout từ packageDetail)
+        // If there is a slug, fetch that package (checkout triggered from packageDetail)
         if (slug) {
           const res = await fetch(`${API_BASE_URL}/api/packages/${slug}`);
           const data = await res.json();
@@ -166,20 +167,20 @@ const CheckoutScreen = () => {
             throw new Error(data.message || 'Failed to fetch package.');
           }
           setPkg(data);
-          // Nếu checkout từ cart, dùng cart items
+          // When navigating from the cart, use the items currently in the cart
           if (currentCartItems.length > 0) {
             setCheckoutItems(currentCartItems);
           } else {
             setCheckoutItems([data]);
           }
         } else {
-          // Nếu không có slug, dùng cart items
+          // Without a slug, fall back to using the cart contents
           if (currentCartItems.length > 0) {
             setCheckoutItems(currentCartItems);
-            // Set pkg từ cart item đầu tiên để có thể complete order
+            // Use the first cart item as the active package so order completion works
             setPkg(currentCartItems[0]);
           } else {
-            // Nếu cart trống, load package đầu tiên để test
+            // If the cart is empty, fetch the first package as a fallback for testing
             const res = await fetch(`${API_BASE_URL}/api/packages`);
             const data = await res.json();
             if (data && data.length > 0) {
@@ -310,7 +311,7 @@ const CheckoutScreen = () => {
   // Handle apply discount code
   const handleApplyDiscountCode = async () => {
     if (!discountCode.trim()) {
-      setDiscountCodeError('Vui lòng nhập mã giảm giá');
+      setDiscountCodeError('Please enter a discount code');
       return;
     }
 
@@ -318,23 +319,23 @@ const CheckoutScreen = () => {
       setValidatingCode(true);
       setDiscountCodeError(null);
 
-      // Nếu checkout từ cart với nhiều items, không gửi packageSlug và category
-      // Discount code sẽ được validate cho tổng giá
+      // When checking out with multiple items, omit packageSlug and category
+      // The discount code will be validated against the cart total
       const requestBody: any = {
         code: discountCode.trim().toUpperCase(),
       };
 
-      // Chỉ gửi packageSlug và category nếu checkout từ 1 package duy nhất
+      // Only include packageSlug and category if there is a single item in checkout
       if (checkoutItems.length === 1 && checkoutItems[0].slug) {
         requestBody.packageSlug = checkoutItems[0].slug;
         requestBody.category = checkoutItems[0].category;
       } else if (pkg?.slug && checkoutItems.length === 1) {
-        // Fallback nếu có pkg
+        // Fallback when pkg is defined
         requestBody.packageSlug = pkg.slug;
         requestBody.category = pkg.category;
       }
-      // Nếu có nhiều items, không gửi packageSlug và category
-      // Backend sẽ validate code mà không kiểm tra package/category cụ thể
+      // With multiple items, continue without packageSlug and category
+      // The backend will validate without enforcing package/category rules
 
       const res = await axios.post(
         `${API_BASE_URL}/api/discounts/validate`,
@@ -350,12 +351,12 @@ const CheckoutScreen = () => {
         setDiscountCode('');
         setDiscountCodeError(null);
       } else {
-        setDiscountCodeError('Mã giảm giá không hợp lệ');
+        setDiscountCodeError('Invalid discount code');
         setAppliedDiscountCode(null);
       }
     } catch (err: any) {
       console.error('Validate discount code error:', err);
-      const errorMsg = err?.response?.data?.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn';
+      const errorMsg = err?.response?.data?.message || 'The discount code is invalid or has expired';
       setDiscountCodeError(errorMsg);
       setAppliedDiscountCode(null);
     } finally {
@@ -370,9 +371,8 @@ const CheckoutScreen = () => {
     setDiscountCode('');
   };
 
-  // 🔹 COMPLETE ORDER → tạo subscription trên backend rồi chuyển sang Order Confirmation
+  // 🔹 COMPLETE ORDER → create subscriptions on the backend and then navigate to Order Confirmation
   const handleCompleteOrder = async () => {
-    console.log('🚀 [Complete Order] Button clicked! Function started');
     console.log('🚀 [Complete Order] Current state - submitting:', submitting);
     console.log('🚀 [Complete Order] Current state - pkg:', pkg ? pkg.name : 'No package');
     
@@ -402,35 +402,54 @@ const CheckoutScreen = () => {
 
       if (!token) {
         console.error('❌ [Complete Order] No token available, redirecting to login');
-        Alert.alert(
-          'Yêu cầu đăng nhập', 
-          'Bạn cần đăng nhập để hoàn tất đơn hàng. Vui lòng đăng nhập để tiếp tục.',
-          [
-            { 
-              text: 'Hủy', 
-              style: 'cancel'
-            },
-            { 
-              text: 'Đăng nhập', 
-              onPress: () => router.replace('./login')
-            }
-          ]
-        );
+        showToast({
+          type: 'info',
+          title: 'Sign-in required',
+          message: 'Please log in to complete your order.',
+          action: {
+            label: 'Go to login',
+            onPress: () => router.replace('./login'),
+          },
+        });
         return;
       }
       
       console.log('✅ [Complete Order] Token validated, proceeding with order...');
 
-      // phòng trường hợp slug/name bị thiếu - sử dụng checkoutItems[0] làm fallback
+      // Use checkoutItems[0] as a fallback when slug or name is missing
       const packageData = pkg || checkoutItems[0];
-      if (!packageData?.slug || !packageData?.name) {
-        Alert.alert('Error', 'Missing package data. Please try again.');
+      const itemsToProcess = checkoutItems.length > 0 
+        ? checkoutItems 
+        : packageData 
+          ? [packageData] 
+          : [];
+
+      if (itemsToProcess.length === 0) {
+        showToast({
+          type: 'error',
+          title: 'Missing package data',
+          message: 'Please try again.',
+        });
+        return;
+      }
+
+      const invalidItem = itemsToProcess.find((item) => !item?.slug || !item?.name);
+      if (invalidItem) {
+        showToast({
+          type: 'error',
+          title: 'Incomplete cart item',
+          message: 'One or more packages are missing details. Please try again.',
+        });
         return;
       }
 
       // Validate payment method selected
       if (!selectedPaymentMethod?.type) {
-        Alert.alert('Error', 'Please select a payment method.');
+        showToast({
+          type: 'info',
+          title: 'Choose payment method',
+          message: 'Please select a payment method before continuing.',
+        });
         setShowPaymentModal(true);
         return;
       }
@@ -454,92 +473,115 @@ const CheckoutScreen = () => {
       const nextBillingDate = new Date();
       nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
 
-      // 🔸 BODY GỬI ĐÚNG THEO BACKEND: packageSlug / packageName / pricePerPeriod / period
-      const body = {
-        packageSlug: packageData.slug,
-        packageName: packageData.name,
-        period: packageData.period || '/month',
-        pricePerPeriod: final,          // number, ví dụ 25.49
-        nextBillingDate: nextBillingDate.toISOString(),
-        // Additional info for future use:
-        paymentMethod: selectedPaymentMethod.type,
-        paymentBrand: selectedPaymentMethod.brand || '',
-        discountCode: appliedDiscountCode?.code || null,
-        originalPrice: basePrice,
+      const calculateItemFinalPrice = (item: any) => {
+        const itemBasePrice = item.basePrice || 0;
+        const { final: itemPriceAfterPackageDiscount } = calcDiscountedPrice(
+          itemBasePrice,
+          item.discountLabel
+        );
+
+        if (!appliedDiscountCode || codeDiscountAmount <= 0 || priceAfterPackageDiscount <= 0) {
+          return Number(itemPriceAfterPackageDiscount.toFixed(2));
+        }
+
+        const proportion = itemPriceAfterPackageDiscount / priceAfterPackageDiscount;
+        const discountShare = proportion * codeDiscountAmount;
+        const finalItemPrice = Math.max(0, itemPriceAfterPackageDiscount - discountShare);
+        return Number(finalItemPrice.toFixed(2));
       };
 
-      console.log('📤 [Complete Order] Sending subscription request...');
-      console.log('📤 [Complete Order] Request body:', JSON.stringify(body, null, 2));
-      console.log('📤 [Complete Order] Token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
-      
-      const res = await axios.post(
-        `${API_BASE_URL}/api/subscriptions`,
-        body,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+      // 🔸 Send a request for every package in the cart
+      const createdSubscriptions: Array<{ item: any; subscription: any }> = [];
+
+      for (const item of itemsToProcess) {
+        const itemPrice = calculateItemFinalPrice(item);
+
+        const body = {
+          packageSlug: item.slug,
+          packageName: item.name,
+          period: item.period || '/month',
+          pricePerPeriod: itemPrice,
+          nextBillingDate: nextBillingDate.toISOString(),
+          paymentMethod: selectedPaymentMethod.type,
+          paymentBrand: selectedPaymentMethod.brand || '',
+          discountCode: appliedDiscountCode?.code || null,
+          originalPrice: item.basePrice || itemPrice,
+        };
+
+        console.log('📤 [Complete Order] Sending subscription request...', body.packageSlug);
+
+        const res = await axios.post(
+          `${API_BASE_URL}/api/subscriptions`,
+          body,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        console.log('📥 [Complete Order] Response status:', res.status);
+        console.log('📥 [Complete Order] Response data:', JSON.stringify(res.data, null, 2));
+
+        if (!res.data?._id) {
+          throw new Error('Invalid subscription response from server - no _id');
         }
-      );
 
-      console.log('📥 [Complete Order] Response status:', res.status);
-      console.log('📥 [Complete Order] Response data:', JSON.stringify(res.data, null, 2));
-
-      // Backend trả về subscription object trực tiếp
-      const sub = res.data;
-
-      if (!sub) {
-        console.error('❌ [Complete Order] No subscription data in response');
-        throw new Error('Invalid subscription response from server - no data');
+        createdSubscriptions.push({ item, subscription: res.data });
       }
 
-      if (!sub._id) {
-        console.error('❌ [Complete Order] No _id in subscription:', sub);
-        throw new Error('Invalid subscription response from server - no _id');
+      console.log('✅ [Complete Order] Created subscriptions:', createdSubscriptions.length);
+
+      // Clear cart after successful payment
+      try {
+        await clearCart();
+        console.log('🧹 [Complete Order] Cart cleared after payment');
+      } catch (clearErr) {
+        console.error('⚠️ [Complete Order] Failed to clear cart:', clearErr);
       }
 
-      console.log('✅ [Complete Order] Subscription created successfully:', sub._id);
-
-      // Reset submitting state trước khi redirect
+      // Reset submitting state before navigating away
       setSubmitting(false);
 
-      // Hiển thị thông báo thanh toán thành công
-      Alert.alert(
-        'Thanh toán thành công! 🎉',
-        `Đơn hàng của bạn đã được xử lý thành công. Bạn sẽ được chuyển đến trang xác nhận đơn hàng.`,
-        [
-          {
-            text: 'Xem đơn hàng',
-            onPress: () => {
-              // ➜ Điều hướng sang Order Confirmation
-              console.log('🔄 [Complete Order] Redirecting to orderConfirmation...');
-              console.log('🔄 [Complete Order] Params:', {
-                slug: packageData.slug,
-                packageName: packageData.name,
-                price: final.toFixed(2),
-                subscriptionId: sub._id,
-                paymentMethod: selectedPaymentMethod.name || selectedPaymentMethod.type,
-              });
-              
-              // Use replace instead of push to avoid back button issues
-              router.replace({
-                pathname: './orderConfirmation',
-                params: {
-                  slug: packageData.slug,
-                  packageName: packageData.name,
-                  price: final.toFixed(2),
-                  subscriptionId: sub._id,
-                  paymentMethod: selectedPaymentMethod.name || selectedPaymentMethod.type,
-                },
-              });
-              
-              console.log('✅ [Complete Order] Redirect triggered');
-            }
-          }
-        ],
-        { cancelable: false }
-      );
+      const lastSubscription = createdSubscriptions[createdSubscriptions.length - 1]?.subscription;
+      const confirmationItem =
+        itemsToProcess.length === 1
+          ? itemsToProcess[0]
+          : {
+              slug: 'multiple-packages',
+              name: `${itemsToProcess.length} packages`,
+            };
+
+      const navigateToConfirmation = () => {
+        console.log('🔄 [Complete Order] Redirecting to orderConfirmation...');
+        router.replace({
+          pathname: './orderConfirmation',
+          params: {
+            slug: confirmationItem.slug,
+            packageName: confirmationItem.name,
+            price: final.toFixed(2),
+            subscriptionId: lastSubscription?._id ?? '',
+            paymentMethod: selectedPaymentMethod.name || selectedPaymentMethod.type,
+          },
+        });
+        console.log('✅ [Complete Order] Redirect triggered');
+      };
+
+      showToast({
+        type: 'success',
+        title: 'Payment successful 🎉',
+        message:
+          itemsToProcess.length > 1
+            ? 'All packages in your cart have been processed.'
+            : `${confirmationItem.name} has been processed successfully.`,
+        action: {
+          label: 'View order',
+          onPress: navigateToConfirmation,
+        },
+      });
+
+      setTimeout(navigateToConfirmation, 800);
     } catch (err: any) {
       console.error('❌ [Complete Order] Error occurred');
       console.error('❌ [Complete Order] Error type:', err?.name || typeof err);
@@ -555,7 +597,7 @@ const CheckoutScreen = () => {
         if (errorData?.message) {
           errorMsg = errorData.message;
         } else {
-          errorMsg = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+          errorMsg = 'Your session has expired. Please log in again.';
         }
         
         // Clear invalid token from storage
@@ -567,22 +609,15 @@ const CheckoutScreen = () => {
           console.error('Failed to clear storage:', storageErr);
         }
         
-        Alert.alert(
-          'Yêu cầu đăng nhập', 
-          errorMsg,
-          [
-            { 
-              text: 'Hủy',
-              style: 'cancel'
-            },
-            { 
-              text: 'Đăng nhập lại', 
-              onPress: () => {
-                router.replace('./login');
-              }
-            }
-          ]
-        );
+        showToast({
+          type: 'info',
+          title: 'Sign-in required',
+          message: errorMsg,
+          action: {
+            label: 'Log in',
+            onPress: () => router.replace('./login'),
+          },
+        });
         return;
       } else if (err?.response?.data?.message) {
         errorMsg = err.response.data.message;
@@ -590,7 +625,11 @@ const CheckoutScreen = () => {
         errorMsg = err.message;
       }
 
-      Alert.alert('Error', errorMsg);
+      showToast({
+        type: 'error',
+        title: 'Checkout failed',
+        message: errorMsg,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -621,7 +660,7 @@ const CheckoutScreen = () => {
         <View style={checkoutStyles.card}>
           <Text style={checkoutStyles.cardTitle}>Order Summary</Text>
 
-          {/* Hiển thị tất cả items trong cart */}
+          {/* Display all items currently in the cart */}
           {checkoutItems.map((item, index) => {
             const itemBasePrice = item.basePrice || 0;
             const { final: itemFinalPrice, discountAmount: itemDiscount } = 
@@ -652,7 +691,7 @@ const CheckoutScreen = () => {
             );
           })}
 
-          {/* Tổng discount từ tất cả packages */}
+          {/* Combined discount coming from every package */}
           {packageDiscountAmount > 0 && (
             <View style={checkoutStyles.rowBetween}>
               <Text style={checkoutStyles.discountLabel}>
@@ -689,7 +728,7 @@ const CheckoutScreen = () => {
           </View>
         </View>
 
-        {/* Discount Code */}
+          {/* Discount Code */}
         <View style={checkoutStyles.card}>
           <Text style={checkoutStyles.cardTitle}>Discount Code</Text>
           {appliedDiscountCode ? (
@@ -755,7 +794,7 @@ const CheckoutScreen = () => {
         <View style={checkoutStyles.card}>
           <Text style={checkoutStyles.cardTitle}>Payment Method</Text>
 
-          {/* Ô đang chọn */}
+          {/* Currently selected payment method */}
           <View style={checkoutStyles.paymentBox}>
             <View style={checkoutStyles.row}>
               <Ionicons 
@@ -798,14 +837,10 @@ const CheckoutScreen = () => {
             },
           ]}
           onPress={() => {
-            console.log('========================================');
-            console.log('🔘🔘🔘 [Complete Order] BUTTON CLICKED! 🔘🔘🔘');
-            console.log('========================================');
-            console.log('🔘 [Complete Order] Button onPress triggered!');
-            console.log('🔘 [Complete Order] submitting state:', submitting);
-            console.log('🔘 [Complete Order] handleCompleteOrder type:', typeof handleCompleteOrder);
-            
-            Alert.alert('Test', 'Button clicked!', [{ text: 'OK' }]);
+            console.log('[Complete Order] BUTTON CLICKED');
+            console.log('[Complete Order] Button onPress triggered!');
+            console.log('[Complete Order] submitting state:', submitting);
+            console.log('[Complete Order] handleCompleteOrder type:', typeof handleCompleteOrder);
             
             if (!submitting) {
               console.log('✅ [Complete Order] Calling handleCompleteOrder...');
@@ -813,11 +848,19 @@ const CheckoutScreen = () => {
                 handleCompleteOrder();
               } catch (err) {
                 console.error('❌❌❌ [Complete Order] ERROR calling handleCompleteOrder:', err);
-                Alert.alert('Error', `Failed to call handler: ${err}`);
+                showToast({
+                  type: 'error',
+                  title: 'Unable to submit order',
+                  message: err instanceof Error ? err.message : 'Failed to trigger checkout handler.',
+                });
               }
             } else {
               console.log('⚠️ [Complete Order] Button is disabled (submitting=true)');
-              Alert.alert('Disabled', 'Button is disabled because submitting=true');
+              showToast({
+                type: 'info',
+                title: 'Please wait',
+                message: 'Your order is already being processed.',
+              });
             }
           }}
           disabled={submitting}

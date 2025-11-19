@@ -10,12 +10,13 @@ import {
   StatusBar,
   ActivityIndicator,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCartStore, CartItem } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useToast } from '../components/ToastProvider';
 
 // Auto-detect API URL based on platform
 // Android emulator: 10.0.2.2
@@ -49,8 +50,11 @@ const PackageDetailScreen = () => {
   const [error, setError] = useState<string | null>(null);
   
   const { addToCart, isInCart, removeFromCart } = useCartStore();
-  const { accessToken, user } = useAuthStore();
+  const { accessToken } = useAuthStore();
   const [itemInCart, setItemInCart] = useState(false);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!slug) return;
@@ -87,6 +91,66 @@ const PackageDetailScreen = () => {
     fetchDetail();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
+
+  useEffect(() => {
+    if (!pkg?.slug) {
+      setHasActiveSubscription(false);
+      return;
+    }
+
+    const checkSubscriptionStatus = async () => {
+      try {
+        setCheckingSubscription(true);
+        let token = accessToken;
+
+        if (!token) {
+          try {
+            token = await AsyncStorage.getItem('accessToken');
+          } catch (storageErr) {
+            console.error('Failed to read token from storage:', storageErr);
+          }
+        }
+
+        if (!token) {
+          setHasActiveSubscription(false);
+          return;
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/subscriptions/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          console.error('Failed to fetch subscriptions:', res.status);
+          setHasActiveSubscription(false);
+          return;
+        }
+
+        const data = await res.json();
+        const isSubscribed =
+          Array.isArray(data) &&
+          data.some(
+            (sub: any) => sub.packageSlug === pkg.slug && sub.status === 'active'
+          );
+
+        setHasActiveSubscription(isSubscribed);
+
+        if (isSubscribed && isInCart(pkg.slug)) {
+          await removeFromCart(pkg.slug);
+          setItemInCart(false);
+        }
+      } catch (err) {
+        console.error('Check subscription status error:', err);
+        setHasActiveSubscription(false);
+      } finally {
+        setCheckingSubscription(false);
+      }
+    };
+
+    checkSubscriptionStatus();
+  }, [pkg?.slug, accessToken, isInCart, removeFromCart]);
 
   if (loading) {
     return (
@@ -162,16 +226,12 @@ const PackageDetailScreen = () => {
   const handleAddToCart = async () => {
     if (!pkg) return;
 
-    // Kiểm tra đăng nhập
-    if (!accessToken || !user) {
-      Alert.alert(
-        'Yêu cầu đăng nhập',
-        'Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng.',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          { text: 'Đăng nhập', onPress: () => router.push('./login') }
-        ]
-      );
+    if (hasActiveSubscription) {
+      showToast({
+        type: 'info',
+        title: 'Already subscribed',
+        message: 'You already own this package.',
+      });
       return;
     }
 
@@ -190,10 +250,45 @@ const PackageDetailScreen = () => {
       finalPrice: finalPrice,
     };
 
-    const success = await addToCart(cartItem);
-    if (success === true) {
+    const result = await addToCart(cartItem);
+
+    if (result.success) {
       setItemInCart(true);
+      showToast({
+        type: 'success',
+        title: 'Added to cart',
+        message: `${pkg.name} has been added to your cart.`,
+      });
+      return;
     }
+
+    if (result.reason === 'AUTH_REQUIRED') {
+      showToast({
+        type: 'info',
+        title: 'Sign in required',
+        message: 'Please log in to add packages to your cart.',
+        action: {
+          label: 'Sign in',
+          onPress: () => router.push('./login'),
+        },
+      });
+      return;
+    }
+
+    if (result.reason === 'ALREADY_EXISTS') {
+      showToast({
+        type: 'info',
+        title: 'Already in cart',
+        message: 'This package is already waiting in your cart.',
+      });
+      return;
+    }
+
+    showToast({
+      type: 'error',
+      title: 'Something went wrong',
+      message: result.message || 'We could not add this package right now. Please try again.',
+    });
   };
 
   // Handle remove from cart
@@ -201,6 +296,11 @@ const PackageDetailScreen = () => {
     if (!pkg) return;
     removeFromCart(pkg.slug);
     setItemInCart(false);
+    showToast({
+      type: 'info',
+      title: 'Removed from cart',
+      message: `${pkg.name} has been removed from your cart.`,
+    });
   };
 
   return (
@@ -223,6 +323,12 @@ const PackageDetailScreen = () => {
             <View>
               <Text style={detailStyles.packageName}>{pkg.name}</Text>
               <Text style={detailStyles.packageType}>{pkg.type}</Text>
+              {hasActiveSubscription && (
+                <View style={detailStyles.subscribedIndicator}>
+                  <Ionicons name="checkmark-circle" size={14} color="#047857" />
+                  <Text style={detailStyles.subscribedIndicatorText}>Already subscribed</Text>
+                </View>
+              )}
             </View>
 
             {pkg.discountLabel && (
@@ -268,8 +374,14 @@ const PackageDetailScreen = () => {
 
           {/* Footer: nút Add to Cart và Subscribe */}
           <View style={detailStyles.packageFooter}>
+            {hasActiveSubscription && (
+              <View style={detailStyles.subscribedInfoBox}>
+                <Ionicons name="checkmark-circle" size={20} color="#0F766E" />
+                <Text style={detailStyles.subscribedInfoText}>Already subscribed</Text>
+              </View>
+            )}
             <View style={detailStyles.buttonRow}>
-              {itemInCart ? (
+              {!hasActiveSubscription && (itemInCart ? (
                 <TouchableOpacity
                   style={[detailStyles.cartButton, detailStyles.removeButton]}
                   onPress={handleRemoveFromCart}
@@ -285,10 +397,14 @@ const PackageDetailScreen = () => {
                   <Ionicons name="cart-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
                   <Text style={detailStyles.cartButtonText}>Thêm vào giỏ</Text>
                 </TouchableOpacity>
-              )}
+              ))}
               
               <TouchableOpacity
-                style={detailStyles.subscribeButton}
+                style={[
+                  detailStyles.subscribeButton,
+                  hasActiveSubscription && detailStyles.subscribeButtonDisabled,
+                ]}
+                disabled={hasActiveSubscription || checkingSubscription}
                 onPress={() =>
                   router.push({
                     pathname: './checkout',
@@ -296,7 +412,14 @@ const PackageDetailScreen = () => {
                   })
                 }
               >
-                <Text style={detailStyles.subscribeButtonText}>Subscribe</Text>
+                <Text
+                  style={[
+                    detailStyles.subscribeButtonText,
+                    hasActiveSubscription && detailStyles.subscribeButtonTextDisabled,
+                  ]}
+                >
+                  {hasActiveSubscription ? 'Subscribed' : 'Subscribe'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -371,6 +494,17 @@ const detailStyles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
   },
+  subscribedIndicator: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  subscribedIndicatorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#047857',
+  },
   discountBadge: {
     backgroundColor: '#D1FAE5',
     paddingHorizontal: 10,
@@ -421,6 +555,21 @@ const detailStyles = StyleSheet.create({
   packageFooter: {
     marginTop: 8,
   },
+  subscribedInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  subscribedInfoText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#047857',
+  },
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
@@ -452,10 +601,16 @@ const detailStyles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
   },
+  subscribeButtonDisabled: {
+    backgroundColor: '#E5E7EB',
+  },
   subscribeButtonText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  subscribeButtonTextDisabled: {
+    color: '#9CA3AF',
   },
   infoSection: {
     backgroundColor: '#FFFFFF',

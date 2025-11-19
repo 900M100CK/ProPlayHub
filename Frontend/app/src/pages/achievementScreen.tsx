@@ -10,16 +10,17 @@ import {
   StatusBar,
   TouchableOpacity,
   Linking,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
+import { useToast } from '../components/ToastProvider';
 
 const AchievementsScreen = () => {
   const router = useRouter();
+  const { showToast } = useToast();
 
   // Dummy stats (will be replaced by real data later)
   const stats = {
@@ -48,20 +49,22 @@ const AchievementsScreen = () => {
 
   const handleShareToTwitter = () => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`;
-    Linking.openURL(url).catch(err => 
-      Alert.alert('Error', 'Could not open Twitter. Please make sure it is installed.')
+    Linking.openURL(url).catch(() =>
+      showToast({
+        type: 'error',
+        title: 'Unable to open Twitter',
+        message: 'Please make sure the Twitter app or website is available.',
+      })
     );
   };
 
   const handleShareToDiscord = async () => {
     await Clipboard.setStringAsync(shareMessage);
-    Alert.alert(
-      'Copied to Clipboard!',
-      'Your progress has been copied. You can now paste it in Discord or any other app.',
-      [
-        { text: 'OK' }
-      ]
-    );
+    showToast({
+      type: 'success',
+      title: 'Copied to clipboard',
+      message: 'You can now paste your progress in Discord or anywhere else.',
+    });
   };
 
   return (

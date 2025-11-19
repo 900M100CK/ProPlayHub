@@ -9,7 +9,6 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -17,6 +16,9 @@ import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
 import apiClient from '../api/axiosConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useToast } from '../components/ToastProvider';
+import ConfirmationModal from '../components/ConfirmationModal';
+import { colors, spacing, radius, shadow } from '../styles/theme';
 
 interface Subscription {
   _id: string;
@@ -35,13 +37,17 @@ const SubscriptionsScreen = () => {
   const router = useRouter();
   const { accessToken, user } = useAuthStore();
   const { loadCartFromStorage } = useCartStore();
+  const { showToast } = useToast();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cartItemCount, setCartItemCount] = useState(0);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [subscriptionToCancel, setSubscriptionToCancel] = useState<Subscription | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    // Load cart items để hiển thị badge
+    // Load cart items so the badge count stays accurate
     const loadCart = async () => {
       await loadCartFromStorage();
       const items = useCartStore.getState().items;
@@ -132,30 +138,70 @@ const SubscriptionsScreen = () => {
     await loadSubscriptions();
   };
 
-  const handleCancelSubscription = async (subscription: Subscription) => {
-    Alert.alert(
-      'Hủy đăng ký',
-      `Bạn có chắc chắn muốn hủy đăng ký "${subscription.packageName}"?`,
-      [
-        {
-          text: 'Không',
-          style: 'cancel',
-        },
-        {
-          text: 'Có, hủy đăng ký',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // TODO: Implement cancel subscription API endpoint
-              Alert.alert('Thông báo', 'Tính năng hủy đăng ký đang được phát triển.');
-            } catch (err) {
-              console.error('Cancel subscription error:', err);
-              Alert.alert('Lỗi', 'Không thể hủy đăng ký. Vui lòng thử lại.');
-            }
+  const handleCancelSubscription = (subscription: Subscription) => {
+    setSubscriptionToCancel(subscription);
+    setShowCancelModal(true);
+  };
+
+  const closeCancelModal = () => {
+    if (cancelling) return;
+    setShowCancelModal(false);
+    setSubscriptionToCancel(null);
+  };
+
+  const confirmCancelSubscription = async () => {
+    if (!subscriptionToCancel) return;
+    try {
+      setCancelling(true);
+
+      let token = accessToken;
+      if (!token) {
+        token = await AsyncStorage.getItem('accessToken');
+      }
+
+      if (!token) {
+        showToast({
+          type: 'info',
+          title: 'Sign-in required',
+          message: 'Please log in to cancel a subscription.',
+          action: {
+            label: 'Go to login',
+            onPress: () => router.replace('./login'),
           },
+        });
+        closeCancelModal();
+        return;
+      }
+
+      await apiClient.delete(`/subscriptions/${subscriptionToCancel._id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      ]
-    );
+      });
+
+      setSubscriptions((prev) =>
+        prev.filter((item) => item._id !== subscriptionToCancel._id)
+      );
+
+      showToast({
+        type: 'success',
+        title: 'Subscription cancelled',
+        message: `"${subscriptionToCancel.packageName}" has been removed.`,
+      });
+    } catch (err: any) {
+      console.error('Cancel subscription error:', err);
+      const message =
+        err?.response?.data?.message ||
+        'Unable to cancel the subscription. Please try again.';
+      showToast({
+        type: 'error',
+        title: 'Unable to cancel',
+        message,
+      });
+    } finally {
+      setCancelling(false);
+      closeCancelModal();
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -172,29 +218,29 @@ const SubscriptionsScreen = () => {
     return formatDate(dateString);
   };
 
-  // Kiểm tra đăng nhập
+  // Authentication guard
   if (!accessToken && !user) {
     return (
       <SafeAreaView style={subscriptionStyles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={subscriptionStyles.header}>
           <TouchableOpacity style={subscriptionStyles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={subscriptionStyles.headerTitle}>Đăng ký của tôi</Text>
+          <Text style={subscriptionStyles.headerTitle}>My subscriptions</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={subscriptionStyles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={64} color="#9CA3AF" />
-          <Text style={subscriptionStyles.emptyTitle}>Yêu cầu đăng nhập</Text>
+          <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
+          <Text style={subscriptionStyles.emptyTitle}>Sign-in required</Text>
           <Text style={subscriptionStyles.emptyText}>
-            Bạn cần đăng nhập để xem các gói đăng ký của mình.
+            Please sign in to view your subscription packages.
           </Text>
           <TouchableOpacity
             style={subscriptionStyles.loginButton}
             onPress={() => router.push('./login')}
           >
-            <Text style={subscriptionStyles.loginButtonText}>Đăng nhập</Text>
+            <Text style={subscriptionStyles.loginButtonText}>Sign in</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -207,16 +253,16 @@ const SubscriptionsScreen = () => {
         <StatusBar barStyle="dark-content" />
         <View style={subscriptionStyles.header}>
           <TouchableOpacity style={subscriptionStyles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={subscriptionStyles.headerTitle}>Đăng ký của tôi</Text>
+          <Text style={subscriptionStyles.headerTitle}>My subscriptions</Text>
           <TouchableOpacity onPress={handleRefresh}>
-            <Ionicons name="refresh-outline" size={24} color="#FFFFFF" />
+            <Ionicons name="refresh-outline" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
         <View style={subscriptionStyles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
-          <Text style={subscriptionStyles.loadingText}>Đang tải...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={subscriptionStyles.loadingText}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -229,9 +275,9 @@ const SubscriptionsScreen = () => {
       {/* Header */}
       <View style={subscriptionStyles.header}>
         <TouchableOpacity style={subscriptionStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={subscriptionStyles.headerTitle}>Đăng ký của tôi</Text>
+        <Text style={subscriptionStyles.headerTitle}>My subscriptions</Text>
         <TouchableOpacity onPress={handleRefresh} disabled={refreshing}>
           <Ionicons 
             name="refresh-outline" 
@@ -243,7 +289,7 @@ const SubscriptionsScreen = () => {
 
       <ScrollView 
         style={subscriptionStyles.content}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: spacing.xl }}
         refreshControl={
           <View style={{ flex: 1 }}>
             {/* Manual refresh indicator */}
@@ -252,24 +298,24 @@ const SubscriptionsScreen = () => {
       >
         {subscriptions.length === 0 ? (
           <View style={subscriptionStyles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={64} color="#9CA3AF" />
-            <Text style={subscriptionStyles.emptyTitle}>Chưa có đăng ký</Text>
+          <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
+            <Text style={subscriptionStyles.emptyTitle}>No subscriptions yet</Text>
             <Text style={subscriptionStyles.emptyText}>
-              Bạn chưa đăng ký gói nào. Hãy khám phá các gói dịch vụ và đăng ký ngay!
+              You have not subscribed to any packages yet. Explore our services and sign up today!
             </Text>
             <TouchableOpacity
               style={subscriptionStyles.browseButton}
               onPress={() => router.push('./home')}
             >
-              <Text style={subscriptionStyles.browseButtonText}>Khám phá gói dịch vụ</Text>
+              <Text style={subscriptionStyles.browseButtonText}>Browse packages</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <>
             <View style={subscriptionStyles.infoCard}>
-              <Ionicons name="information-circle-outline" size={20} color="#6366F1" />
+              <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
               <Text style={subscriptionStyles.infoText}>
-                Bạn có {subscriptions.length} gói đăng ký
+                You have {subscriptions.length} active subscription{subscriptions.length === 1 ? '' : 's'}
               </Text>
             </View>
 
@@ -286,9 +332,9 @@ const SubscriptionsScreen = () => {
                     ]}
                   >
                     <Text style={subscriptionStyles.statusText}>
-                      {subscription.status === 'active' && 'Đang hoạt động'}
-                      {subscription.status === 'cancelled' && 'Đã hủy'}
-                      {subscription.status === 'inactive' && 'Không hoạt động'}
+                      {subscription.status === 'active' && 'Active'}
+                      {subscription.status === 'cancelled' && 'Cancelled'}
+                      {subscription.status === 'inactive' && 'Inactive'}
                     </Text>
                   </View>
                 </View>
@@ -306,16 +352,16 @@ const SubscriptionsScreen = () => {
                 {/* Details */}
                 <View style={subscriptionStyles.detailsContainer}>
                   <View style={subscriptionStyles.detailRow}>
-                    <Ionicons name="cash-outline" size={18} color="#6B7280" />
-                    <Text style={subscriptionStyles.detailLabel}>Giá:</Text>
+                    <Ionicons name="cash-outline" size={18} color={colors.textSecondary} />
+                    <Text style={subscriptionStyles.detailLabel}>Price:</Text>
                     <Text style={subscriptionStyles.detailValue}>
                       £{subscription.pricePerPeriod.toFixed(2)}
                     </Text>
                   </View>
 
                   <View style={subscriptionStyles.detailRow}>
-                    <Ionicons name="calendar-outline" size={18} color="#6B7280" />
-                    <Text style={subscriptionStyles.detailLabel}>Bắt đầu:</Text>
+                    <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+                    <Text style={subscriptionStyles.detailLabel}>Started:</Text>
                     <Text style={subscriptionStyles.detailValue}>
                       {formatDate(subscription.startedAt)}
                     </Text>
@@ -323,8 +369,8 @@ const SubscriptionsScreen = () => {
 
                   {subscription.nextBillingDate && (
                     <View style={subscriptionStyles.detailRow}>
-                      <Ionicons name="calendar-clear-outline" size={18} color="#6B7280" />
-                      <Text style={subscriptionStyles.detailLabel}>Thanh toán tiếp theo:</Text>
+                      <Ionicons name="calendar-clear-outline" size={18} color={colors.textSecondary} />
+                      <Text style={subscriptionStyles.detailLabel}>Next billing:</Text>
                       <Text style={subscriptionStyles.detailValue}>
                         {formatNextBillingDate(subscription.nextBillingDate)}
                       </Text>
@@ -333,8 +379,8 @@ const SubscriptionsScreen = () => {
 
                   {subscription.cancelledAt && (
                     <View style={subscriptionStyles.detailRow}>
-                      <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
-                      <Text style={subscriptionStyles.detailLabel}>Hủy vào:</Text>
+                      <Ionicons name="close-circle-outline" size={18} color={colors.danger} />
+                      <Text style={subscriptionStyles.detailLabel}>Cancelled on:</Text>
                       <Text style={[subscriptionStyles.detailValue, { color: '#EF4444' }]}>
                         {formatDate(subscription.cancelledAt)}
                       </Text>
@@ -349,15 +395,15 @@ const SubscriptionsScreen = () => {
                       style={subscriptionStyles.viewPackageButton}
                       onPress={() => router.push(`./packageDetail?slug=${subscription.packageSlug}`)}
                     >
-                      <Ionicons name="eye-outline" size={18} color="#6366F1" />
-                      <Text style={subscriptionStyles.viewPackageButtonText}>Xem gói</Text>
+                      <Ionicons name="eye-outline" size={18} color={colors.primary} />
+                      <Text style={subscriptionStyles.viewPackageButtonText}>View package</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={subscriptionStyles.cancelButton}
                       onPress={() => handleCancelSubscription(subscription)}
                     >
-                      <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
-                      <Text style={subscriptionStyles.cancelButtonText}>Hủy đăng ký</Text>
+                      <Ionicons name="close-circle-outline" size={18} color={colors.textPrimary} />
+                      <Text style={subscriptionStyles.cancelButtonText}>Cancel subscription</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -367,26 +413,41 @@ const SubscriptionsScreen = () => {
         )}
       </ScrollView>
 
+      <ConfirmationModal
+        visible={showCancelModal && !!subscriptionToCancel}
+        title="Cancel subscription"
+        message={
+          subscriptionToCancel
+            ? `Are you sure you want to cancel "${subscriptionToCancel.packageName}"?`
+            : ''
+        }
+        confirmLabel="Cancel subscription"
+        cancelLabel="Keep subscription"
+        loading={cancelling}
+        onCancel={closeCancelModal}
+        onConfirm={confirmCancelSubscription}
+      />
+
       {/* Bottom Navigation */}
       <View style={subscriptionStyles.bottomNav}>
         <TouchableOpacity
           style={subscriptionStyles.navItem}
           onPress={() => router.push("./home")}
         >
-          <Ionicons name="home-outline" size={24} color="#9CA3AF" />
+          <Ionicons name="home-outline" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity
           style={subscriptionStyles.navItem}
           onPress={() => router.push("./subscriptions")}
         >
-          <Ionicons name="receipt" size={24} color="#8B5CF6" />
+          <Ionicons name="receipt" size={24} color={colors.primary} />
         </TouchableOpacity>
         <TouchableOpacity 
           style={subscriptionStyles.navItem}
           onPress={() => router.push('./cart')}
         >
           <View style={subscriptionStyles.cartIconContainer}>
-            <Ionicons name="cart-outline" size={24} color="#9CA3AF" />
+            <Ionicons name="cart-outline" size={24} color={colors.textSecondary} />
             {cartItemCount > 0 && (
               <View style={subscriptionStyles.cartBadge}>
                 <Text style={subscriptionStyles.cartBadgeText}>
@@ -404,191 +465,192 @@ const SubscriptionsScreen = () => {
 const subscriptionStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.background,
+    paddingTop: spacing.lg,
   },
   header: {
-    backgroundColor: '#8B5CF6',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   backButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     flex: 1,
     textAlign: 'center',
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.lg,
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: spacing.md,
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.textSecondary,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    marginTop: 60,
+    padding: spacing.lg,
+    marginTop: spacing.xl,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#111827',
-    marginTop: 16,
-    marginBottom: 8,
+    color: colors.textPrimary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
   emptyText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 20,
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
   loginButton: {
-    backgroundColor: '#8B5CF6',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
   },
   loginButtonText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
   browseButton: {
-    backgroundColor: '#8B5CF6',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
   },
   browseButtonText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
   infoCard: {
-    backgroundColor: '#EEF2FF',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: colors.card,
+    padding: spacing.md,
+    borderRadius: radius.md,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
+    ...shadow.card,
   },
   infoText: {
     fontSize: 14,
-    color: '#4338CA',
-    marginLeft: 8,
+    color: colors.primary,
+    marginLeft: spacing.sm,
     fontWeight: '500',
   },
   subscriptionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadow.card,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
   },
   statusActive: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#064E3B',
   },
   statusCancelled: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#7F1D1D',
   },
   statusInactive: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.border,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   packageInfo: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   packageName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   packagePeriod: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textSecondary,
   },
   detailsContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 12,
-    marginBottom: 12,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
   detailLabel: {
     fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 8,
-    marginRight: 8,
+    color: colors.textSecondary,
+    marginLeft: spacing.sm,
+    marginRight: spacing.sm,
   },
   detailValue: {
     fontSize: 14,
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '600',
     flex: 1,
     textAlign: 'right',
   },
   actionsContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
-    paddingTop: 12,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   viewPackageButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#EEF2FF',
-    gap: 6,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    gap: spacing.xs,
   },
   viewPackageButtonText: {
-    color: '#6366F1',
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -597,27 +659,27 @@ const subscriptionStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#FEE2E2',
-    gap: 6,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: '#7F1D1D',
+    gap: spacing.xs,
   },
   cancelButtonText: {
-    color: '#EF4444',
+    color: '#FEE2E2',
     fontSize: 14,
     fontWeight: '600',
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     justifyContent: 'space-around',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   navItem: {
-    padding: 8,
+    padding: spacing.xs,
   },
   cartIconContainer: {
     position: 'relative',
@@ -626,18 +688,18 @@ const subscriptionStyles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     right: -6,
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
-    paddingHorizontal: 6,
+    paddingHorizontal: spacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: colors.surface,
   },
   cartBadgeText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 10,
     fontWeight: '700',
   },

@@ -9,18 +9,37 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCartStore } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
+import { useToast } from '../components/ToastProvider';
+import ConfirmationModal from '../components/ConfirmationModal';
+import { colors, spacing, radius, shadow } from '../styles/theme';
 
 const CartScreen = () => {
   const router = useRouter();
   const { items, removeFromCart, clearCart, getTotalPrice, loadCartFromStorage } = useCartStore();
   const { accessToken, user } = useAuthStore();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm?: () => Promise<void> | void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    confirmLabel: 'Confirm',
+    cancelLabel: 'Cancel',
+    onConfirm: undefined,
+  });
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     const loadCart = async () => {
@@ -30,29 +49,65 @@ const CartScreen = () => {
     loadCart();
   }, [loadCartFromStorage]);
 
-  // Kiểm tra đăng nhập
+  const openConfirmModal = (config: {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm?: () => Promise<void> | void;
+  }) => {
+    setConfirmConfig({
+      visible: true,
+      title: config.title,
+      message: config.message,
+      confirmLabel: config.confirmLabel ?? 'Confirm',
+      cancelLabel: config.cancelLabel ?? 'Cancel',
+      onConfirm: config.onConfirm,
+    });
+  };
+
+  const closeConfirmModal = () => {
+    if (confirming) return;
+    setConfirmConfig((prev) => ({ ...prev, visible: false }));
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmConfig.onConfirm) {
+      closeConfirmModal();
+      return;
+    }
+    try {
+      setConfirming(true);
+      await confirmConfig.onConfirm();
+    } finally {
+      setConfirming(false);
+      closeConfirmModal();
+    }
+  };
+
+  // Authentication guard
   if (!accessToken || !user) {
     return (
       <SafeAreaView style={cartStyles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={cartStyles.header}>
           <TouchableOpacity style={cartStyles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={cartStyles.headerTitle}>Giỏ hàng</Text>
+          <Text style={cartStyles.headerTitle}>Cart</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={cartStyles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={64} color="#9CA3AF" />
-          <Text style={cartStyles.emptyTitle}>Yêu cầu đăng nhập</Text>
+          <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
+          <Text style={cartStyles.emptyTitle}>Sign-in required</Text>
           <Text style={cartStyles.emptyText}>
-            Bạn cần đăng nhập để xem giỏ hàng của mình.
+            Please sign in to view your cart.
           </Text>
           <TouchableOpacity
             style={cartStyles.loginButton}
             onPress={() => router.push('./login')}
           >
-            <Text style={cartStyles.loginButtonText}>Đăng nhập</Text>
+            <Text style={cartStyles.loginButtonText}>Sign in</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -63,7 +118,7 @@ const CartScreen = () => {
     return (
       <SafeAreaView style={cartStyles.container}>
         <View style={cartStyles.loadingContainer}>
-          <ActivityIndicator size="large" color="#818CF8" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -72,44 +127,50 @@ const CartScreen = () => {
   const totalPrice = getTotalPrice();
 
   const handleRemoveItem = (slug: string, name: string) => {
-    Alert.alert(
-      'Xóa sản phẩm',
-      `Bạn có chắc chắn muốn xóa "${name}" khỏi giỏ hàng?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: () => removeFromCart(slug),
-        },
-      ]
-    );
+    openConfirmModal({
+      title: 'Remove item',
+      message: `Are you sure you want to remove "${name}" from your cart?`,
+      confirmLabel: 'Remove',
+      onConfirm: async () => {
+        await removeFromCart(slug);
+        showToast({
+          type: 'info',
+          title: 'Removed from cart',
+          message: `"${name}" has been removed.`,
+        });
+      },
+    });
   };
 
   const handleClearCart = () => {
     if (items.length === 0) return;
     
-    Alert.alert(
-      'Xóa toàn bộ giỏ hàng',
-      'Bạn có chắc chắn muốn xóa toàn bộ sản phẩm khỏi giỏ hàng?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa tất cả',
-          style: 'destructive',
-          onPress: () => clearCart(),
-        },
-      ]
-    );
+    openConfirmModal({
+      title: 'Clear cart',
+      message: 'Are you sure you want to remove every item from your cart?',
+      confirmLabel: 'Clear all',
+      onConfirm: async () => {
+        await clearCart();
+        showToast({
+          type: 'info',
+          title: 'Cart cleared',
+          message: 'All items have been removed from your cart.',
+        });
+      },
+    });
   };
 
   const handleCheckout = () => {
     if (items.length === 0) {
-      Alert.alert('Giỏ hàng trống', 'Vui lòng thêm sản phẩm vào giỏ hàng trước khi thanh toán.');
+      showToast({
+        type: 'info',
+        title: 'Cart is empty',
+        message: 'Add at least one item before heading to checkout.',
+      });
       return;
     }
 
-    // Navigate to checkout page - checkout sẽ load tất cả items từ cart
+    // Navigate to checkout; that screen will load everything from the cart
     router.push('./checkout');
   };
 
@@ -120,33 +181,37 @@ const CartScreen = () => {
       {/* Header */}
       <View style={cartStyles.header}>
         <TouchableOpacity style={cartStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={cartStyles.headerTitle}>Giỏ hàng</Text>
+        <Text style={cartStyles.headerTitle}>Cart</Text>
         {items.length > 0 && (
           <TouchableOpacity onPress={handleClearCart} style={cartStyles.clearButton}>
-            <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+            <Ionicons name="trash-outline" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         )}
       </View>
 
       {items.length === 0 ? (
         <View style={cartStyles.emptyContainer}>
-          <Ionicons name="cart-outline" size={80} color="#D1D5DB" />
-          <Text style={cartStyles.emptyTitle}>Giỏ hàng trống</Text>
+          <Ionicons name="cart-outline" size={80} color={colors.textSecondary} />
+          <Text style={cartStyles.emptyTitle}>Cart is empty</Text>
           <Text style={cartStyles.emptyText}>
-            Chưa có sản phẩm nào trong giỏ hàng của bạn.
+            There are no products in your cart yet.
           </Text>
           <TouchableOpacity
             style={cartStyles.shopButton}
             onPress={() => router.push('./home')}
           >
-            <Text style={cartStyles.shopButtonText}>Tiếp tục mua sắm</Text>
+            <Text style={cartStyles.shopButtonText}>Continue shopping</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <>
-          <ScrollView style={cartStyles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={cartStyles.content}
+            contentContainerStyle={{ paddingBottom: spacing.xl }}
+            showsVerticalScrollIndicator={false}
+          >
             {items.map((item) => (
               <View key={item.slug} style={cartStyles.itemCard}>
                 <View style={cartStyles.itemInfo}>
@@ -178,25 +243,35 @@ const CartScreen = () => {
                   style={cartStyles.removeButton}
                   onPress={() => handleRemoveItem(item.slug, item.name)}
                 >
-                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                  <Ionicons name="close-circle" size={24} color={colors.danger} />
                 </TouchableOpacity>
               </View>
             ))}
           </ScrollView>
 
-          {/* Footer với tổng tiền và nút checkout */}
+          {/* Footer showing totals and the checkout button */}
           <View style={cartStyles.footer}>
             <View style={cartStyles.totalRow}>
-              <Text style={cartStyles.totalLabel}>Tổng cộng:</Text>
+              <Text style={cartStyles.totalLabel}>Total:</Text>
               <Text style={cartStyles.totalPrice}>£{totalPrice.toFixed(2)}</Text>
             </View>
             <TouchableOpacity style={cartStyles.checkoutButton} onPress={handleCheckout}>
-              <Text style={cartStyles.checkoutButtonText}>Thanh toán</Text>
-              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+              <Text style={cartStyles.checkoutButtonText}>Checkout</Text>
+              <Ionicons name="arrow-forward" size={20} color={colors.textPrimary} style={{ marginLeft: spacing.xs }} />
             </TouchableOpacity>
           </View>
         </>
       )}
+      <ConfirmationModal
+        visible={confirmConfig.visible}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmLabel={confirmConfig.confirmLabel}
+        cancelLabel={confirmConfig.cancelLabel}
+        loading={confirming}
+        onCancel={closeConfirmModal}
+        onConfirm={handleConfirmAction}
+      />
     </SafeAreaView>
   );
 };
@@ -204,31 +279,34 @@ const CartScreen = () => {
 const cartStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.background,
+    paddingTop: spacing.lg,
   },
   header: {
-    backgroundColor: '#818CF8',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   backButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   clearButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
   loadingContainer: {
     flex: 1,
@@ -239,149 +317,145 @@ const cartStyles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1F2937',
-    marginTop: 16,
-    marginBottom: 8,
+    color: colors.textPrimary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
   emptyText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
   loginButton: {
-    backgroundColor: '#818CF8',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
   },
   loginButtonText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
   shopButton: {
-    backgroundColor: '#818CF8',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
   },
   shopButtonText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
   itemCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...shadow.card,
   },
   itemInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   itemName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   itemType: {
     fontSize: 13,
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   itemCategory: {
     fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 12,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
   },
   itemPriceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   discountBadge: {
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    backgroundColor: '#064E3B',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
   },
   discountText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#059669',
+    color: colors.success,
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   originalPrice: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     textDecorationLine: 'line-through',
   },
   finalPrice: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#A855F7',
+    color: colors.textPrimary,
   },
   period: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#6B7280',
+    color: colors.textSecondary,
   },
   removeButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   footer: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   totalLabel: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: colors.textSecondary,
   },
   totalPrice: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#A855F7',
+    color: colors.textPrimary,
   },
   checkoutButton: {
-    backgroundColor: '#818CF8',
-    paddingVertical: 14,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkoutButtonText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

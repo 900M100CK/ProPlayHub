@@ -13,13 +13,13 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-// Import <Link> từ expo-router để điều hướng
+// Import <Link> from expo-router for navigation
 import { Link } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
-import { authStyles as styles } from '../styles/authStyles'; // Import style chung
+import { authStyles as styles } from '../styles/authStyles'; // Shared auth styles
 
 const LoginScreen: React.FC = () => {
-  // --- Lấy state và actions từ Zustand store ---
+  // --- Pull state and actions from the auth store ---
   const {
     email,
     password,
@@ -38,13 +38,13 @@ const LoginScreen: React.FC = () => {
   useEffect(() => {
     loadRememberedCredentials();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Chỉ chạy một lần khi component mount
+  }, []); // Run once when component mounts
 
-  // --- Giao diện (UI) cho Subtask 1 ---
+  // --- Screen layout ---
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.flex} // Sử dụng style từ file chung
+      style={styles.flex} // Shared auth style
     >
       <SafeAreaView style={styles.container}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -53,7 +53,7 @@ const LoginScreen: React.FC = () => {
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.title}>ProPlayHub</Text>
-              <Text style={styles.subtitle}>Chào mừng trở lại! Đăng nhập vào tài khoản của bạn.</Text>
+              <Text style={styles.subtitle}>Welcome back! Sign in to your account.</Text>
             </View>
 
             {/* Error Message Display */}
@@ -81,7 +81,7 @@ const LoginScreen: React.FC = () => {
 
             {/* Password Input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Mật khẩu</Text>
+              <Text style={styles.label}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.input}
@@ -111,11 +111,11 @@ const LoginScreen: React.FC = () => {
                   size={24}
                   color={rememberMe ? '#818CF8' : '#9CA3AF'}
                 />
-                <Text style={styles.rememberMeText}>Ghi nhớ tôi</Text>
+                <Text style={styles.rememberMeText}>Remember me</Text>
               </TouchableOpacity>
-              {/* Link quên mật khẩu được di chuyển vào đây để căn chỉnh tốt hơn */}
+              {/* Forgot password link */}
               <Link href="./forgotPassword" asChild>
-                <TouchableOpacity><Text style={styles.bottomLinkActionText}>Quên mật khẩu?</Text></TouchableOpacity>
+                <TouchableOpacity><Text style={styles.bottomLinkActionText}>Forgot password?</Text></TouchableOpacity>
               </Link>
             </View>
 
@@ -128,16 +128,16 @@ const LoginScreen: React.FC = () => {
               {isLoading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={loginStyles.loginButtonText}>Đăng nhập</Text>
+                <Text style={loginStyles.loginButtonText}>Sign in</Text>
               )}
             </TouchableOpacity>
 
-            {/* Register Link (Thêm mới) */}
+            {/* Register Link */}
             <View style={styles.bottomLinkContainer}>
-              <Text style={styles.bottomLinkText}>Chưa có tài khoản? </Text>
+              <Text style={styles.bottomLinkText}>Don't have an account? </Text>
               <Link href="./register" asChild>
                 <TouchableOpacity>
-                  <Text style={styles.bottomLinkActionText}>Đăng ký ngay</Text>
+                  <Text style={styles.bottomLinkActionText}>Create one</Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -149,11 +149,11 @@ const LoginScreen: React.FC = () => {
   );
 };
 
-// Cần đổi tên một số style để khớp với file chung
+// Override a few styles so they align with the shared auth styles
 const loginStyles = StyleSheet.create({
   loginButton: {
     ...styles.button,
-    marginTop: 0, // Ghi đè lại marginTop từ rememberMeContainer
+    marginTop: 0, // Override marginTop from rememberMeContainer
   },
   loginButtonDisabled: styles.buttonDisabled,
   loginButtonText: styles.buttonText,

@@ -1,6 +1,6 @@
+import React from 'react';
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
 import { useAuthStore } from './authStore';
 
 // Định nghĩa kiểu dữ liệu cho Cart Item
@@ -19,9 +19,15 @@ export type CartItem = {
   finalPrice: number; // Giá sau khi giảm (nếu có)
 };
 
+export type AddToCartResult = {
+  success: boolean;
+  reason?: 'AUTH_REQUIRED' | 'ALREADY_EXISTS' | 'STORAGE_ERROR';
+  message?: string;
+};
+
 type CartState = {
   items: CartItem[];
-  addToCart: (item: CartItem) => Promise<boolean>;
+  addToCart: (item: CartItem) => Promise<AddToCartResult>;
   removeFromCart: (slug: string) => void;
   clearCart: () => void;
   getTotalPrice: () => number;
@@ -40,18 +46,11 @@ export const useCartStore = create<CartState>((set, get) => ({
     // Kiểm tra authentication
     const authState = useAuthStore.getState();
     if (!authState.accessToken || !authState.user) {
-      Alert.alert(
-        'Yêu cầu đăng nhập',
-        'Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng.',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          { text: 'Đăng nhập', onPress: () => {
-            // Navigate to login - sẽ được handle ở component
-            return true; // Return true để component có thể navigate
-          }}
-        ]
-      );
-      return false; // Return false để báo cần login
+      return {
+        success: false,
+        reason: 'AUTH_REQUIRED',
+        message: 'Authentication is required.',
+      };
     }
 
     const { items } = get();
@@ -60,12 +59,11 @@ export const useCartStore = create<CartState>((set, get) => ({
     const existingItem = items.find((i) => i.slug === item.slug);
     
     if (existingItem) {
-      Alert.alert(
-        'Đã có trong giỏ hàng',
-        'Gói dịch vụ này đã có trong giỏ hàng của bạn.',
-        [{ text: 'OK' }]
-      );
-      return false;
+      return {
+        success: false,
+        reason: 'ALREADY_EXISTS',
+        message: 'Item already exists in cart.',
+      };
     }
 
     // Thêm item vào cart
@@ -77,10 +75,14 @@ export const useCartStore = create<CartState>((set, get) => ({
       await AsyncStorage.setItem('cartItems', JSON.stringify(newItems));
     } catch (error) {
       console.error('Failed to save cart to storage:', error);
+      return {
+        success: false,
+        reason: 'STORAGE_ERROR',
+        message: 'Failed to persist cart data.',
+      };
     }
 
-    Alert.alert('Thành công', 'Đã thêm vào giỏ hàng!', [{ text: 'OK' }]);
-    return true;
+    return { success: true };
   },
 
   // Remove item from cart
@@ -149,3 +151,5 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 }));
 
+const CartStoreRoute = () => null;
+export default CartStoreRoute;

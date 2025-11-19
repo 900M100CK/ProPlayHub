@@ -35,7 +35,7 @@ const OrderConfirmationScreen = () => {
     <SafeAreaView style={styles.container}>
       {/* Top bar giống step title */}
       <View style={styles.topBar}>
-        <Text style={styles.topBarText}>7. Order Confirmation</Text>
+        <Text style={styles.topBarText}>Order Confirmation</Text>
       </View>
 
       <View style={styles.wrapper}>

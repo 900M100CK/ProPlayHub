@@ -28,6 +28,19 @@ router.post("/", auth, async (req, res) => {
         .json({ message: "Missing packageSlug / packageName / pricePerPeriod" });
     }
 
+    // Không cho phép user đăng ký trùng gói nếu subscription vẫn đang active
+    const existingActiveSub = await Subscription.findOne({
+      userId: req.user._id,
+      packageSlug,
+      status: "active",
+    });
+
+    if (existingActiveSub) {
+      return res.status(409).json({
+        message: "Bạn đã đăng ký gói này rồi. Vui lòng hủy gói hiện tại trước khi đăng ký lại.",
+      });
+    }
+
     const sub = await Subscription.create({
       userId: req.user._id,
       packageSlug,
@@ -42,6 +55,32 @@ router.post("/", auth, async (req, res) => {
   } catch (err) {
     console.error("Create subscription error:", err);
     return res.status(500).json({ message: "Server error creating subscription" });
+  }
+});
+
+/**
+ * DELETE /api/subscriptions/:id
+ * Hủy (xóa) subscription của user
+ */
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const subscription = await Subscription.findOne({
+      _id: id,
+      userId: req.user._id,
+    });
+
+    if (!subscription) {
+      return res.status(404).json({ message: "Subscription not found" });
+    }
+
+    await Subscription.deleteOne({ _id: subscription._id });
+
+    return res.json({ message: "Subscription cancelled successfully" });
+  } catch (err) {
+    console.error("Cancel subscription error:", err);
+    return res.status(500).json({ message: "Server error cancelling subscription" });
   }
 });
 

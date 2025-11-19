@@ -10,7 +10,6 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Alert,
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../stores/authStore";
 import apiClient from "../api/axiosConfig";
 import axios from "axios";
+import { useToast } from "../components/ToastProvider";
 
 // Auto-detect API URL based on platform
 const API_BASE_URL = Platform.OS === 'android' 
@@ -28,6 +28,7 @@ const API_BASE_URL = Platform.OS === 'android'
 const ProfileScreen = () => {
   const router = useRouter();
   const { user, accessToken, setUser, setAccessToken } = useAuthStore();
+  const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -70,14 +71,16 @@ const ProfileScreen = () => {
       }
 
       if (!token) {
-        Alert.alert(
-          'Yêu cầu đăng nhập',
-          'Bạn cần đăng nhập để xem profile.',
-          [
-            { text: 'Hủy', style: 'cancel', onPress: () => router.back() },
-            { text: 'Đăng nhập', onPress: () => router.replace('./login') },
-          ]
-        );
+        showToast({
+          type: 'info',
+          title: 'Sign-in required',
+          message: 'Please log in to view your profile.',
+          action: {
+            label: 'Sign in',
+            onPress: () => router.replace('./login'),
+          },
+        });
+        router.replace('./login');
         return;
       }
 
@@ -107,13 +110,18 @@ const ProfileScreen = () => {
         await AsyncStorage.removeItem('user');
         setAccessToken(null);
         setUser(null);
-        Alert.alert(
-          'Phiên đăng nhập đã hết hạn',
-          'Vui lòng đăng nhập lại.',
-          [{ text: 'Đăng nhập', onPress: () => router.replace('./login') }]
-        );
+        showToast({
+          type: 'info',
+          title: 'Session expired',
+          message: 'Please sign in again.',
+          action: {
+            label: 'Sign in',
+            onPress: () => router.replace('./login'),
+          },
+        });
+        router.replace('./login');
       } else {
-        setError(err.response?.data?.message || 'Không thể tải thông tin profile.');
+        setError(err.response?.data?.message || 'Unable to load profile information.');
       }
     } finally {
       setLoading(false);
@@ -142,7 +150,15 @@ const ProfileScreen = () => {
 
       const token = accessToken || await AsyncStorage.getItem('accessToken');
       if (!token) {
-        Alert.alert('Lỗi', 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        showToast({
+          type: 'info',
+          title: 'Session expired',
+          message: 'Please sign in again.',
+          action: {
+            label: 'Sign in',
+            onPress: () => router.replace('./login'),
+          },
+        });
         router.replace('./login');
         return;
       }
@@ -183,13 +199,21 @@ const ProfileScreen = () => {
         setUser(response.data.user);
         await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
         setEditing(false);
-        Alert.alert('Thành công', 'Đã cập nhật profile thành công!');
+        showToast({
+          type: 'success',
+          title: 'Success',
+          message: 'Profile updated successfully!',
+        });
       }
     } catch (err: any) {
       console.error('Save profile error:', err);
-      const errorMsg = err.response?.data?.message || err.response?.data?.details || 'Không thể cập nhật profile.';
+      const errorMsg = err.response?.data?.message || err.response?.data?.details || 'Unable to update the profile.';
       setError(errorMsg);
-      Alert.alert('Lỗi', errorMsg);
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: errorMsg,
+      });
     } finally {
       setSaving(false);
     }
@@ -217,7 +241,7 @@ const ProfileScreen = () => {
       <SafeAreaView style={profileStyles.container}>
         <View style={profileStyles.loadingContainer}>
           <ActivityIndicator size="large" color="#8B5CF6" />
-          <Text style={profileStyles.loadingText}>Đang tải...</Text>
+          <Text style={profileStyles.loadingText}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -262,20 +286,20 @@ const ProfileScreen = () => {
 
         {/* Profile Information */}
         <View style={profileStyles.section}>
-          <Text style={profileStyles.sectionTitle}>Thông tin cá nhân</Text>
+          <Text style={profileStyles.sectionTitle}>Personal information</Text>
 
           {/* Name */}
           <View style={profileStyles.inputGroup}>
-            <Text style={profileStyles.label}>Tên</Text>
+            <Text style={profileStyles.label}>Name</Text>
             {editing ? (
               <TextInput
                 style={profileStyles.input}
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
-                placeholder="Nhập tên của bạn"
+                placeholder="Enter your name"
               />
             ) : (
-              <Text style={profileStyles.value}>{formData.name || "Chưa cập nhật"}</Text>
+              <Text style={profileStyles.value}>{formData.name || "Not set yet"}</Text>
             )}
           </View>
 
@@ -287,71 +311,71 @@ const ProfileScreen = () => {
 
           {/* Display Name */}
           <View style={profileStyles.inputGroup}>
-            <Text style={profileStyles.label}>Tên hiển thị</Text>
+            <Text style={profileStyles.label}>Display name</Text>
             {editing ? (
               <TextInput
                 style={profileStyles.input}
                 value={formData.displayName}
                 onChangeText={(text) => setFormData({ ...formData, displayName: text })}
-                placeholder="Tên hiển thị"
+                placeholder="Display name"
               />
             ) : (
-              <Text style={profileStyles.value}>{formData.displayName || "Chưa cập nhật"}</Text>
+              <Text style={profileStyles.value}>{formData.displayName || "Not set yet"}</Text>
             )}
           </View>
 
           {/* Age */}
           <View style={profileStyles.inputGroup}>
-            <Text style={profileStyles.label}>Tuổi</Text>
+            <Text style={profileStyles.label}>Age</Text>
             {editing ? (
               <TextInput
                 style={profileStyles.input}
                 value={formData.age}
                 onChangeText={(text) => setFormData({ ...formData, age: text.replace(/[^0-9]/g, '') })}
-                placeholder="Nhập tuổi"
+                placeholder="Enter age"
                 keyboardType="numeric"
               />
             ) : (
-              <Text style={profileStyles.value}>{formData.age || "Chưa cập nhật"}</Text>
+              <Text style={profileStyles.value}>{formData.age || "Not set yet"}</Text>
             )}
           </View>
 
           {/* Location */}
           <View style={profileStyles.inputGroup}>
-            <Text style={profileStyles.label}>Vị trí</Text>
+            <Text style={profileStyles.label}>Location</Text>
             {editing ? (
               <TextInput
                 style={profileStyles.input}
                 value={formData.location}
                 onChangeText={(text) => setFormData({ ...formData, location: text })}
-                placeholder="Nhập vị trí"
+                placeholder="Enter location"
               />
             ) : (
-              <Text style={profileStyles.value}>{formData.location || "Chưa cập nhật"}</Text>
+              <Text style={profileStyles.value}>{formData.location || "Not set yet"}</Text>
             )}
           </View>
 
           {/* Address */}
           <View style={profileStyles.inputGroup}>
-            <Text style={profileStyles.label}>Địa chỉ</Text>
+            <Text style={profileStyles.label}>Address</Text>
             {editing ? (
               <TextInput
                 style={[profileStyles.input, profileStyles.textArea]}
                 value={formData.address}
                 onChangeText={(text) => setFormData({ ...formData, address: text })}
-                placeholder="Nhập địa chỉ"
+                placeholder="Enter address"
                 multiline
                 numberOfLines={3}
               />
             ) : (
-              <Text style={profileStyles.value}>{formData.address || "Chưa cập nhật"}</Text>
+              <Text style={profileStyles.value}>{formData.address || "Not set yet"}</Text>
             )}
           </View>
         </View>
 
         {/* Gaming Platforms */}
         <View style={profileStyles.section}>
-          <Text style={profileStyles.sectionTitle}>Nền tảng chơi game</Text>
+          <Text style={profileStyles.sectionTitle}>Preferred gaming platforms</Text>
           <View style={profileStyles.platformsContainer}>
             {['PC', 'PlayStation', 'Xbox'].map((platform) => (
               <TouchableOpacity
@@ -412,7 +436,7 @@ const ProfileScreen = () => {
               onPress={handleCancel}
               disabled={saving}
             >
-              <Text style={profileStyles.cancelButtonText}>Hủy</Text>
+              <Text style={profileStyles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[profileStyles.button, profileStyles.saveButton, saving && profileStyles.buttonDisabled]}
@@ -422,7 +446,7 @@ const ProfileScreen = () => {
               {saving ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={profileStyles.saveButtonText}>Lưu</Text>
+                <Text style={profileStyles.saveButtonText}>Save</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -435,7 +459,7 @@ const ProfileScreen = () => {
             onPress={() => router.push('./subcriptions')}
           >
             <Ionicons name="card-outline" size={24} color="#4B5563" />
-            <Text style={profileStyles.linkText}>Đăng ký của tôi</Text>
+            <Text style={profileStyles.linkText}>My subscriptions</Text>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
 
@@ -444,7 +468,7 @@ const ProfileScreen = () => {
             onPress={() => router.push('./achievementScreen')}
           >
             <Ionicons name="trophy-outline" size={24} color="#4B5563" />
-            <Text style={profileStyles.linkText}>Thành tựu</Text>
+            <Text style={profileStyles.linkText}>Achievements</Text>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
@@ -452,7 +476,7 @@ const ProfileScreen = () => {
         {/* Logout Button */}
         <TouchableOpacity style={profileStyles.logoutButton} onPress={() => router.replace('./login')}>
           <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-          <Text style={profileStyles.logoutButtonText}>Đăng xuất</Text>
+          <Text style={profileStyles.logoutButtonText}>Sign out</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />

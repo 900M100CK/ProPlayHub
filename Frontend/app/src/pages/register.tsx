@@ -9,15 +9,14 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ActivityIndicator,
-  Alert
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router'; // Dùng Link để quay lại
+import { Link } from 'expo-router'; // Use Link for navigation
 import { useAuthStore } from '../stores/authStore';
 import { authStyles as styles } from '../styles/authStyles'; // Import style chung
 
-// Dựa trên màn hình Login, chúng ta tạo màn hình Register
+// Registration screen modeled after the login screen
 const RegisterScreen: React.FC = () => {
   const {
     name,
@@ -53,8 +52,8 @@ const RegisterScreen: React.FC = () => {
           <View style={styles.innerContainer}>
             
             <View style={styles.header}>
-              <Text style={styles.title}>Tạo tài khoản</Text>
-              <Text style={styles.subtitle}>Tham gia ProPlayHub ngay hôm nay.</Text>
+              <Text style={styles.title}>Create an account</Text>
+              <Text style={styles.subtitle}>Join ProPlayHub today.</Text>
             </View>
 
             {errorMessage && (
@@ -65,12 +64,12 @@ const RegisterScreen: React.FC = () => {
 
             {/* Name Input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Tên của bạn</Text>
+              <Text style={styles.label}>Your name</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Tên đầy đủ"
+                placeholder="Full name"
                 placeholderTextColor="#9CA3AF"
                 autoCapitalize="words"
               />
@@ -105,7 +104,7 @@ const RegisterScreen: React.FC = () => {
 
             {/* Password Input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Mật khẩu</Text>
+              <Text style={styles.label}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.input}
@@ -135,16 +134,16 @@ const RegisterScreen: React.FC = () => {
               {isLoading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.buttonText}>Đăng ký</Text>
+                <Text style={styles.buttonText}>Sign up</Text>
               )}
             </TouchableOpacity>
 
             {/* Login Link */}
             <View style={styles.bottomLinkContainer}>
-              <Text style={styles.bottomLinkText}>Đã có tài khoản? </Text>
+              <Text style={styles.bottomLinkText}>Already have an account? </Text>
               <Link href="./login" asChild>
                 <TouchableOpacity>
-                  <Text style={styles.bottomLinkActionText}>Đăng nhập</Text>
+                  <Text style={styles.bottomLinkActionText}>Sign in</Text>
                 </TouchableOpacity>
               </Link>
             </View>
