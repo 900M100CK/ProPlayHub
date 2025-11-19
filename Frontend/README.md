@@ -25,6 +25,18 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+### Configure the backend API once for every device
+
+The frontend now reads a single `EXPO_PUBLIC_API_URL` value, so every device (Android/iOS emulators, Expo Go, and physical phones) can talk to the same backend without editing code. Create a `.env` file (or use `app.config.js`) in the `Frontend` directory:
+
+```bash
+EXPO_PUBLIC_API_URL=http://192.168.1.25:3000
+```
+
+- Use the LAN IP/DNS that all of your devices can reach.
+- Restart Expo after changing the value.
+- If the variable is not provided, the app tries to infer the dev server IP from Expo; otherwise it falls back to `10.0.2.2` (Android emulator) or `localhost`.
+
 ## Get a fresh project
 
 When you're ready, run:

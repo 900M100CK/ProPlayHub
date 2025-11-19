@@ -9,7 +9,6 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,14 +17,8 @@ import { useAuthStore } from '../stores/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from '../components/ToastProvider';
 import ScreenHeader from '../components/ScreenHeader';
-
-// Auto-detect API URL based on platform
-// Android emulator: 10.0.2.2
-// iOS simulator: localhost
-// Physical device: use your computer's local IP (e.g., 192.168.1.100)
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:3000'
-  : 'http://localhost:3000';
+import { API_BASE_URL } from '../utils/apiConfig';
+import apiClient from '../api/axiosConfig';
 
 // Helper: lấy số % từ discountLabel
 const extractDiscountPercent = (label?: string): number | null => {
@@ -102,11 +95,15 @@ const PackageDetailScreen = () => {
     const checkSubscriptionStatus = async () => {
       try {
         setCheckingSubscription(true);
+        
+        // Kiểm tra token trước khi gọi API
         let token = accessToken;
-
         if (!token) {
           try {
             token = await AsyncStorage.getItem('accessToken');
+            if (token) {
+              useAuthStore.setState({ accessToken: token });
+            }
           } catch (storageErr) {
             console.error('Failed to read token from storage:', storageErr);
           }
@@ -117,19 +114,10 @@ const PackageDetailScreen = () => {
           return;
         }
 
-        const res = await fetch(`${API_BASE_URL}/api/subscriptions/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) {
-          console.error('Failed to fetch subscriptions:', res.status);
-          setHasActiveSubscription(false);
-          return;
-        }
-
-        const data = await res.json();
+        // Dùng apiClient để tự động thêm token và xử lý lỗi 401
+        const response = await apiClient.get('/subscriptions/me');
+        const data = response.data;
+        
         const isSubscribed =
           Array.isArray(data) &&
           data.some(
@@ -142,8 +130,19 @@ const PackageDetailScreen = () => {
           await removeFromCart(pkg.slug);
           setItemInCart(false);
         }
-      } catch (err) {
-        console.error('Check subscription status error:', err);
+      } catch (err: any) {
+        // Nếu lỗi 401, clear token và không log error (expected behavior khi chưa login hoặc token hết hạn)
+        if (err?.response?.status === 401) {
+          try {
+            await AsyncStorage.removeItem('accessToken');
+            useAuthStore.setState({ accessToken: null, user: null });
+          } catch (clearErr) {
+            // Ignore clear errors
+          }
+        } else {
+          // Chỉ log error nếu không phải 401
+          console.error('Check subscription status error:', err);
+        }
         setHasActiveSubscription(false);
       } finally {
         setCheckingSubscription(false);

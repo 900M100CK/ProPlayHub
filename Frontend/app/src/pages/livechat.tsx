@@ -15,6 +15,7 @@ import io, { Socket } from "socket.io-client";
 import { useAuthStore } from "../stores/authStore"; // lấy user login
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { SOCKET_BASE_URL } from "../utils/apiConfig";
 
 interface ChatMessage {
   id: string;
@@ -24,11 +25,7 @@ interface ChatMessage {
   createdAt?: string;
 }
 
-// ĐỔI ĐÚNG IP BACKEND:
-// - Android emulator:   "http://10.0.2.2:3000"
-// - iOS simulator:      "http://localhost:3000"
-// - Điện thoại thật:    "http://IP_MAY_TINH:3000"
-const SOCKET_URL = "http://10.0.2.2:3000";
+const SOCKET_URL = SOCKET_BASE_URL;
 
 export default function LivechatScreen() {
   const { user } = useAuthStore() as any;

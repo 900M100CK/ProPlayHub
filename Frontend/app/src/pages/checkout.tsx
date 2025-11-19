@@ -10,7 +10,6 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Platform,
   Modal,
   Pressable,
 } from 'react-native';
@@ -23,14 +22,7 @@ import { useCartStore } from '../stores/cartStore';
 import apiClient from '../api/axiosConfig';
 import { useToast } from '../components/ToastProvider';
 import ScreenHeader from '../components/ScreenHeader';
-
-// Auto-detect API URL based on platform
-// Android emulator: 10.0.2.2
-// iOS simulator: localhost
-// Physical device: use your computer's local IP (e.g., 192.168.1.100)
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:3000'
-  : 'http://localhost:3000';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 // ====== HELPER DISCOUNT ======
 const extractDiscountPercent = (label?: string): number | null => {
@@ -369,30 +361,23 @@ const CheckoutScreen = () => {
     
     try {
       // Try to get token from store first, then from AsyncStorage
+      // apiClient interceptor sẽ tự động thêm token, nhưng cần đảm bảo token có trong store
       let token = accessToken;
-      console.log('🔍 [Complete Order] Initial token check:', token ? 'Token exists in store' : 'No token in store');
       
       if (!token) {
         try {
           token = await AsyncStorage.getItem('accessToken');
-          console.log('🔍 [Complete Order] Token from AsyncStorage:', token ? 'Found' : 'Not found');
           if (token) {
-            // Update store with token
+            // Update store with token - apiClient interceptor sẽ tự động dùng token này
             useAuthStore.setState({ accessToken: token });
-            apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            console.log('✅ [Complete Order] Token loaded and set to headers');
           }
         } catch (err) {
-          console.error('❌ [Complete Order] Failed to load token from storage:', err);
+          // Ignore storage errors silently
         }
-      } else {
-        // Ensure token is in axios headers
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        console.log('✅ [Complete Order] Token already in store, set to headers');
       }
 
       if (!token) {
-        console.error('❌ [Complete Order] No token available, redirecting to login');
+        // Không log error vì đây là expected behavior khi user chưa login
         showToast({
           type: 'info',
           title: 'Sign-in required',

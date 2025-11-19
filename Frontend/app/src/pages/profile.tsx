@@ -10,22 +10,15 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../stores/authStore";
 import apiClient from "../api/axiosConfig";
-import axios from "axios";
 import { useToast } from "../components/ToastProvider";
 import ScreenHeader from "../components/ScreenHeader";
 import { colors } from "../styles/theme";
-
-// Auto-detect API URL based on platform
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:3000'
-  : 'http://localhost:3000';
 
 const ProfileScreen = () => {
   const router = useRouter();
@@ -93,11 +86,7 @@ const ProfileScreen = () => {
       }
 
       // Fetch fresh data from API
-      const response = await axios.get(`${API_BASE_URL}/api/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiClient.get('/auth/me');
 
       if (response.data.user) {
         updateFormData(response.data.user);
@@ -185,16 +174,7 @@ const ProfileScreen = () => {
         updatePayload.name = formData.name;
       }
 
-      const response = await axios.put(
-        `${API_BASE_URL}/api/auth/profile`,
-        updatePayload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await apiClient.put('/auth/profile', updatePayload);
 
       if (response.data.user) {
         updateFormData(response.data.user);

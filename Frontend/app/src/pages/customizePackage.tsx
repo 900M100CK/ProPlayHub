@@ -12,19 +12,11 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenHeader from '../components/ScreenHeader';
-
-// Auto-detect API URL based on platform
-// Android emulator: 10.0.2.2
-// iOS simulator: localhost
-// Physical device: use your computer's local IP (e.g., 192.168.1.100)
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:3000'
-  : 'http://localhost:3000';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 // Helper: lấy số % từ discountLabel
 const extractDiscountPercent = (label?: string): number | null => {

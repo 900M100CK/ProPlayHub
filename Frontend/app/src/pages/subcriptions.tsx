@@ -13,8 +13,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import ScreenHeader from "../components/ScreenHeader";
 import { useAuthStore } from "../stores/authStore";
-
-const API_BASE_URL = "http://10.0.2.2:3000";
+import apiClient from "../api/axiosConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type SubscriptionStatus = "active" | "inactive" | "cancelled";
 
@@ -59,34 +59,42 @@ const MySubscriptionsScreen = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!accessToken) {
-      return;
-    }
-
     const fetchSubs = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`${API_BASE_URL}/api/subscriptions/me`, {
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken
-              ? { Authorization: `Bearer ${accessToken}` }
-              : {}),
-          },
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.message || "Failed to fetch subscriptions");
+        // Đảm bảo token được load vào store nếu chưa có
+        let token = accessToken;
+        if (!token) {
+          try {
+            token = await AsyncStorage.getItem('accessToken');
+            if (token) {
+              useAuthStore.setState({ accessToken: token });
+            }
+          } catch (storageErr) {
+            console.error('Failed to read token from storage:', storageErr);
+          }
         }
 
-        setSubs(data);
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+
+        // Dùng apiClient để tự động thêm token và xử lý lỗi 401
+        const response = await apiClient.get('/subscriptions/me');
+        setSubs(response.data || []);
       } catch (err: any) {
         console.error("Fetch subscriptions error:", err);
-        setError(err.message || "Error fetching subscriptions");
+        // Nếu lỗi 401, clear token và không hiển thị lỗi
+        if (err?.response?.status === 401) {
+          await AsyncStorage.removeItem('accessToken');
+          useAuthStore.setState({ accessToken: null, user: null });
+          setError(null); // Không hiển thị lỗi 401
+        } else {
+          setError(err?.response?.data?.message || err?.message || "Error fetching subscriptions");
+        }
       } finally {
         setLoading(false);
       }
