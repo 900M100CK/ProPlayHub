@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   statusBadgeActive: {
-    backgroundColor: "#DCFCE7",
+    backgroundColor: "#D1FAE5",
   },
   statusBadgeInactive: {
     backgroundColor: "#E5E7EB",
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   statusBadgeTextActive: {
-    color: "#16A34A",
+    color: "#059669",
   },
   statusBadgeTextInactive: {
     color: "#4B5563",

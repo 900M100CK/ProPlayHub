@@ -16,6 +16,7 @@ export type ToastOptions = {
   type?: ToastType;
   duration?: number;
   action?: ToastAction;
+  persistent?: boolean; // Nếu true, toast sẽ không tự tắt (dùng cho các alert quan trọng)
 };
 
 type ToastContextValue = {
@@ -65,15 +66,15 @@ export const ToastProvider: React.FC<React.PropsWithChildren> = ({ children }) =
       if (duration === 0) return;
       timeoutRef.current = setTimeout(() => {
         hideToast();
-      }, duration ?? 3500);
+      }, duration ?? 3000);
     },
     [hideToast]
   );
 
   const showToast = useCallback(
     (options: ToastOptions) => {
-      const { duration, ...rest } = options;
-      setToast({ type: 'info', ...rest });
+      const { duration, persistent, action, ...rest } = options;
+      setToast({ type: 'info', ...rest, action });
       setVisible(true);
       Animated.parallel([
         Animated.spring(translateY, {
@@ -86,7 +87,15 @@ export const ToastProvider: React.FC<React.PropsWithChildren> = ({ children }) =
           useNativeDriver: true,
         }),
       ]).start();
-      scheduleHide(duration ?? (options.action ? 5000 : undefined));
+      
+      // Nếu có action (link chuyển trang) hoặc persistent=true, không tự tắt
+      // Các toast khác tự tắt sau 3s
+      if (persistent || action) {
+        // Không schedule hide cho các toast quan trọng
+        scheduleHide(0);
+      } else {
+        scheduleHide(duration ?? 3000);
+      }
     },
     [opacity, scheduleHide, translateY]
   );
