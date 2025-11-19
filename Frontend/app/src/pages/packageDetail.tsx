@@ -165,7 +165,7 @@ const PackageDetailScreen = () => {
     return (
       <SafeAreaView style={detailStyles.container}>
         <StatusBar barStyle="light-content" />
-        <ScreenHeader title="Package details" />
+        <ScreenHeader title="Package Information" />
         <View style={detailStyles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
           <Text style={detailStyles.errorText}>{error}</Text>
@@ -303,7 +303,7 @@ const PackageDetailScreen = () => {
     <SafeAreaView style={detailStyles.container}>
       <StatusBar barStyle="light-content" />
       <ScreenHeader
-        title={pkg.name}
+        title="Package Information"
         subtitle={pkg.category ? `${pkg.category} • ${pkg.type}` : pkg.type}
       />
 

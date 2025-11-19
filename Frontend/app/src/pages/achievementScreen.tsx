@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { useToast } from '../components/ToastProvider';
+import ScreenHeader from '../components/ScreenHeader';
 
 const AchievementsScreen = () => {
   const router = useRouter();
@@ -70,15 +71,7 @@ const AchievementsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBarIcon}>
-          <Ionicons name="chevron-back" size={20} color="#F9FAFB" />
-        </TouchableOpacity>
-        <Text style={styles.topBarText}>My Achievements</Text>
-        <View style={styles.topBarIcon} />{/* spacer */}
-      </View>
+      <ScreenHeader title="My Achievements" />
 
       <ScrollView
         style={styles.content}
@@ -154,26 +147,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F6',
-  },
-  topBar: {
-    height: 50,
-    backgroundColor: '#111827',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-  },
-  topBarIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  topBarText: {
-    color: '#F9FAFB',
-    fontSize: 14,
-    fontWeight: '600',
   },
   content: {
     flex: 1,
