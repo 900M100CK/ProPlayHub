@@ -17,6 +17,7 @@ import { useCartStore, CartItem } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from '../components/ToastProvider';
+import ScreenHeader from '../components/ScreenHeader';
 
 // Auto-detect API URL based on platform
 // Android emulator: 10.0.2.2
@@ -163,13 +164,8 @@ const PackageDetailScreen = () => {
   if (error) {
     return (
       <SafeAreaView style={detailStyles.container}>
-        <View style={detailStyles.header}>
-          <TouchableOpacity style={detailStyles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={detailStyles.headerTitle}>Package Details</Text>
-          <View style={{ width: 24 }} />
-        </View>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title="Package details" />
         <View style={detailStyles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
           <Text style={detailStyles.errorText}>{error}</Text>
@@ -305,16 +301,11 @@ const PackageDetailScreen = () => {
 
   return (
     <SafeAreaView style={detailStyles.container}>
-      <StatusBar barStyle="dark-content" />
-
-      {/* Header */}
-      <View style={detailStyles.header}>
-        <TouchableOpacity style={detailStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={detailStyles.headerTitle}>Package Details</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <StatusBar barStyle="light-content" />
+      <ScreenHeader
+        title={pkg.name}
+        subtitle={pkg.category ? `${pkg.category} • ${pkg.type}` : pkg.type}
+      />
 
       <ScrollView style={detailStyles.content} showsVerticalScrollIndicator={false}>
         {/* Package Card */}
@@ -450,22 +441,6 @@ const detailStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F6',
-  },
-  header: {
-    backgroundColor: '#374151',
-    paddingVertical: 30,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,

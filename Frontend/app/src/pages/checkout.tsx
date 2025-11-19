@@ -22,6 +22,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
 import apiClient from '../api/axiosConfig';
 import { useToast } from '../components/ToastProvider';
+import ScreenHeader from '../components/ScreenHeader';
 
 // Auto-detect API URL based on platform
 // Android emulator: 10.0.2.2
@@ -213,19 +214,17 @@ const CheckoutScreen = () => {
     console.log('📱 [Checkout] Current state - accessToken:', accessToken ? 'Has token' : 'No token');
   }, [submitting, pkg, accessToken]);
 
+  const headerTitle = 'Checkout';
+  const headerSubtitle =
+    checkoutItems.length > 1
+      ? `${checkoutItems.length} packages`
+      : checkoutItems[0]?.name || pkg?.name || undefined;
+
   if (loading) {
     return (
       <SafeAreaView style={checkoutStyles.container}>
-        <View style={checkoutStyles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={checkoutStyles.backButton}
-          >
-            <Ionicons name="arrow-back" size={22} color="#111827" />
-          </TouchableOpacity>
-          <Text style={checkoutStyles.headerTitle}>Checkout</Text>
-          <View style={{ width: 22 }} />
-        </View>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title={headerTitle} subtitle="Loading your order..." />
         <View style={checkoutStyles.loadingContainer}>
           <ActivityIndicator size="large" color="#8B5CF6" />
           <Text style={checkoutStyles.loadingText}>Loading package...</Text>
@@ -237,16 +236,8 @@ const CheckoutScreen = () => {
   if (error || (!pkg && checkoutItems.length === 0)) {
     return (
       <SafeAreaView style={checkoutStyles.container}>
-        <View style={checkoutStyles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={checkoutStyles.backButton}
-          >
-            <Ionicons name="arrow-back" size={22} color="#111827" />
-          </TouchableOpacity>
-          <Text style={checkoutStyles.headerTitle}>Checkout</Text>
-          <View style={{ width: 22 }} />
-        </View>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title={headerTitle} subtitle="Something went wrong" />
         <View style={checkoutStyles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
           <Text style={checkoutStyles.errorText}>
@@ -637,19 +628,8 @@ const CheckoutScreen = () => {
 
   return (
     <SafeAreaView style={checkoutStyles.container}>
-      <StatusBar barStyle="dark-content" />
-
-      {/* Header */}
-      <View style={checkoutStyles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={checkoutStyles.backButton}
-        >
-          <Ionicons name="arrow-back" size={22} color="#111827" />
-        </TouchableOpacity>
-        <Text style={checkoutStyles.headerTitle}>Checkout</Text>
-        <View style={{ width: 22 }} />
-      </View>
+      <StatusBar barStyle="light-content" />
+      <ScreenHeader title={headerTitle} subtitle={headerSubtitle} />
 
       <ScrollView 
         style={checkoutStyles.content} 
@@ -1049,24 +1029,6 @@ const checkoutStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F3F4F6",
-  },
-  header: {
-    height: 80,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
   },
   content: {
     flex: 1,

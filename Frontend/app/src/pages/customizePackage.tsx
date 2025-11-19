@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import ScreenHeader from '../components/ScreenHeader';
 
 // Auto-detect API URL based on platform
 // Android emulator: 10.0.2.2
@@ -118,9 +119,14 @@ const CustomizePackageScreen = () => {
     );
   };
 
+  const headerTitle = 'Customize package';
+  const headerSubtitle = pkg?.name ? `Step 5 • ${pkg.name}` : 'Step 5';
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title={headerTitle} subtitle="Loading package..." />
         <ActivityIndicator style={{ marginTop: 40 }} />
       </SafeAreaView>
     );
@@ -129,6 +135,8 @@ const CustomizePackageScreen = () => {
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title={headerTitle} />
         <Text style={styles.errorText}>{error}</Text>
       </SafeAreaView>
     );
@@ -137,6 +145,8 @@ const CustomizePackageScreen = () => {
   if (!pkg) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title={headerTitle} />
         <Text style={styles.errorText}>Package not found</Text>
       </SafeAreaView>
     );
@@ -144,16 +154,8 @@ const CustomizePackageScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-
-      {/* Header step */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>5. Customize Package</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <StatusBar barStyle="light-content" />
+      <ScreenHeader title={headerTitle} subtitle={headerSubtitle} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Title */}
@@ -223,23 +225,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F6',
-  },
-  header: {
-    backgroundColor: '#111827',
-    paddingTop: 14,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,

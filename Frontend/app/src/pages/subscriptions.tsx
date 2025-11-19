@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from '../components/ToastProvider';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { colors, spacing, radius, shadow } from '../styles/theme';
+import ScreenHeader from '../components/ScreenHeader';
 
 interface Subscription {
   _id: string;
@@ -222,14 +223,8 @@ const SubscriptionsScreen = () => {
   if (!accessToken && !user) {
     return (
       <SafeAreaView style={subscriptionStyles.container}>
-        <StatusBar barStyle="dark-content" />
-        <View style={subscriptionStyles.header}>
-          <TouchableOpacity style={subscriptionStyles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={subscriptionStyles.headerTitle}>My subscriptions</Text>
-          <View style={{ width: 24 }} />
-        </View>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title="My subscriptions" />
         <View style={subscriptionStyles.emptyContainer}>
           <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
           <Text style={subscriptionStyles.emptyTitle}>Sign-in required</Text>
@@ -250,16 +245,15 @@ const SubscriptionsScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={subscriptionStyles.container}>
-        <StatusBar barStyle="dark-content" />
-        <View style={subscriptionStyles.header}>
-          <TouchableOpacity style={subscriptionStyles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={subscriptionStyles.headerTitle}>My subscriptions</Text>
-          <TouchableOpacity onPress={handleRefresh}>
-            <Ionicons name="refresh-outline" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader
+          title="My subscriptions"
+          rightSlot={
+            <TouchableOpacity onPress={handleRefresh} style={subscriptionStyles.headerIconButton}>
+              <Ionicons name="refresh-outline" size={22} color={colors.headerText} />
+            </TouchableOpacity>
+          }
+        />
         <View style={subscriptionStyles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={subscriptionStyles.loadingText}>Loading...</Text>
@@ -271,21 +265,25 @@ const SubscriptionsScreen = () => {
   return (
     <SafeAreaView style={subscriptionStyles.container}>
       <StatusBar barStyle="light-content" />
-      
-      {/* Header */}
-      <View style={subscriptionStyles.header}>
-        <TouchableOpacity style={subscriptionStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={subscriptionStyles.headerTitle}>My subscriptions</Text>
-        <TouchableOpacity onPress={handleRefresh} disabled={refreshing}>
-          <Ionicons 
-            name="refresh-outline" 
-            size={24} 
-            color={refreshing ? "#9CA3AF" : "#FFFFFF"} 
-          />
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="My subscriptions"
+        rightSlot={
+          <TouchableOpacity
+            onPress={handleRefresh}
+            disabled={refreshing}
+            style={[
+              subscriptionStyles.headerIconButton,
+              refreshing && { opacity: 0.5 },
+            ]}
+          >
+            <Ionicons
+              name="refresh-outline"
+              size={22}
+              color={colors.headerText}
+            />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView 
         style={subscriptionStyles.content}
@@ -466,28 +464,14 @@ const subscriptionStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: spacing.lg,
   },
-  header: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    flexDirection: 'row',
+  headerIconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    padding: spacing.xs,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flex: 1,
-    textAlign: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   content: {
     flex: 1,

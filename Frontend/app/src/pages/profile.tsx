@@ -19,6 +19,8 @@ import { useAuthStore } from "../stores/authStore";
 import apiClient from "../api/axiosConfig";
 import axios from "axios";
 import { useToast } from "../components/ToastProvider";
+import ScreenHeader from "../components/ScreenHeader";
+import { colors } from "../styles/theme";
 
 // Auto-detect API URL based on platform
 const API_BASE_URL = Platform.OS === 'android' 
@@ -249,28 +251,21 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={profileStyles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" />
 
-      {/* Header */}
-      <View style={profileStyles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={profileStyles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={profileStyles.headerTitle}>Profile</Text>
-        {!editing ? (
-          <TouchableOpacity
-            onPress={() => setEditing(true)}
-            style={profileStyles.editButton}
-          >
-            <Ionicons name="pencil" size={22} color="#8B5CF6" />
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 22 }} />
-        )}
-      </View>
+      <ScreenHeader
+        title="Profile"
+        rightSlot={
+          !editing ? (
+            <TouchableOpacity
+              onPress={() => setEditing(true)}
+              style={profileStyles.headerIconButton}
+            >
+              <Ionicons name="pencil" size={20} color={colors.headerText} />
+            </TouchableOpacity>
+          ) : undefined
+        }
+      />
 
       <ScrollView style={profileStyles.content} showsVerticalScrollIndicator={false}>
         {/* Avatar Section */}
@@ -490,26 +485,13 @@ const profileStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F9FAFB",
   },
-  header: {
-    height: 60,
-    paddingHorizontal: 16,
-    flexDirection: "row",
+  headerIconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  editButton: {
-    padding: 4,
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
   },
   content: {
     flex: 1,

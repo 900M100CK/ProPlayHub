@@ -11,7 +11,7 @@ import {
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import ScreenHeader from "../components/ScreenHeader";
 import { useAuthStore } from "../stores/authStore";
 
 const API_BASE_URL = "http://10.0.2.2:3000";
@@ -52,7 +52,6 @@ const formatFullDate = (input?: string) => {
 };
 
 const MySubscriptionsScreen = () => {
-  const router = useRouter();
   const { user, accessToken } = useAuthStore() as any;
 
   const [subs, setSubs] = useState<UserSubscription[]>([]);
@@ -97,9 +96,15 @@ const MySubscriptionsScreen = () => {
   }, [accessToken]);
 
   // Nếu chưa login
+  const headerTitle = "My subscriptions";
+  const headerSubtitle =
+    subs.length > 0 ? `${subs.length} package${subs.length > 1 ? "s" : ""}` : undefined;
+
   if (!user || !accessToken) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title={headerTitle} />
         <View style={styles.centered}>
           <Text style={{ color: "#6B7280" }}>
             You need to login to view your subscriptions.
@@ -112,18 +117,7 @@ const MySubscriptionsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-
-      {/* Top dark bar */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.topBarTitle}>My Subscriptions</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <ScreenHeader title={headerTitle} subtitle={headerSubtitle} />
 
       {/* Content */}
       <ScrollView
@@ -255,22 +249,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F3F4F6",
-  },
-  topBar: {
-    height: 64,
-    backgroundColor: "#111827",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  backButton: {
-    padding: 4,
-  },
-  topBarTitle: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
   },
   content: {
     flex: 1,

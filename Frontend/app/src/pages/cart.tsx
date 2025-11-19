@@ -17,6 +17,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useToast } from '../components/ToastProvider';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { colors, spacing, radius, shadow } from '../styles/theme';
+import ScreenHeader from '../components/ScreenHeader';
 
 const CartScreen = () => {
   const router = useRouter();
@@ -89,14 +90,8 @@ const CartScreen = () => {
   if (!accessToken || !user) {
     return (
       <SafeAreaView style={cartStyles.container}>
-        <StatusBar barStyle="dark-content" />
-        <View style={cartStyles.header}>
-          <TouchableOpacity style={cartStyles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={cartStyles.headerTitle}>Cart</Text>
-          <View style={{ width: 24 }} />
-        </View>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title="Cart" />
         <View style={cartStyles.emptyContainer}>
           <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
           <Text style={cartStyles.emptyTitle}>Sign-in required</Text>
@@ -176,20 +171,17 @@ const CartScreen = () => {
 
   return (
     <SafeAreaView style={cartStyles.container}>
-      <StatusBar barStyle="dark-content" />
-      
-      {/* Header */}
-      <View style={cartStyles.header}>
-        <TouchableOpacity style={cartStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={cartStyles.headerTitle}>Cart</Text>
-        {items.length > 0 && (
-          <TouchableOpacity onPress={handleClearCart} style={cartStyles.clearButton}>
-            <Ionicons name="trash-outline" size={22} color={colors.textPrimary} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <StatusBar barStyle="light-content" />
+      <ScreenHeader
+        title="Cart"
+        rightSlot={
+          items.length > 0 ? (
+            <TouchableOpacity onPress={handleClearCart} style={cartStyles.headerIconButton}>
+              <Ionicons name="trash-outline" size={22} color={colors.headerText} />
+            </TouchableOpacity>
+          ) : undefined
+        }
+      />
 
       {items.length === 0 ? (
         <View style={cartStyles.emptyContainer}>
@@ -280,28 +272,14 @@ const cartStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: spacing.lg,
   },
-  header: {
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    flexDirection: 'row',
+  headerIconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    padding: spacing.xs,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  clearButton: {
-    padding: spacing.xs,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   content: {
     flex: 1,
