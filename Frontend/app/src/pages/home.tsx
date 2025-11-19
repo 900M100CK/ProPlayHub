@@ -619,7 +619,7 @@ const homeStyles = StyleSheet.create({
     position: "absolute",
     top: 10,
     right: 10,
-    backgroundColor: "#FBBF24",
+    backgroundColor: "#D1FAE5",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
@@ -627,7 +627,7 @@ const homeStyles = StyleSheet.create({
   seasonalBadgeText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#1F2937",
+    color: "#059669",
   },
   seasonalName: {
     fontSize: 18,

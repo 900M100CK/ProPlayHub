@@ -645,13 +645,13 @@ const subscriptionStyles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: '#7F1D1D',
+    backgroundColor: '#FEE2E2',
     gap: spacing.xs,
   },
   cancelButtonText: {
-    color: '#FEE2E2',
+    color: '#DC2626',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   bottomNav: {
     flexDirection: 'row',

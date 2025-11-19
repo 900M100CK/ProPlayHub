@@ -368,7 +368,7 @@ const cartStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   discountBadge: {
-    backgroundColor: '#064E3B',
+    backgroundColor: '#D1FAE5',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radius.sm,
@@ -376,7 +376,7 @@ const cartStyles = StyleSheet.create({
   discountText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.success,
+    color: '#059669',
   },
   priceContainer: {
     flexDirection: 'row',

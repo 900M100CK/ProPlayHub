@@ -651,9 +651,11 @@ const CheckoutScreen = () => {
                 <View style={checkoutStyles.packageInfoRow}>
                   <Text style={checkoutStyles.itemName}>{item.name}</Text>
                   {item.discountLabel && (
-                    <Text style={checkoutStyles.discountBadge}>
-                      {item.discountLabel}
-                    </Text>
+                    <View style={checkoutStyles.discountBadge}>
+                      <Text style={checkoutStyles.discountText}>
+                        {item.discountLabel}
+                      </Text>
+                    </View>
                   )}
                   <Text style={checkoutStyles.itemType}>{item.type}</Text>
                 </View>
@@ -1096,10 +1098,18 @@ const checkoutStyles = StyleSheet.create({
     marginBottom: 2,
   },
   discountBadge: {
-    fontSize: 11,
-    color: '#10B981',
-    fontWeight: '600',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
     marginTop: 2,
+    marginBottom: 2,
+  },
+  discountText: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
   },
   itemType: {
     fontSize: 12,
