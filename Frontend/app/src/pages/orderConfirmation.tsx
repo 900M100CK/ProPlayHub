@@ -33,10 +33,6 @@ const OrderConfirmationScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top bar giống step title */}
-      <View style={styles.topBar}>
-        <Text style={styles.topBarText}>Order Confirmation</Text>
-      </View>
 
       <View style={styles.wrapper}>
         <View style={styles.card}>
@@ -98,11 +94,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderBottomWidth: 1,
     borderBottomColor: "#1F2937",
-  },
-  topBarText: {
-    color: "#F9FAFB",
-    fontSize: 14,
-    fontWeight: "600",
   },
   wrapper: {
     flex: 1,
