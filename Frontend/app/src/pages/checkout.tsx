@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -23,6 +24,14 @@ import apiClient from '../api/axiosConfig';
 import { useToast } from '../components/ToastProvider';
 import ScreenHeader from '../components/ScreenHeader';
 import { API_BASE_URL } from '../utils/apiConfig';
+
+// ====== MOCK ADD-ONS (for demo) ======
+const MOCK_ADDONS = [
+  { id: 'addon_1', name: 'Priority Support', price: 5.00, description: 'Get faster response times' },
+  { id: 'addon_2', name: 'Cloud Storage 10GB', price: 7.50, description: 'Extra storage for your data' },
+  { id: 'addon_3', name: 'Advanced Analytics', price: 12.00, description: 'Unlock detailed insights' },
+];
+
 
 // ====== HELPER DISCOUNT ======
 const extractDiscountPercent = (label?: string): number | null => {
@@ -89,6 +98,7 @@ const CheckoutScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedAddOns, setSelectedAddOns] = useState<Record<string, string[]>>({});
   
   // Payment Method State
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState({
@@ -159,16 +169,26 @@ const CheckoutScreen = () => {
           if (!res.ok) {
             throw new Error(data.message || 'Failed to fetch package.');
           }
-          setPkg(data);
+          // Add mock add-ons for demo
+          const pkgWithAddons = { ...data, addOns: MOCK_ADDONS };
+          setPkg(pkgWithAddons);
+
           // When navigating from the cart, use the items currently in the cart
           if (currentCartItems.length > 0) {
-            setCheckoutItems(currentCartItems);
+            // Add mock add-ons to cart items
+            const itemsWithAddons = currentCartItems.map(item => ({ ...item, addOns: MOCK_ADDONS }));
+            setCheckoutItems(itemsWithAddons);
           } else {
-            setCheckoutItems([data]);
+            setCheckoutItems([pkgWithAddons]);
           }
         } else {
           // Without a slug, fall back to using the cart contents
           if (currentCartItems.length > 0) {
+            // Add mock add-ons to cart items
+            const itemsWithAddons = currentCartItems.map(item => ({ ...item, addOns: MOCK_ADDONS }));
+            setCheckoutItems(itemsWithAddons);
+            // Use the first cart item as the active package so order completion works
+            setPkg(itemsWithAddons[0]);
             setCheckoutItems(currentCartItems);
             // Use the first cart item as the active package so order completion works
             setPkg(currentCartItems[0]);
@@ -177,7 +197,8 @@ const CheckoutScreen = () => {
             const res = await fetch(`${API_BASE_URL}/api/packages`);
             const data = await res.json();
             if (data && data.length > 0) {
-              const firstPkg = data[0];
+              // Add mock add-ons for demo
+              const firstPkg = { ...data[0], addOns: MOCK_ADDONS };
               setPkg(firstPkg);
               setCheckoutItems([firstPkg]);
             } else {
@@ -253,6 +274,21 @@ const CheckoutScreen = () => {
     );
   }
 
+  // Handle Add-on selection
+  const handleToggleAddOn = (itemSlug: string, addOnId: string) => {
+    setSelectedAddOns(prev => {
+      const currentAddOns = prev[itemSlug] || [];
+      const newAddOns = currentAddOns.includes(addOnId)
+        ? currentAddOns.filter(id => id !== addOnId)
+        : [...currentAddOns, addOnId];
+      
+      return {
+        ...prev,
+        [itemSlug]: newAddOns,
+      };
+    });
+  };
+
   // Calculate total from all checkout items
   const calculateTotalFromItems = () => {
     let totalBasePrice = 0;
@@ -271,30 +307,44 @@ const CheckoutScreen = () => {
     };
   };
 
+  // Calculate total from selected add-ons
+  const calculateAddOnsTotal = () => {
+    let total = 0;
+    checkoutItems.forEach(item => {
+      const itemAddOnIds = selectedAddOns[item.slug] || [];
+      item.addOns?.forEach((addOn: any) => {
+        if (itemAddOnIds.includes(addOn.id)) {
+          total += addOn.price;
+        }
+      });
+    });
+    return total;
+  };
+
   const { totalDiscountAmount: packageDiscountAmount, priceAfterPackageDiscount } = 
     calculateTotalFromItems();
   
-  // For backward compatibility, use pkg if exists
-  const basePrice = pkg?.basePrice || 0;
+  const addOnsTotal = calculateAddOnsTotal();
+  const priceBeforeCodeDiscount = priceAfterPackageDiscount + addOnsTotal;
 
   // Apply discount code if available
   const applyDiscountCodeToPrice = (price: number, discountPercent?: number) => {
     if (!discountPercent) return { final: price, discountAmount: 0 };
-    const final = price * (1 - discountPercent / 100);
+    const final = Number((price * (1 - (discountPercent || 0) / 100)).toFixed(2));
     return {
-      final: Number(final.toFixed(2)),
+      final,
       discountAmount: Number((price - final).toFixed(2)),
     };
   };
 
   const { final, discountAmount: codeDiscountAmount } = appliedDiscountCode
-    ? applyDiscountCodeToPrice(priceAfterPackageDiscount, appliedDiscountCode.discountPercent)
-    : { final: priceAfterPackageDiscount, discountAmount: 0 };
+    ? applyDiscountCodeToPrice(priceBeforeCodeDiscount, appliedDiscountCode.discountPercent)
+    : { final: priceBeforeCodeDiscount, discountAmount: 0 };
 
   // Handle apply discount code
   const handleApplyDiscountCode = async () => {
     if (!discountCode.trim()) {
-      setDiscountCodeError('Please enter a discount code');
+      setDiscountCodeError("Please enter a discount code");
       return;
     }
 
@@ -334,7 +384,7 @@ const CheckoutScreen = () => {
         setDiscountCode('');
         setDiscountCodeError(null);
       } else {
-        setDiscountCodeError('Invalid discount code');
+        setDiscountCodeError("Invalid discount code");
         setAppliedDiscountCode(null);
       }
     } catch (err: any) {
@@ -472,23 +522,27 @@ const CheckoutScreen = () => {
       for (const item of itemsToProcess) {
         const itemPrice = calculateItemFinalPrice(item);
 
-        const body = {
+        const selectedAddOnsForItem = (selectedAddOns[item.slug] || [])
+          .map(addOnId => {
+            const addOn = item.addOns?.find((a: any) => a.id === addOnId);
+            return addOn ? { id: addOn.id, name: addOn.name, price: addOn.price } : null;
+          })
+          .filter(Boolean);
+
+        const bodyForApi = {
           packageSlug: item.slug,
           packageName: item.name,
           period: item.period || '/month',
           pricePerPeriod: itemPrice,
-          nextBillingDate: nextBillingDate.toISOString(),
           paymentMethod: selectedPaymentMethod.type,
-          paymentBrand: selectedPaymentMethod.brand || '',
           discountCode: appliedDiscountCode?.code || null,
-          originalPrice: item.basePrice || itemPrice,
+          addOns: selectedAddOnsForItem, // Gửi thông tin add-ons đã chọn
         };
 
-        console.log('📤 [Complete Order] Sending subscription request...', body.packageSlug);
-
+        console.log('📤 [Complete Order] Sending subscription request...', bodyForApi.packageSlug);
         const res = await axios.post(
           `${API_BASE_URL}/api/subscriptions`,
-          body,
+          bodyForApi,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -654,18 +708,56 @@ const CheckoutScreen = () => {
                     £{itemFinalPrice.toFixed(2)}
                   </Text>
                 </View>
+
+                {/* Add-ons for this item */}
+                {item.addOns && item.addOns.length > 0 && (
+                  <View style={checkoutStyles.addOnsContainer}>
+                    <Text style={checkoutStyles.addOnsTitle}>Available Add-ons</Text>
+                    {item.addOns.map((addOn: any) => {
+                      const isSelected = (selectedAddOns[item.slug] || []).includes(addOn.id);
+                      return (
+                        <Pressable 
+                          key={addOn.id} 
+                          style={checkoutStyles.addOnRow}
+                          onPress={() => handleToggleAddOn(item.slug, addOn.id)}
+                        >
+                          <View style={checkoutStyles.addOnInfo}>
+                            <Ionicons
+                              name={isSelected ? 'checkbox' : 'square-outline'}
+                              size={22}
+                              color={isSelected ? '#8B5CF6' : '#9CA3AF'}
+                            />
+                            <View>
+                              <Text style={checkoutStyles.addOnName}>{addOn.name}</Text>
+                              <Text style={checkoutStyles.addOnDescription}>{addOn.description}</Text>
+                            </View>
+                          </View>
+                          <Text style={checkoutStyles.addOnPrice}>+£{addOn.price.toFixed(2)}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             );
           })}
 
-          {/* Combined discount coming from every package */}
-          {packageDiscountAmount > 0 && (
+          {/* Add-ons total */}
+          {addOnsTotal > 0 && (
             <View style={checkoutStyles.rowBetween}>
-              <Text style={checkoutStyles.discountLabel}>
-                Package Discounts
+              <Text style={checkoutStyles.addOnsLabel}>Add-ons</Text>
+              <Text style={checkoutStyles.addOnsValue}>
+                +£{addOnsTotal.toFixed(2)}
               </Text>
-              <Text style={checkoutStyles.discountValue}>
-                -£{packageDiscountAmount.toFixed(2)}
+            </View>
+          )}
+
+          {/* Subtotal before discount code */}
+          {(packageDiscountAmount > 0 || addOnsTotal > 0) && (
+            <View style={[checkoutStyles.rowBetween, { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#F3F4F6' }]}>
+              <Text style={checkoutStyles.subtotalLabel}>Subtotal</Text>
+              <Text style={checkoutStyles.subtotalValue}>
+                £{priceBeforeCodeDiscount.toFixed(2)}
               </Text>
             </View>
           )}
@@ -1101,6 +1193,15 @@ const checkoutStyles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
+  addOnsLabel: {
+    fontSize: 13,
+    color: '#4B5563',
+  },
+  addOnsValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
   discountLabel: {
     fontSize: 13,
     color: "#10B981",
@@ -1108,6 +1209,16 @@ const checkoutStyles = StyleSheet.create({
   discountValue: {
     fontSize: 13,
     color: "#10B981",
+  },
+  subtotalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  subtotalValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
   },
   totalLabel: {
     fontSize: 15,
@@ -1360,7 +1471,46 @@ const checkoutStyles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
   },
+  addOnsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  addOnsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+    marginBottom: 8,
+  },
+  addOnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  addOnInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+    gap: 12,
+  },
+  addOnName: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  addOnDescription: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  addOnPrice: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
 });
 
 export default CheckoutScreen;
-
