@@ -109,7 +109,7 @@ const LoginScreen: React.FC = () => {
                 <Ionicons
                   name={rememberMe ? 'checkbox' : 'square-outline'}
                   size={24}
-                  color={rememberMe ? '#818CF8' : '#9CA3AF'}
+                  color={rememberMe ? '#A855F7' : '#9CA3AF'}
                 />
                 <Text style={styles.rememberMeText}>Remember me</Text>
               </TouchableOpacity>

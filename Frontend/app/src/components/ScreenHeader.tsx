@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, StyleProp } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { colors, spacing, radius } from "../styles/theme";
@@ -22,6 +23,7 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   showBackButton = true,
 }) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const handleBackPress = () => {
     if (onBackPress) {
@@ -32,31 +34,34 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   };
 
   return (
-    <View style={[styles.container, containerStyle]}>
-      {showBackButton ? (
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBackPress}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="chevron-back" size={22} color={colors.headerText} />
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.placeholder} />
-      )}
+    <View style={{ backgroundColor: colors.headerBackground }}>
+      <View style={{ height: insets.top, backgroundColor: colors.headerBackground }} />
+      <View style={[styles.container, containerStyle]}>
+        {showBackButton ? (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBackPress}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="chevron-back" size={22} color={colors.headerText} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.placeholder} />
+        )}
 
-      <View style={styles.textContainer}>
-        <Text style={styles.title} numberOfLines={2}>
-          {title}
-        </Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <View style={styles.textContainer}>
+          <Text style={styles.title} numberOfLines={2}>
+            {title}
+          </Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        </View>
+
+        {rightSlot ? (
+          <View style={styles.rightSlot}>{rightSlot}</View>
+        ) : (
+          <View style={styles.placeholder} />
+        )}
       </View>
-
-      {rightSlot ? (
-        <View style={styles.rightSlot}>{rightSlot}</View>
-      ) : (
-        <View style={styles.placeholder} />
-      )}
     </View>
   );
 };
@@ -64,8 +69,8 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.headerBackground,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
     paddingHorizontal: spacing.xl,
     flexDirection: "row",
     alignItems: "center",

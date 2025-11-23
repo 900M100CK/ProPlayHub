@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import apiClient from '../api/axiosConfig'; // Use the preconfigured apiClient
+import apiClient, { setApiToken } from '../api/axiosConfig'; // Use the preconfigured apiClient
 import axios from 'axios'; // Keep axios for isAxiosError checks
 import { z } from 'zod';
 import { showGlobalToast } from '../components/toastService';
@@ -61,7 +61,8 @@ type AuthState = {
   login: () => Promise<void>;
   register: () => Promise<void>;
   logout: () => Promise<void>; // Logout action
-  sendPasswordResetEmail: () => Promise<void>; // Forgot-password action
+  sendPasswordResetEmail: () => Promise<boolean>; // Forgot-password action
+  resetPasswordWithOTP: (email: string, otp: string, newPassword: string) => Promise<void>;
   resetAuthForms: () => void;
 };
 
@@ -159,13 +160,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Keep the accessToken so the session survives reloads
       if (data.accessToken) {
         await AsyncStorage.setItem('accessToken', data.accessToken);
+        setApiToken(data.accessToken);
       }
       if (data.user) {
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
       }
 
       // Mirror the token inside axios defaults
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+      setApiToken(data.accessToken);
 
       set({ user: data.user, accessToken: data.accessToken, errorMessage: null });
 
@@ -236,13 +238,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Keep the accessToken so the session survives reloads
       if (data.accessToken) {
         await AsyncStorage.setItem('accessToken', data.accessToken);
+        setApiToken(data.accessToken);
       }
       if (data.user) {
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
       }
 
       // Mirror the token in axios
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+      setApiToken(data.accessToken);
 
       set({ 
         user: data.user, 
@@ -284,7 +287,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: async () => {
+  logout: async (): Promise<void> => {
     try {
       // Try calling the logout API (optional, non-blocking if it fails)
       try {
@@ -306,7 +309,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await AsyncStorage.removeItem('rememberedPassword'); // Remove stored password on logout
       
       // Clear apiClient headers
-      apiClient.defaults.headers.common['Authorization'] = '';
+      setApiToken(null);
       
       // Reset store state
       set({ 
@@ -329,14 +332,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Even if there's an error, clear state and navigate
       AsyncStorage.multiRemove(['accessToken', 'user', 'rememberedEmail', 'rememberedPassword']).catch(() => {});
       set({ user: null, accessToken: null });
-      apiClient.defaults.headers.common['Authorization'] = '';
+      setApiToken(null);
       setTimeout(() => {
         router.replace('./login');
       }, 100);
     }
   },
 
-  sendPasswordResetEmail: async () => {
+  sendPasswordResetEmail: async (): Promise<boolean> => {
     const { email } = get();
 
     // 1. Reset messages
@@ -347,7 +350,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!validationResult.success) {
       const firstError = validationResult.error.issues[0].message;
       set({ errorMessage: firstError });
-      return;
+      return false;
     }
 
     // 3. Begin loading
@@ -369,6 +372,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         },
       });
 
+      return true;
+
     } catch (error) {
       console.error('Forgot password error:', error);
       if (axios.isAxiosError(error) && error.response) {
@@ -376,9 +381,43 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else {
         set({ errorMessage: 'Unable to contact the server. Please try again.' });
       }
+      return false;
     } finally {
     // 6. Stop loading
       set({ isLoading: false });
+    }
+  },
+
+  // Action to reset password with OTP
+  resetPasswordWithOTP: async (email, otp, newPassword) => {
+    set({ isLoading: true, errorMessage: null, successMessage: null });
+    try {
+      const response = await apiClient.post('/auth/reset-password', {
+        email,
+        otp,
+        newPassword,
+      });
+
+      set({
+        isLoading: false,
+        successMessage: response.data.message || 'Mật khẩu đã được đặt lại thành công!',
+        errorMessage: null,
+      });
+
+      // Tự động điều hướng người dùng đến trang đăng nhập sau một khoảng thời gian
+      setTimeout(() => {
+        // Giả sử bạn đang dùng expo-router
+        // import { router } from 'expo-router';
+        // router.replace('./login');
+      }, 3000);
+
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Đã xảy ra lỗi. Vui lòng thử lại.';
+      set({
+        isLoading: false,
+        errorMessage: message,
+        successMessage: null,
+      });
     }
   },
 }));

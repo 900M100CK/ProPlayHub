@@ -5,11 +5,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCartStore } from '../stores/cartStore';
@@ -405,6 +405,7 @@ const cartStyles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+    paddingBottom: 85,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },

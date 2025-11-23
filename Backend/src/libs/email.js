@@ -139,3 +139,61 @@ export const sendPasswordResetOTP = async (to, name, otp) => {
     throw new Error('Could not send password reset OTP email.');
   }
 };
+
+// 7. Hóa đơn thanh toán Subscription
+
+// Tạo HTML cho email hóa đơn
+const createSubscriptionReceiptEmailHTML = (name, subscription) => {
+  const startedAt = subscription.startedAt
+    ? new Date(subscription.startedAt).toLocaleString('en-GB')
+    : 'N/A';
+
+  const nextBillingDate = subscription.nextBillingDate
+    ? new Date(subscription.nextBillingDate).toLocaleDateString('en-GB')
+    : 'N/A';
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 640px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+      <h2 style="color: #4f46e5;">ProPlayHub Subscription Receipt</h2>
+      <p>Hi ${name},</p>
+      <p>Thank you for your payment. Below are the details of your subscription:</p>
+
+      <div style="background: #f9fafb; padding: 12px 16px; border-radius: 6px; margin: 12px 0;">
+        <p><strong>Package:</strong> ${subscription.packageName}</p>
+        <p><strong>Package Code:</strong> ${subscription.packageSlug}</p>
+        <p><strong>Price:</strong> £${subscription.pricePerPeriod.toFixed(2)} ${subscription.period}</p>
+        <p><strong>Status:</strong> ${subscription.status}</p>
+        <p><strong>Started At:</strong> ${startedAt}</p>
+        <p><strong>Next Billing Date:</strong> ${nextBillingDate}</p>
+      </div>
+
+      <p style="margin-top: 12px;">
+        This is your official receipt confirming the payment for your ProPlayHub subscription.
+        Please keep this email as proof of payment.
+      </p>
+
+      <hr style="margin: 20px 0;" />
+
+      <p>If you have any questions or disputes about this transaction, please contact the ProPlayHub support team.</p>
+      <p>Best regards,<br/>ProPlayHub Team</p>
+    </div>
+  `;
+};
+
+// Send subscription receipt email
+export const sendSubscriptionReceiptEmail = async (to, name, subscription) => {
+  const mailOptions = {
+    from: `"ProPlayHub" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+    to,
+    subject: `Your ProPlayHub Subscription Receipt – ${subscription.packageName}`,
+    html: createSubscriptionReceiptEmailHTML(name, subscription),
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Subscription receipt email sent successfully to ${to}`);
+  } catch (error) {
+    console.error('Error sending subscription receipt email:', error);
+    // Do not throw to avoid failing payment flow due to email issues
+  }
+};

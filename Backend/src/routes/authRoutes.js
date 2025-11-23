@@ -1,5 +1,5 @@
 import express from "express";
-import { register, login, completeProfile, verifyEmail, getCurrentUser, updateProfile, logout} from "../controllers/authControllers.js";
+import { register, login, completeProfile, verifyEmail, getCurrentUser, updateProfile, logout, forgotPassword, resetPassword} from "../controllers/authControllers.js";
 import auth from '../middlewares/auth.js';
 
 
@@ -10,6 +10,10 @@ router.post("/register", register);
 router.post("/login", login);
 
 router.post("/verify-email", verifyEmail);
+
+router.post("/forgot-password", forgotPassword);
+
+router.post("/reset-password", resetPassword);
 
 // Protected routes - require authentication
 router.get("/me", auth, getCurrentUser);

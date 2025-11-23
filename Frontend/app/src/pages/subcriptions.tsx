@@ -1,7 +1,6 @@
 // app/src/pages/subscriptions.tsx
 import React, { useEffect, useState } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   StatusBar,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenHeader from "../components/ScreenHeader";
 import { useAuthStore } from "../stores/authStore";

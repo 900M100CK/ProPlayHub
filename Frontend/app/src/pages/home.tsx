@@ -3,7 +3,7 @@
 // Home Dashboard Screen
 // ============================================
 import React, { useState, useEffect } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, usePathname } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../stores/authStore";
 
@@ -13,14 +13,16 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useCartStore } from "../stores/cartStore";
+import { useNotificationsStore } from "../stores/notificationsStore";
 import { API_BASE_URL } from "../utils/apiConfig";
+import { spacing } from "../styles/theme";
 
 // Kiểu dữ liệu gói dịch vụ
 type SubscriptionPackage = {
@@ -63,9 +65,11 @@ const HomeScreen = () => {
   const [username, setUsername] = useState<string>("Player");
 
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuthStore();
   const { items: cartItems, loadCartFromStorage } = useCartStore();
   const cartItemCount = cartItems.length;
+  const { unreadCount, loadFromStorage: loadNotifications } = useNotificationsStore();
 
   // Load user info for welcome message
   useEffect(() => {
@@ -103,6 +107,10 @@ const HomeScreen = () => {
   useEffect(() => {
     loadCartFromStorage();
   }, [loadCartFromStorage]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
 
   // Fetch toàn bộ packages từ backend
   useEffect(() => {
@@ -195,12 +203,24 @@ const HomeScreen = () => {
               />
             </TouchableOpacity>
 
-            <TouchableOpacity style={homeStyles.headerIconButton}>
-              <Ionicons
-                name="notifications-outline"
-                size={24}
-                color="#FFFFFF"
-              />
+            <TouchableOpacity
+              style={homeStyles.headerIconButton}
+              onPress={() => router.push("./notifications")}
+            >
+              <View style={homeStyles.badgeWrapper}>
+                <Ionicons
+                  name="notifications-outline"
+                  size={24}
+                  color="#FFFFFF"
+                />
+                {unreadCount > 0 && (
+                  <View style={homeStyles.notificationBadge}>
+                    <Text style={homeStyles.notificationBadgeText}>
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
 
             {/* Profile icon */}
@@ -251,7 +271,7 @@ const HomeScreen = () => {
       {/* Nội dung */}
       {loading ? (
         <View style={homeStyles.loadingContainer}>
-          <ActivityIndicator size="large" color="#818CF8" />
+          <ActivityIndicator size="large" color="#A855F7" />
         </View>
       ) : error ? (
         <View style={homeStyles.loadingContainer}>
@@ -451,37 +471,6 @@ const HomeScreen = () => {
           )}
         </ScrollView>
       )}
-
-      {/* Bottom Navigation */}
-      <View style={homeStyles.bottomNav}>
-        <TouchableOpacity
-          style={homeStyles.navItem}
-          onPress={() => router.push("./home")}
-        >
-          <Ionicons name="home" size={24} color="#A855F7" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={homeStyles.navItem}
-          onPress={() => router.push("./subscriptions")}
-        >
-          <Ionicons name="receipt-outline" size={24} color="#9CA3AF" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={homeStyles.navItem}
-          onPress={() => router.push('./cart')}
-        >
-          <View style={homeStyles.cartIconContainer}>
-            <Ionicons name="cart-outline" size={24} color="#9CA3AF" />
-            {cartItemCount > 0 && (
-              <View style={homeStyles.cartBadge}>
-                <Text style={homeStyles.cartBadgeText}>
-                  {cartItemCount > 99 ? '99+' : cartItemCount}
-                </Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -492,9 +481,9 @@ const homeStyles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
   },
   header: {
-    backgroundColor: "#818CF8",
+    backgroundColor: "#A855F7",
     paddingHorizontal: 16,
-    paddingTop: 50,
+    paddingTop: spacing.xl,
     paddingBottom: 20,
   },
   headerContent: {
@@ -515,6 +504,28 @@ const homeStyles = StyleSheet.create({
   headerIconButton: {
     padding: 4,
     marginLeft: 12,
+  },
+  badgeWrapper: {
+    position: "relative",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "rgba(16,24,40,0.3)",
+  },
+  notificationBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
   },
   searchContainer: {
     flexDirection: "row",
@@ -563,7 +574,7 @@ const homeStyles = StyleSheet.create({
   },
   retryButton: {
     marginTop: 20,
-    backgroundColor: "#818CF8",
+    backgroundColor: "#A855F7",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -609,7 +620,7 @@ const homeStyles = StyleSheet.create({
   },
   seasonalBadge: {
     position: "absolute",
-    top: 10,
+    top: 20,
     right: 10,
     backgroundColor: "#D1FAE5",
     paddingHorizontal: 8,
@@ -630,7 +641,7 @@ const homeStyles = StyleSheet.create({
   seasonalType: {
     fontSize: 13,
     color: "#FDE68A",
-    marginBottom: 12,
+    marginBottom: 20,
   },
   priceRow: {
     flexDirection: "row",
@@ -685,10 +696,10 @@ const homeStyles = StyleSheet.create({
   packageTypeSmall: {
     fontSize: 12,
     color: "#6B7280",
-    marginBottom: 4,
+    marginBottom: 20,
   },
   viewButton: {
-    backgroundColor: "#818CF8",
+    backgroundColor: "#A855F7",
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 8,
@@ -754,7 +765,7 @@ const homeStyles = StyleSheet.create({
   },
   clearSearchButton: {
     marginTop: 24,
-    backgroundColor: "#818CF8",
+    backgroundColor: "#A855F7",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,

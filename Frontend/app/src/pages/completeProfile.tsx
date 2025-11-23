@@ -39,7 +39,7 @@ const CompleteProfileScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#111827' },
   inner: { flex: 1, justifyContent: 'center', padding: 20 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#818CF8', textAlign: 'center', marginBottom: 10 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#A855F7', textAlign: 'center', marginBottom: 10 },
   subtitle: { fontSize: 16, color: '#9CA3AF', textAlign: 'center', marginBottom: 30 },
 });
 

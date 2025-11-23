@@ -10,80 +10,78 @@ import cors from "cors";
 import connectDB from "./libs/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import Message from "./models/Message.js";
-
-//home page package routes
-import packageRoutes from "./routes/packageRoutes.js"; 
+import packageRoutes from "./routes/packageRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import discountRoutes from "./routes/discountRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ===== PATH CHUẨN ĐỂ SERVE /public =====
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ===== MIDDLEWARE =====
 app.use(cors());
 app.use(express.json());
-
-// Serve static cho staff.html (đặt staff.html trong src/public)
 app.use(express.static(path.join(__dirname, "public")));
 
-// Routes auth
 app.use("/api/auth", authRoutes);
-
-// Routes package
 app.use("/api/packages", packageRoutes);
-
-// Routes subscriptions
 app.use("/api/subscriptions", subscriptionRoutes);
-
-// Routes discounts
 app.use("/api/discounts", discountRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/notifications", notificationRoutes);
 
-
-// Test route
 app.get("/", (req, res) => {
-  res.json({ status: "Live chat server running 🚀" });
+  res.json({ status: "Live chat server running" });
 });
 
-
 // =====================================================
-//  API: LẤY DANH SÁCH ROOM (GROUP THEO roomId = userId)
+//  API: List chat rooms (grouped by roomId = userId)
 // =====================================================
 app.get("/api/chat/rooms", async (req, res) => {
   try {
-    // lấy tất cả message, mới -> cũ
     const msgs = await Message.find().sort({ createdAt: -1 }).lean();
 
-    // map roomId -> message mới nhất
-    const map = new Map();
+    // Build per-room summary: last message + display name of user
+    const roomInfo = new Map();
     for (const m of msgs) {
-      if (!map.has(m.roomId)) {
-        map.set(m.roomId, m);
+      const rid = String(m.roomId);
+      const existing = roomInfo.get(rid);
+      if (!existing) {
+        roomInfo.set(rid, {
+          roomId: rid,
+          lastMessageAt: m.createdAt,
+          lastMessageText: m.text,
+          lastUserId: m.userId,
+          lastUsername: m.username,
+          displayName: m.userId !== "staff_001" ? m.username || m.userId : null,
+        });
+      } else {
+        if (!existing.displayName && m.userId !== "staff_001") {
+          existing.displayName = m.username || m.userId;
+        }
       }
     }
 
-    const rooms = Array.from(map.values()).map((m) => ({
-      roomId: m.roomId,
-      lastMessageAt: m.createdAt,
-      lastMessageText: m.text,
-      lastUserId: m.userId,
-      lastUsername: m.username,
+    const rooms = Array.from(roomInfo.values()).map((r) => ({
+      ...r,
+      isWaiting: r.lastUserId !== "staff_001",
+      displayName: r.displayName || r.lastUsername || r.roomId,
     }));
 
     res.json(rooms);
   } catch (err) {
-    console.error("❌ /api/chat/rooms error:", err);
+    console.error("/api/chat/rooms error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
 // =====================================================
-//  API: XOÁ CẢ ROOM (XOÁ TẤT CẢ MSG CÓ roomId ĐÓ)
+//  API: Delete all messages of a room
 // =====================================================
 app.delete("/api/chat/rooms/:roomId", async (req, res) => {
   try {
@@ -93,18 +91,14 @@ app.delete("/api/chat/rooms/:roomId", async (req, res) => {
     }
 
     const result = await Message.deleteMany({ roomId: String(roomId) });
-    console.log("🗑 Deleted room", roomId, "count =", result.deletedCount);
-
-    // (Optional) bắn event cho các client đang trong room đó nếu muốn
-    // io.to(roomId).emit("chat:roomDeleted", { roomId });
+    console.log("Deleted room", roomId, "count =", result.deletedCount);
 
     res.json({ ok: true, deletedCount: result.deletedCount });
   } catch (err) {
-    console.error("❌ DELETE /api/chat/rooms error:", err);
+    console.error("DELETE /api/chat/rooms error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
-
 
 // =====================================================
 // SOCKET.IO
@@ -118,41 +112,68 @@ const io = new SocketIOServer(server, {
   },
 });
 
-io.on("connection", (socket) => {
-  console.log("🔌 New client connected:", socket.id);
+// Helper: get paginated messages newest -> older
+const PAGE_SIZE = 20;
 
-  // JOIN ROOM – mỗi user là 1 room (roomId = userId)
+app.get("/api/chat/messages", async (req, res) => {
+  try {
+    const { roomId, before, limit } = req.query;
+    if (!roomId) {
+      return res.status(400).json({ error: "Missing roomId" });
+    }
+    const lim = Math.min(parseInt(limit, 10) || PAGE_SIZE, 100);
+    const query = { roomId: String(roomId) };
+    if (before) {
+      const b = new Date(String(before));
+      if (!Number.isNaN(b.getTime())) {
+        query.createdAt = { $lt: b };
+      }
+    }
+    const msgs = await Message.find(query).sort({ createdAt: -1 }).limit(lim).lean();
+    res.json({ messages: msgs });
+  } catch (err) {
+    console.error("/api/chat/messages error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+io.on("connection", (socket) => {
+  console.log("New client connected:", socket.id);
+
+  // Join room (roomId = userId)
   socket.on("join", async ({ roomId, userId, username }) => {
     try {
       const rid = String(roomId || userId || "");
       if (!rid) return;
 
       socket.join(rid);
-      console.log(`👤 ${username || userId} joined room: ${rid}`);
+      console.log(`${username || userId} joined room: ${rid}`);
 
-      // Lấy lịch sử tin nhắn của room đó
+      // send full history (newest -> oldest then reverse to oldest -> newest for UI)
       const history = await Message.find({ roomId: rid })
-        .sort({ createdAt: 1 })
+        .sort({ createdAt: -1 })
         .limit(200)
         .lean();
 
       socket.emit(
         "chat:history",
-        history.map((m) => ({
+        history
+          .reverse()
+          .map((m) => ({
           id: m._id.toString(),
           roomId: m.roomId,
           text: m.text,
           userId: m.userId,
           username: m.username,
           createdAt: m.createdAt,
-        }))
+          }))
       );
     } catch (err) {
-      console.error("❌ join error:", err);
+      console.error("join error:", err);
     }
   });
 
-  // NHẬN TIN NHẮN TỪ APP / STAFF
+  // Receive message from app / staff
   socket.on("chat:message", async (payload, callback) => {
     try {
       const { roomId, text, userId, username } = payload || {};
@@ -179,18 +200,17 @@ io.on("connection", (socket) => {
         createdAt: msg.createdAt,
       };
 
-      // gửi cho tất cả client trong room (app + staff)
       io.to(rid).emit("chat:message", msgData);
 
       callback && callback({ ok: true });
     } catch (err) {
-      console.error("❌ chat:message error:", err);
+      console.error("chat:message error:", err);
       callback && callback({ ok: false, error: err.message });
     }
   });
 
   socket.on("disconnect", () => {
-    console.log("🔌 Client disconnected:", socket.id);
+    console.log("Client disconnected:", socket.id);
   });
 });
 
@@ -199,13 +219,13 @@ io.on("connection", (socket) => {
 // =====================================================
 connectDB()
   .then(() => {
-    console.log("✅ MongoDB connected successfully");
+    console.log("MongoDB connected successfully");
     server.listen(PORT, () => {
-      console.log(`🚀 Server is running on http://localhost:${PORT}`);
-      console.log(`🧑‍💼 Staff UI: http://localhost:${PORT}/staff.html`);
+      console.log(`Server is running on http://localhost:${PORT}`);
+      console.log(`Staff UI: http://localhost:${PORT}/staff.html`);
     });
   })
   .catch((err) => {
-    console.error("❌ MongoDB connection error:", err);
+    console.error("MongoDB connection error:", err);
     process.exit(1);
   });

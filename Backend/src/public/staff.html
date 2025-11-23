@@ -1,39 +1,58 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Staff Live Chat</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <style>
-      * {
-        box-sizing: border-box;
+      :root {
+        --bg: #f3f4f6;
+        --panel: #ffffff;
+        --panel-2: #f8fafc;
+        --primary: #a855f7;
+        --primary-2: #8b5cf6;
+        --accent: #f97316;
+        --text: #111827;
+        --muted: #4b5563;
+        --border: #e5e7eb;
+        --danger: #ef4444;
+        --success: #16a34a;
       }
+
+      * { box-sizing: border-box; }
 
       body {
         margin: 0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        background: #0f172a;
-        color: #e5e7eb;
+        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+        background: radial-gradient(circle at 12% 18%, rgba(168, 85, 247, 0.08), transparent 28%),
+          radial-gradient(circle at 86% 8%, rgba(249, 115, 22, 0.07), transparent 24%),
+          var(--bg);
+        color: var(--text);
         display: flex;
         flex-direction: column;
         height: 100vh;
       }
 
       header {
-        padding: 12px 16px;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #020617;
+        background: linear-gradient(135deg, var(--primary), var(--primary-2));
+        color: #fff;
+        box-shadow: 0 8px 24px rgba(168, 85, 247, 0.18);
       }
 
       header h1 {
         margin: 0;
         font-size: 18px;
-        font-weight: 700;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #fff;
       }
 
       .status {
@@ -41,106 +60,120 @@
         align-items: center;
         gap: 6px;
         font-size: 12px;
-        color: #9ca3af;
+        color: #f8fafc;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.12);
       }
 
       .dot {
-        width: 8px;
-        height: 8px;
+        width: 10px;
+        height: 10px;
         border-radius: 999px;
-        background: #ef4444;
+        background: var(--danger);
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.18);
       }
 
       main {
         flex: 1;
         display: flex;
         min-height: 0;
+        gap: 10px;
+        padding: 10px;
       }
 
       /* LEFT: ROOM LIST */
-
       aside#rooms-panel {
-        width: 280px;
-        border-right: 1px solid rgba(148, 163, 184, 0.4);
-        background: #020617;
+        width: 320px;
+        border: 1px solid var(--border);
+        background: var(--panel);
         display: flex;
         flex-direction: column;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 12px 32px rgba(17, 24, 39, 0.06);
       }
 
       .rooms-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 12px;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel-2);
       }
 
       .rooms-header h2 {
         font-size: 14px;
         margin: 0;
-        color: #e5e7eb;
+        color: var(--text);
+        letter-spacing: 0.2px;
       }
 
       #refresh-rooms {
-        border: none;
-        background: #111827;
-        color: #e5e7eb;
-        padding: 4px 8px;
-        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        padding: 6px 10px;
+        border-radius: 10px;
         font-size: 12px;
         cursor: pointer;
+        transition: all 0.15s ease;
       }
 
-      #room-list {
-        flex: 1;
-        overflow-y: auto;
+      #refresh-rooms:hover { transform: translateY(-1px); border-color: rgba(168, 85, 247, 0.5); }
+
+      #room-list { flex: 1; overflow-y: auto; }
+
+      .room-section-title {
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        background: #f3f4f6;
+        border-bottom: 1px solid var(--border);
       }
 
       .room-item {
-        padding: 8px 10px;
-        border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
         cursor: pointer;
         display: flex;
         flex-direction: column;
         gap: 2px;
+        transition: background 0.15s ease;
       }
 
-      .room-item:hover {
-        background: #111827;
-      }
+      .room-item:hover { background: #f3f4f6; }
 
       .room-item.active {
-        background: #1d2435;
+        background: linear-gradient(90deg, rgba(168, 85, 247, 0.15), rgba(139, 92, 246, 0.12));
+        border-left: 2px solid var(--primary);
+        padding-left: 10px;
       }
 
-      .room-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: #e5e7eb;
+      .room-item.waiting {
+        background: rgba(255, 0, 0, 0.2);
       }
 
-      .room-sub {
-        font-size: 11px;
-        color: #9ca3af;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .room-meta {
-        font-size: 10px;
-        color: #6b7280;
-        margin-top: 2px;
-      }
+      .room-title { font-size: 13px; font-weight: 700; color: var(--text); }
+      .room-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .room-meta { font-size: 11px; color: #6b7280; margin-top: 2px; }
 
       /* RIGHT: CHAT PANEL */
-
       section#chat-panel {
         flex: 1;
         display: flex;
         flex-direction: column;
-        padding: 8px 12px;
+        padding: 10px 12px;
         min-width: 0;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--panel);
+        box-shadow: 0 12px 32px rgba(17, 24, 39, 0.06);
       }
 
       #chat-header {
@@ -148,168 +181,130 @@
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
       }
 
-      #current-room-label {
-        font-size: 13px;
-        color: #9ca3af;
-      }
+      #current-room-label { font-size: 13px; color: var(--muted); }
 
       #delete-room-btn {
-        border: none;
-        background: #b91c1c;
-        color: #fee2e2;
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        background: rgba(239, 68, 68, 0.1);
+        color: #ff001e;
         font-size: 12px;
-        padding: 4px 10px;
-        border-radius: 999px;
+        padding: 6px 12px;
+        border-radius: 10px;
         cursor: pointer;
+        transition: all 0.15s ease;
       }
 
-      #delete-room-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
+      #delete-room-btn:hover:enabled { background: rgba(239, 68, 68, 0.2); transform: translateY(-1px); }
+      #delete-room-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
       #messages {
         flex: 1;
         overflow-y: auto;
-        background: #020617;
+        background: var(--panel-2);
         border-radius: 12px;
-        padding: 8px;
-        border: 1px solid rgba(148, 163, 184, 0.4);
-        margin-bottom: 8px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        margin-bottom: 10px;
       }
 
-      .msg-row {
-        display: flex;
-        margin-bottom: 6px;
-      }
-
-      .msg-self {
-        justify-content: flex-end;
-      }
-
-      .msg-other {
-        justify-content: flex-start;
-      }
+      .msg-row { display: flex; margin-bottom: 8px; }
+      .msg-self { justify-content: flex-end; }
+      .msg-other { justify-content: flex-start; }
 
       .bubble {
-        max-width: 70%;
-        padding: 8px 10px;
-        border-radius: 12px;
+        max-width: 72%;
+        padding: 8px 12px;
+        border-radius: 14px;
         font-size: 14px;
-        line-height: 1.4;
+        line-height: 1.45;
+        position: relative;
       }
 
-      .bubble-self {
-        background: #4f46e5;
-        color: #eef2ff;
-        border-bottom-right-radius: 2px;
-      }
+      .bubble-self { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fdfdff; border-bottom-right-radius: 4px; }
+      .bubble-other { background: #f8fafc; color: var(--text); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
 
-      .bubble-other {
-        background: #111827;
-        color: #e5e7eb;
-        border-bottom-left-radius: 2px;
-        border: 1px solid rgba(75, 85, 99, 0.8);
-      }
+      .username { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+      .time { font-size: 11px; color: #9ca3af; margin-top: 4px; display: block; }
 
-      .username {
-        font-size: 11px;
-        color: #9ca3af;
-        margin-bottom: 2px;
-      }
-
-      form#send-form {
-        display: flex;
-        gap: 8px;
-        padding: 4px 0;
-      }
+      form#send-form { display: flex; gap: 10px; padding: 4px 0; }
 
       #message-input {
         flex: 1;
-        padding: 8px 10px;
-        border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.5);
-        background: #020617;
-        color: #e5e7eb;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #ffffff;
+        color: var(--text);
       }
 
-      #message-input:focus {
-        outline: none;
-        border-color: #6366f1;
-      }
+      #message-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.16); }
 
       #send-btn {
-        padding: 8px 16px;
-        border-radius: 999px;
+        padding: 10px 16px;
+        border-radius: 12px;
         border: none;
-        background: #4f46e5;
+        background: linear-gradient(135deg, var(--primary), var(--primary-2));
         color: #f9fafb;
-        font-weight: 600;
+        font-weight: 700;
         cursor: pointer;
+        letter-spacing: 0.2px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
 
-      #send-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
+      #send-btn:hover:enabled { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(168, 85, 247, 0.18); }
+      #send-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
-      .empty-state {
-        font-size: 13px;
-        color: #6b7280;
-        text-align: center;
-        margin-top: 40px;
-      }
+      .empty-state { font-size: 13px; color: var(--muted); text-align: center; margin-top: 30px; }
 
+      @media (max-width: 1024px) { aside#rooms-panel { width: 260px; } }
       @media (max-width: 768px) {
-        aside#rooms-panel {
-          width: 200px;
-        }
+        main { flex-direction: column; }
+        aside#rooms-panel { width: 100%; max-height: 45vh; }
       }
     </style>
   </head>
   <body>
     <header>
-      <h1>Staff Live Chat</h1>
+      <h1>
+        <span style="display:inline-flex;width:12px;height:12px;border-radius:999px;background:linear-gradient(135deg,#60a5fa,#a855f7);box-shadow:0 0 0 8px rgba(96,165,250,0.15);"></span>
+        Staff Live Chat
+      </h1>
       <div class="status">
         <div id="status-dot" class="dot"></div>
-        <span id="status-text">Disconnected</span>
+        <span id="status-text">Checking connection...</span>
       </div>
     </header>
 
     <main>
-      <!-- LEFT: LIST ROOM / USER -->
       <aside id="rooms-panel">
         <div class="rooms-header">
-          <h2>Cuộc hội thoại</h2>
-          <button id="refresh-rooms">↻</button>
+          <h2>Conversations</h2>
+          <button id="refresh-rooms" title="Refresh list">Refresh</button>
         </div>
         <div id="room-list"></div>
       </aside>
 
-      <!-- RIGHT: CHAT PANEL -->
       <section id="chat-panel">
         <div id="chat-header">
-          <div id="current-room-label">
-            Chọn 1 cuộc hội thoại ở bên trái để bắt đầu.
-          </div>
-          <button id="delete-room-btn" disabled>Xoá cuộc trò chuyện</button>
+          <div id="current-room-label">Pick a conversation on the left to start.</div>
+          <button id="delete-room-btn" disabled>Delete conversation</button>
         </div>
 
         <div id="messages">
-          <div class="empty-state">Chưa có tin nhắn nào được hiển thị.</div>
+          <div class="empty-state">No messages to show yet.</div>
         </div>
 
         <form id="send-form">
           <input
             id="message-input"
             type="text"
-            placeholder="Nhập tin nhắn trả lời khách..."
+            placeholder="Type a reply to the user..."
             autocomplete="off"
           />
-          <button type="submit" id="send-btn" disabled>Gửi</button>
+          <button type="submit" id="send-btn" disabled>Send</button>
         </form>
       </section>
     </main>
@@ -338,43 +333,38 @@
       const deleteRoomBtn = document.getElementById("delete-room-btn");
 
       // ===== SOCKET =====
-      socket = io({
-        transports: ["websocket"],
-      });
+      socket = io({ transports: ["websocket"] });
 
       socket.on("connect", () => {
-        statusDot.style.backgroundColor = "#22c55e";
-        statusText.textContent = "Connected";
-        console.log("✅ Socket connected as staff:", socket.id);
+        statusDot.style.backgroundColor = "var(--success)";
+        statusDot.style.boxShadow = "0 0 0 6px rgba(34,197,94,0.14)";
+        statusText.textContent = "Connected (Staff)";
       });
 
       socket.on("connect_error", (err) => {
-        console.error("❌ connect_error:", err.message);
+        console.error("Socket connect_error:", err.message);
+        statusDot.style.backgroundColor = "var(--danger)";
+        statusText.textContent = "Connection lost, retrying...";
       });
 
       socket.on("disconnect", () => {
-        statusDot.style.backgroundColor = "#ef4444";
+        statusDot.style.backgroundColor = "var(--danger)";
+        statusDot.style.boxShadow = "0 0 0 6px rgba(239,68,68,0.12)";
         statusText.textContent = "Disconnected";
-        console.log("⚠️ Socket disconnected");
       });
 
-      // Nhận lịch sử từ server khi join room
       socket.on("chat:history", (history = []) => {
         messagesDiv.innerHTML = "";
         if (!history.length) {
-          messagesDiv.innerHTML =
-            '<div class="empty-state">Chưa có tin nhắn trong room này.</div>';
+          messagesDiv.innerHTML = '<div class="empty-state">No messages in this room yet.</div>';
           return;
         }
         history.forEach(addMessageToUI);
         scrollToBottom();
       });
 
-      // Nhận tin nhắn mới
       socket.on("chat:message", (msg) => {
         if (!msg) return;
-
-        // nếu tin này thuộc room đang mở thì hiển thị
         if (msg.roomId === currentRoomId) {
           if (messagesDiv.querySelector(".empty-state")) {
             messagesDiv.innerHTML = "";
@@ -382,23 +372,28 @@
           addMessageToUI(msg);
           scrollToBottom();
         }
-
-        // update lại danh sách room
         refreshRooms();
       });
 
-      // ===== ROOM LIST =====
+      function setRefreshState(loading) {
+        if (!refreshRoomsBtn) return;
+        refreshRoomsBtn.disabled = loading;
+        refreshRoomsBtn.textContent = loading ? "Refreshing..." : "Refresh";
+      }
+
       async function loadRooms() {
         try {
+          setRefreshState(true);
           const res = await fetch("/api/chat/rooms");
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
-          roomsCache = data;
+          roomsCache = data || [];
           renderRooms();
         } catch (err) {
-          console.error("❌ loadRooms error:", err);
-          roomListDiv.innerHTML =
-            '<div class="empty-state" style="padding: 12px;">Lỗi tải danh sách cuộc hội thoại.</div>';
+          console.error("loadRooms error:", err);
+          roomListDiv.innerHTML = '<div class="empty-state" style="padding: 12px; text-align: left;">Failed to load conversations.</div>';
+        } finally {
+          setRefreshState(false);
         }
       }
 
@@ -406,69 +401,81 @@
         roomListDiv.innerHTML = "";
 
         if (!roomsCache.length) {
-          roomListDiv.innerHTML =
-            '<div class="empty-state" style="padding: 12px; text-align: left;">Chưa có cuộc hội thoại nào.</div>';
+          roomListDiv.innerHTML = '<div class="empty-state" style="padding: 12px; text-align: left;">No conversations yet.</div>';
           resetCurrentRoomUI();
           return;
         }
 
-        roomsCache.forEach((room) => {
-          const item = document.createElement("div");
-          item.className =
-            "room-item" + (room.roomId === currentRoomId ? " active" : "");
-          item.dataset.roomId = room.roomId;
+        const waiting = roomsCache
+          .filter((r) => r.isWaiting ?? r.lastUserId !== "staff_001")
+          .sort((a, b) => new Date(a.lastMessageAt).getTime() - new Date(b.lastMessageAt).getTime());
+        const replied = roomsCache
+          .filter((r) => !(r.isWaiting ?? r.lastUserId !== "staff_001"))
+          .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
 
-          const title = document.createElement("div");
-          title.className = "room-title";
-          title.textContent = room.lastUsername || room.roomId;
+        const buildSection = (title, list) => {
+          if (!list.length) return;
+          const header = document.createElement("div");
+          header.className = "room-section-title";
+          header.textContent = title;
+          roomListDiv.appendChild(header);
 
-          const sub = document.createElement("div");
-          sub.className = "room-sub";
-          sub.textContent = room.lastMessageText || "(no message)";
+          list.forEach((room) => {
+            const displayName = room.displayName || room.userId || room.roomId;
+            const item = document.createElement("div");
+            const waitingClass = (room.isWaiting ?? room.lastUserId !== "staff_001") ? " waiting" : "";
+            item.className = "room-item" + waitingClass + (room.roomId === currentRoomId ? " active" : "");
+            item.dataset.roomId = room.roomId;
 
-          const meta = document.createElement("div");
-          meta.className = "room-meta";
-          const time = room.lastMessageAt
-            ? new Date(room.lastMessageAt).toLocaleString()
-            : "";
-          meta.textContent = room.roomId + (time ? " • " + time : "");
+            const titleEl = document.createElement("div");
+            titleEl.className = "room-title";
+            titleEl.textContent = displayName;
 
-          item.appendChild(title);
-          item.appendChild(sub);
-          item.appendChild(meta);
+            const sub = document.createElement("div");
+            sub.className = "room-sub";
+            sub.textContent = room.lastMessageText || "(No messages yet)";
 
-          item.addEventListener("click", () => {
-            handleSelectRoom(room.roomId, room.lastUsername);
+            const meta = document.createElement("div");
+            meta.className = "room-meta";
+            const time = room.lastMessageAt ? new Date(room.lastMessageAt).toLocaleString() : "No time yet";
+            meta.textContent = `${time}`;
+
+            item.appendChild(titleEl);
+            item.appendChild(sub);
+            item.appendChild(meta);
+
+            item.addEventListener("click", () => {
+              handleSelectRoom(room.roomId, displayName);
+            });
+
+            roomListDiv.appendChild(item);
           });
+        };
 
-          roomListDiv.appendChild(item);
-        });
+        buildSection("Waiting for reply", waiting);
+        buildSection("Replied", replied);
 
-        // Nếu chưa chọn room nào, auto chọn room đầu tiên
         if (!currentRoomId && roomsCache.length > 0) {
-          const first = roomsCache[0];
-          handleSelectRoom(first.roomId, first.lastUsername);
+          const first = waiting[0] || replied[0];
+          const firstDisplay = first.displayName || first.userId || first.roomId;
+          handleSelectRoom(first.roomId, firstDisplay);
         }
       }
 
-      function handleSelectRoom(roomId, lastUsername) {
+      function handleSelectRoom(roomId, displayName) {
         if (!socket || !socket.connected) return;
 
         currentRoomId = roomId;
-        currentRoomName = lastUsername || roomId;
-        currentRoomLabel.textContent = `Đang chat với: ${currentRoomName} (room: ${roomId})`;
+        currentRoomName = displayName || roomId;
+        currentRoomLabel.textContent = `Chatting with: ${currentRoomName} (Room: ${roomId})`;
 
-        // highlight item active
         const items = roomListDiv.querySelectorAll(".room-item");
         items.forEach((el) => {
           el.classList.toggle("active", el.dataset.roomId === roomId);
         });
 
-        // reset nội dung + show loading
-        messagesDiv.innerHTML =
-          '<div class="empty-state">Đang tải lịch sử tin nhắn...</div>';
+        messagesDiv.innerHTML = '<div class="empty-state">Loading chat history...</div>';
 
-        // join room để backend gửi history
         socket.emit("join", {
           roomId,
           userId: STAFF_USER.id,
@@ -482,17 +489,13 @@
       function resetCurrentRoomUI() {
         currentRoomId = "";
         currentRoomName = "";
-        currentRoomLabel.textContent =
-          "Chọn 1 cuộc hội thoại ở bên trái để bắt đầu.";
-        messagesDiv.innerHTML =
-          '<div class="empty-state">Chưa có tin nhắn nào được hiển thị.</div>';
+        currentRoomLabel.textContent = "Pick a conversation on the left to start.";
+        messagesDiv.innerHTML = '<div class="empty-state">No messages to show yet.</div>';
         sendBtn.disabled = true;
         deleteRoomBtn.disabled = true;
       }
 
-      function scrollToBottom() {
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      }
+      function scrollToBottom() { messagesDiv.scrollTop = messagesDiv.scrollHeight; }
 
       function addMessageToUI(msg) {
         const isSelf = msg.userId === STAFF_USER.id;
@@ -501,8 +504,7 @@
         row.className = "msg-row " + (isSelf ? "msg-self" : "msg-other");
 
         const bubble = document.createElement("div");
-        bubble.className =
-          "bubble " + (isSelf ? "bubble-self" : "bubble-other");
+        bubble.className = "bubble " + (isSelf ? "bubble-self" : "bubble-other");
 
         if (!isSelf) {
           const uname = document.createElement("div");
@@ -515,43 +517,39 @@
         textNode.textContent = msg.text;
         bubble.appendChild(textNode);
 
+        const timeNode = document.createElement("span");
+        timeNode.className = "time";
+        timeNode.textContent = new Date(msg.createdAt || Date.now()).toLocaleTimeString();
+        bubble.appendChild(timeNode);
+
         row.appendChild(bubble);
         messagesDiv.appendChild(row);
       }
 
-      // ===== XOÁ CẢ ROOM =====
       deleteRoomBtn.addEventListener("click", async () => {
         if (!currentRoomId) return;
 
-        const ok = confirm(
-          `Bạn có chắc muốn xoá toàn bộ cuộc trò chuyện với "${currentRoomName}" (room: ${currentRoomId})?`
-        );
+        const ok = confirm(`Delete the entire conversation with "${currentRoomName}" (Room: ${currentRoomId})?`);
         if (!ok) return;
 
         try {
-          const res = await fetch(
-            `/api/chat/rooms/${encodeURIComponent(currentRoomId)}`,
-            {
-              method: "DELETE",
-            }
-          );
+          const res = await fetch(`/api/chat/rooms/${encodeURIComponent(currentRoomId)}`, { method: "DELETE" });
 
           if (!res.ok) {
             const errText = await res.text();
-            console.error("❌ lỗi xoá room:", errText);
-            alert("Xoá cuộc trò chuyện thất bại!");
+            console.error("Delete room error:", errText);
+            alert("Failed to delete the conversation.");
             return;
           }
 
           resetCurrentRoomUI();
           refreshRooms();
         } catch (err) {
-          console.error("❌ delete room error:", err);
-          alert("Có lỗi khi xoá cuộc trò chuyện!");
+          console.error("delete room error:", err);
+          alert("Error while deleting conversation.");
         }
       });
 
-      // ===== GỬI TIN NHẮN =====
       sendForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const text = messageInput.value.trim();
@@ -566,19 +564,16 @@
 
         socket.emit("chat:message", payload, (res) => {
           if (!res || !res.ok) {
-            console.error("❌ gửi lỗi:", res && res.error);
+            console.error("Send error:", res && res.error);
           }
         });
 
         messageInput.value = "";
       });
 
-      function refreshRooms() {
-        loadRooms();
-      }
+      function refreshRooms() { loadRooms(); }
       refreshRoomsBtn.addEventListener("click", refreshRooms);
 
-      // load lần đầu + auto refresh
       loadRooms();
       setInterval(refreshRooms, 10000);
     </script>
