@@ -2,6 +2,7 @@
 import express from "express";
 import auth from "../middlewares/auth.js";
 import Subscription from "../models/userSubscription.js";
+import { sendSubscriptionReceiptEmail } from "../libs/email.js"; // 👈 THÊM DÒNG NÀY
 
 const router = express.Router();
 
@@ -16,16 +17,22 @@ const router = express.Router();
  *   pricePerPeriod,
  *   nextBillingDate   (optional, string ISO)
  * }
+ * Lưu ý: Route này nên chỉ được gọi SAU KHI thanh toán thành công (VISACheck OK).
  */
 router.post("/", auth, async (req, res) => {
   try {
-    const { packageSlug, packageName, period, pricePerPeriod, nextBillingDate } =
-      req.body;
+    const {
+      packageSlug,
+      packageName,
+      period,
+      pricePerPeriod,
+      nextBillingDate,
+    } = req.body;
 
     if (!packageSlug || !packageName || !pricePerPeriod) {
-      return res
-        .status(400)
-        .json({ message: "Missing packageSlug / packageName / pricePerPeriod" });
+      return res.status(400).json({
+        message: "Missing packageSlug / packageName / pricePerPeriod",
+      });
     }
 
     // Không cho phép user đăng ký trùng gói nếu subscription vẫn đang active
@@ -37,10 +44,12 @@ router.post("/", auth, async (req, res) => {
 
     if (existingActiveSub) {
       return res.status(409).json({
-        message: "Bạn đã đăng ký gói này rồi. Vui lòng hủy gói hiện tại trước khi đăng ký lại.",
+        message:
+          "Bạn đã đăng ký gói này rồi. Vui lòng hủy gói hiện tại trước khi đăng ký lại.",
       });
     }
 
+    // 1. Tạo subscription mới
     const sub = await Subscription.create({
       userId: req.user._id,
       packageSlug,
@@ -51,53 +60,25 @@ router.post("/", auth, async (req, res) => {
       nextBillingDate: nextBillingDate ? new Date(nextBillingDate) : undefined,
     });
 
+    // 2. Gửi email hóa đơn subscription (không làm fail flow nếu email bị lỗi)
+    try {
+      await sendSubscriptionReceiptEmail(
+        req.user.email,
+        req.user.fullName || req.user.username || "ProPlayHub user",
+        sub
+      );
+    } catch (emailError) {
+      console.error("Error sending subscription receipt email (handled):", emailError);
+      // Không throw tiếp, vì không muốn làm hỏng 201 Created chỉ vì lỗi email
+    }
+
+    // 3. Trả về subscription cho app hiển thị bill
     return res.status(201).json(sub);
   } catch (err) {
     console.error("Create subscription error:", err);
-    return res.status(500).json({ message: "Server error creating subscription" });
-  }
-});
-
-/**
- * DELETE /api/subscriptions/:id
- * Hủy (xóa) subscription của user
- */
-router.delete("/:id", auth, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const subscription = await Subscription.findOne({
-      _id: id,
-      userId: req.user._id,
-    });
-
-    if (!subscription) {
-      return res.status(404).json({ message: "Subscription not found" });
-    }
-
-    await Subscription.deleteOne({ _id: subscription._id });
-
-    return res.json({ message: "Subscription cancelled successfully" });
-  } catch (err) {
-    console.error("Cancel subscription error:", err);
-    return res.status(500).json({ message: "Server error cancelling subscription" });
-  }
-});
-
-/**
- * GET /api/subscriptions/me
- * Lấy tất cả subscription của user hiện tại
- */
-router.get("/me", auth, async (req, res) => {
-  try {
-    const subs = await Subscription.find({ userId: req.user._id }).sort({
-      createdAt: -1,
-    });
-
-    return res.json(subs);
-  } catch (err) {
-    console.error("Get my subscriptions error:", err);
-    return res.status(500).json({ message: "Server error fetching subscriptions" });
+    return res
+      .status(500)
+      .json({ message: "Server error creating subscription" });
   }
 });
 
