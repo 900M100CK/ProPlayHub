@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Easing, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { registerToastHandlers, unregisterToastHandlers } from './toastService';
 
@@ -16,6 +17,7 @@ export type ToastOptions = {
   type?: ToastType;
   duration?: number;
   action?: ToastAction;
+  onPress?: () => void;
   persistent?: boolean; // Nếu true, toast sẽ không tự tắt (dùng cho các alert quan trọng)
 };
 
@@ -35,46 +37,145 @@ const TOAST_COLORS: Record<ToastType, { background: string; icon: string }> = {
 export const ToastProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [toast, setToast] = useState<ToastOptions | null>(null);
   const [visible, setVisible] = useState(false);
-  const translateY = useRef(new Animated.Value(-60)).current;
+  const hiddenOffset = useRef(-60).current;
+  const translateY = useRef(new Animated.Value(hiddenOffset)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visibleRef = useRef(false);
+  const insets = useSafeAreaInsets();
 
-  const hideToast = useCallback(() => {
-    if (!visible) return;
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: -60,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setVisible(false);
-      setToast(null);
-    });
-  }, [opacity, translateY, visible]);
+  const clearHideTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
+
+  const hideToast = useCallback(
+    (options?: { instant?: boolean; swipe?: boolean; to?: number }) => {
+      const instant = options?.instant ?? false;
+      const swipe = options?.swipe ?? false;
+      const toValue = options?.to ?? (swipe ? -140 : hiddenOffset);
+      if (!visibleRef.current) return;
+      clearHideTimeout();
+
+      if (instant) {
+        translateY.setValue(hiddenOffset);
+        opacity.setValue(0);
+        visibleRef.current = false;
+        setVisible(false);
+        setToast(null);
+        return;
+      }
+
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: toValue,
+          duration: swipe ? 160 : 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: swipe ? 160 : 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        visibleRef.current = false;
+        setVisible(false);
+        setToast(null);
+        translateY.setValue(hiddenOffset);
+        opacity.setValue(0);
+      });
+    },
+    [clearHideTimeout, hiddenOffset, opacity, translateY]
+  );
 
   const scheduleHide = useCallback(
     (duration?: number) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      clearHideTimeout();
       if (duration === 0) return;
       timeoutRef.current = setTimeout(() => {
-        hideToast();
+        const offscreenTarget = -Dimensions.get('window').height;
+        hideToast({ swipe: true, to: offscreenTarget });
       }, duration ?? 3000);
     },
-    [hideToast]
+    [clearHideTimeout, hideToast]
   );
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onPanResponderGrant: () => {
+        clearHideTimeout(); // pause auto-hide while touching
+      },
+      // Let simple taps fall through to onPress; only capture after a real move
+      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        visibleRef.current && Math.abs(gestureState.dy) > 3,
+      onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+        visibleRef.current && Math.abs(gestureState.dy) > 3,
+      onPanResponderMove: (_, gestureState) => {
+        if (!visibleRef.current) return;
+        const screenHeight = Dimensions.get('window').height;
+        const dy = gestureState.dy;
+        // Only react to upward pulls; downward drags bounce back but don't move far
+        const clampedDy = Math.min(dy, 30);
+        const resistanceFactor = clampedDy < 0 ? 1 : 1 / (1 + clampedDy / 80);
+        const offset = Math.max(-screenHeight, clampedDy * resistanceFactor);
+        translateY.setValue(offset);
+        const newOpacity = offset < 0
+          ? Math.max(0.05, 1 + offset / (screenHeight * 0.35))
+          : 1;
+        opacity.setValue(newOpacity);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const screenHeight = Dimensions.get('window').height;
+        const draggedUp = gestureState.dy < -1 || gestureState.vy < -0.02;
+        if (draggedUp) {
+          hideToast({ swipe: true, to: -screenHeight });
+          return;
+        }
+        Animated.parallel([
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 140,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          scheduleHide(); // restart auto-hide after touch end
+        });
+      },
+      onPanResponderTerminate: () => {
+        Animated.parallel([
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 140,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          scheduleHide();
+        });
+      },
+    })
+  ).current;
 
   const showToast = useCallback(
     (options: ToastOptions) => {
       const { duration, persistent, action, ...rest } = options;
       setToast({ type: 'info', ...rest, action });
+      visibleRef.current = true;
       setVisible(true);
       Animated.parallel([
         Animated.spring(translateY, {
@@ -118,16 +219,28 @@ export const ToastProvider: React.FC<React.PropsWithChildren> = ({ children }) =
       {children}
       {toast && visible && (
         <Animated.View
-          pointerEvents="box-none"
+          pointerEvents="auto"
           style={[
             styles.toastWrapper,
             {
+              top: 0,
+              paddingTop: insets.top + 12,
               opacity,
               transform: [{ translateY }],
             },
           ]}
+          {...panResponder.panHandlers}
         >
-          <View style={[styles.toastContainer, { backgroundColor: palette.background }]}>
+          <TouchableOpacity
+            activeOpacity={toast?.onPress ? 0.8 : 1}
+            onPress={() => {
+              if (toast?.onPress) {
+                toast.onPress();
+                hideToast();
+              }
+            }}
+            style={[styles.toastContainer, { backgroundColor: palette.background }]}
+          >
             <View style={[styles.iconWrapper, { backgroundColor: palette.icon }]}>
               <Ionicons
                 name={
@@ -142,8 +255,14 @@ export const ToastProvider: React.FC<React.PropsWithChildren> = ({ children }) =
               />
             </View>
             <View style={styles.toastContent}>
-              <Text style={styles.toastTitle}>{toast.title}</Text>
-              {toast.message && <Text style={styles.toastMessage}>{toast.message}</Text>}
+              <Text style={styles.toastTitle} numberOfLines={2} ellipsizeMode="tail">
+                {toast.title}
+              </Text>
+              {toast.message && (
+                <Text style={styles.toastMessage} numberOfLines={2} ellipsizeMode="tail">
+                  {toast.message}
+                </Text>
+              )}
               {toast.action && (
                 <TouchableOpacity
                   onPress={() => {
@@ -156,14 +275,7 @@ export const ToastProvider: React.FC<React.PropsWithChildren> = ({ children }) =
                 </TouchableOpacity>
               )}
             </View>
-            <TouchableOpacity
-              onPress={hideToast}
-              style={styles.closeButton}
-              accessibilityLabel="Close notification"
-            >
-              <Ionicons name="close" size={18} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </Animated.View>
       )}
     </ToastContext.Provider>
@@ -181,7 +293,7 @@ export const useToast = () => {
 const styles = StyleSheet.create({
   toastWrapper: {
     position: 'absolute',
-    top: 48,
+    top: 0,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -234,10 +346,6 @@ const styles = StyleSheet.create({
     color: '#F9FAFB',
     fontSize: 13,
     fontWeight: '600',
-  },
-  closeButton: {
-    padding: 6,
-    marginLeft: 6,
   },
 });
 

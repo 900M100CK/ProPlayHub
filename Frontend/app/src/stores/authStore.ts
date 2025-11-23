@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import apiClient from '../api/axiosConfig'; // Use the preconfigured apiClient
+import apiClient, { setApiToken } from '../api/axiosConfig'; // Use the preconfigured apiClient
 import axios from 'axios'; // Keep axios for isAxiosError checks
 import { z } from 'zod';
 import { showGlobalToast } from '../components/toastService';
@@ -159,13 +159,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Keep the accessToken so the session survives reloads
       if (data.accessToken) {
         await AsyncStorage.setItem('accessToken', data.accessToken);
+        setApiToken(data.accessToken);
       }
       if (data.user) {
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
       }
 
       // Mirror the token inside axios defaults
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+      setApiToken(data.accessToken);
 
       set({ user: data.user, accessToken: data.accessToken, errorMessage: null });
 
@@ -236,13 +237,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Keep the accessToken so the session survives reloads
       if (data.accessToken) {
         await AsyncStorage.setItem('accessToken', data.accessToken);
+        setApiToken(data.accessToken);
       }
       if (data.user) {
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
       }
 
       // Mirror the token in axios
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+      setApiToken(data.accessToken);
 
       set({ 
         user: data.user, 
@@ -306,7 +308,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await AsyncStorage.removeItem('rememberedPassword'); // Remove stored password on logout
       
       // Clear apiClient headers
-      apiClient.defaults.headers.common['Authorization'] = '';
+      setApiToken(null);
       
       // Reset store state
       set({ 
@@ -329,7 +331,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Even if there's an error, clear state and navigate
       AsyncStorage.multiRemove(['accessToken', 'user', 'rememberedEmail', 'rememberedPassword']).catch(() => {});
       set({ user: null, accessToken: null });
-      apiClient.defaults.headers.common['Authorization'] = '';
+      setApiToken(null);
       setTimeout(() => {
         router.replace('./login');
       }, 100);

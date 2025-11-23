@@ -104,7 +104,7 @@ const seed = async () => {
 
       // ====== 8 ======
       {
-        name: "PlayStation Premium Max",
+        name: "PS5 Premium Max",
         slug: "ps-premium-max",
         category: "PlayStation",
         type: "Premium Subscription",

@@ -1,9 +1,7 @@
-import React from 'react';
-import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+﻿import { create } from 'zustand';
 import { useAuthStore } from './authStore';
+import apiClient from '../api/axiosConfig';
 
-// Định nghĩa kiểu dữ liệu cho Cart Item
 export type CartItem = {
   _id: string;
   slug: string;
@@ -16,7 +14,7 @@ export type CartItem = {
   features: string[];
   isSeasonalOffer: boolean;
   tags?: string[];
-  finalPrice: number; // Giá sau khi giảm (nếu có)
+  finalPrice: number;
 };
 
 export type AddToCartResult = {
@@ -28,8 +26,8 @@ export type AddToCartResult = {
 type CartState = {
   items: CartItem[];
   addToCart: (item: CartItem) => Promise<AddToCartResult>;
-  removeFromCart: (slug: string) => void;
-  clearCart: () => void;
+  removeFromCart: (slug: string) => Promise<void>;
+  clearCart: () => Promise<void>;
   getTotalPrice: () => number;
   getItemCount: () => number;
   isInCart: (slug: string) => boolean;
@@ -37,119 +35,110 @@ type CartState = {
   saveCartToStorage: () => Promise<void>;
 };
 
+const getUserId = (state = useAuthStore.getState()) =>
+  state.user?._id || (state.user as any)?.id || null;
+
 export const useCartStore = create<CartState>((set, get) => ({
-  // Initial state
   items: [],
 
-  // Add item to cart
   addToCart: async (item: CartItem) => {
-    // Kiểm tra authentication
     const authState = useAuthStore.getState();
-    if (!authState.accessToken || !authState.user) {
-      return {
-        success: false,
-        reason: 'AUTH_REQUIRED',
-        message: 'Authentication is required.',
-      };
+    const userId = getUserId(authState);
+    if (!authState.accessToken || !authState.user || !userId) {
+      return { success: false, reason: 'AUTH_REQUIRED', message: 'Authentication is required.' };
     }
 
-    const { items } = get();
-    
-    // Kiểm tra xem item đã có trong cart chưa
-    const existingItem = items.find((i) => i.slug === item.slug);
-    
-    if (existingItem) {
-      return {
-        success: false,
-        reason: 'ALREADY_EXISTS',
-        message: 'Item already exists in cart.',
-      };
-    }
-
-    // Thêm item vào cart
-    const newItems = [...items, item];
-    set({ items: newItems });
-    
-    // Lưu vào AsyncStorage
     try {
-      await AsyncStorage.setItem('cartItems', JSON.stringify(newItems));
-    } catch (error) {
-      console.error('Failed to save cart to storage:', error);
+      await apiClient.post('/cart', item);
+      await get().loadCartFromStorage();
+      return { success: true };
+    } catch (error: any) {
+      if (error?.response?.status === 409) {
+        return {
+          success: false,
+          reason: 'ALREADY_EXISTS',
+          message: error?.response?.data?.message || 'Item already exists in cart.',
+        };
+      }
+      console.error('Failed to add to cart:', error);
       return {
         success: false,
         reason: 'STORAGE_ERROR',
         message: 'Failed to persist cart data.',
       };
     }
-
-    return { success: true };
   },
 
-  // Remove item from cart
   removeFromCart: async (slug: string) => {
-    const { items } = get();
-    const newItems = items.filter((item) => item.slug !== slug);
-    set({ items: newItems });
-    
-    // Lưu vào AsyncStorage
     try {
-      await AsyncStorage.setItem('cartItems', JSON.stringify(newItems));
+      await apiClient.delete(`/cart/${slug}`);
     } catch (error) {
-      console.error('Failed to save cart to storage:', error);
+      console.error('Failed to remove cart item:', error);
+    } finally {
+      await get().loadCartFromStorage();
     }
   },
 
-  // Clear cart
   clearCart: async () => {
-    set({ items: [] });
     try {
-      await AsyncStorage.removeItem('cartItems');
+      await apiClient.delete('/cart');
     } catch (error) {
-      console.error('Failed to clear cart from storage:', error);
+      console.error('Failed to clear cart:', error);
+    } finally {
+      set({ items: [] });
     }
   },
 
-  // Get total price
   getTotalPrice: () => {
     const { items } = get();
     return items.reduce((total, item) => total + item.finalPrice, 0);
   },
 
-  // Get item count
   getItemCount: () => {
     const { items } = get();
     return items.length;
   },
 
-  // Check if item is in cart
   isInCart: (slug: string) => {
     const { items } = get();
     return items.some((item) => item.slug === slug);
   },
 
-  // Load cart from AsyncStorage
   loadCartFromStorage: async () => {
+    const authState = useAuthStore.getState();
+    const userId = getUserId(authState);
+    if (!authState.accessToken || !authState.user || !userId) {
+      set({ items: [] });
+      return;
+    }
     try {
-      const cartData = await AsyncStorage.getItem('cartItems');
-      if (cartData) {
-        const items = JSON.parse(cartData);
-        set({ items });
-      }
+      const res = await apiClient.get('/cart');
+      const data = Array.isArray(res.data) ? res.data : res.data?.items || [];
+      set({ items: data });
     } catch (error) {
-      console.error('Failed to load cart from storage:', error);
+      console.error('Failed to load cart from backend:', error);
+      set({ items: [] });
     }
   },
 
-  // Save cart to AsyncStorage
   saveCartToStorage: async () => {
-    try {
-      const { items } = get();
-      await AsyncStorage.setItem('cartItems', JSON.stringify(items));
-    } catch (error) {
-      console.error('Failed to save cart to storage:', error);
-    }
+    // backend persistence; no-op
   },
 }));
 
+let cartAuthUnsubscribe: (() => void) | null = null;
+if (!cartAuthUnsubscribe) {
+  let prevUserId = getUserId();
+  useCartStore.getState().loadCartFromStorage();
+  cartAuthUnsubscribe = useAuthStore.subscribe((state) => {
+    const nextId = getUserId(state);
+    if (nextId !== prevUserId) {
+      prevUserId = nextId;
+      useCartStore.getState().loadCartFromStorage();
+    }
+  });
+}
+
 const CartStoreRoute = () => null;
 export default CartStoreRoute;
+

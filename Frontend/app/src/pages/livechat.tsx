@@ -1,7 +1,6 @@
 // Frontend/app/src/pages/livechat.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   FlatList,
@@ -11,11 +10,14 @@ import {
   Platform,
   StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import io, { Socket } from "socket.io-client";
-import { useAuthStore } from "../stores/authStore"; // lấy user login
+import { useAuthStore } from "../stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SOCKET_BASE_URL } from "../utils/apiConfig";
+import { useNotificationsStore } from "../stores/notificationsStore";
+import apiClient from "../api/axiosConfig";
 
 interface ChatMessage {
   id: string;
@@ -26,59 +28,67 @@ interface ChatMessage {
 }
 
 const SOCKET_URL = SOCKET_BASE_URL;
+const PAGE_SIZE = 20;
 
 export default function LivechatScreen() {
   const { user } = useAuthStore() as any;
-  const router = useRouter(); // 👉 dùng cho nút back
+  const router = useRouter();
+  const { addNotification, loadFromStorage, markAllRead: notificationsMarkAllRead } = useNotificationsStore();
 
   const userId: string | undefined = user?._id || user?.id;
   const username: string = user?.username || user?.email || "Guest";
-
-  // mỗi user 1 room
   const ROOM_ID = userId ?? "guest_room";
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isConnected, setIsConnected] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   const socketRef = useRef<Socket | null>(null);
   const flatListRef = useRef<FlatList<ChatMessage> | null>(null);
+  const atBottomRef = useRef(true);
+  const initialScrolledRef = useRef(false);
+  const fetchingRef = useRef(false);
+
+  // Jump to latest on first load
+  useEffect(() => {
+    if (!messages.length || initialScrolledRef.current) return;
+    setTimeout(() => { flatListRef.current?.scrollToEnd({ animated: false }); atBottomRef.current = true; initialScrolledRef.current = true; }, 20);
+  }, [messages]);
 
   useEffect(() => {
-    // chưa login thì không mở socket
-    if (!userId) {
-      console.log("⚠️ No userId – user chưa login, không join room");
-      return;
-    }
+    loadFromStorage();
+    notificationsMarkAllRead();
+  }, [loadFromStorage, notificationsMarkAllRead]);
+
+  useEffect(() => {
+    if (!userId) return;
 
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {
       setIsConnected(true);
-      console.log("✅ Socket connected:", socket.id);
-
-      socket.emit("join", {
-        roomId: ROOM_ID, // room = userId
-        userId,
-        username,
-      });
+      socket.emit("join", { roomId: ROOM_ID, userId, username });
     });
 
-    socket.on("disconnect", () => {
-      setIsConnected(false);
-      console.log("⚠️ Socket disconnected");
-    });
+    socket.on("disconnect", () => setIsConnected(false));
 
     socket.on("chat:history", (history: any[] = []) => {
-      const mapped: ChatMessage[] = history.map((m) => ({
-        id: m.id || m._id,
-        text: m.text,
-        fromSelf: String(m.userId) === String(userId),
-        username: m.username,
-        createdAt: m.createdAt,
-      }));
+      const mapped: ChatMessage[] = history
+        .map((m: any) => ({
+          id: m.id || m._id,
+          text: m.text,
+          fromSelf: String(m.userId) === String(userId),
+          username: m.username,
+          createdAt: m.createdAt,
+        }))
+        .sort((a: ChatMessage, b: ChatMessage) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      atBottomRef.current = true;
+      initialScrolledRef.current = false;
       setMessages(mapped);
+      setHasMore(history.length >= PAGE_SIZE);
     });
 
     socket.on("chat:message", (msg: any) => {
@@ -88,17 +98,87 @@ export default function LivechatScreen() {
         text: msg.text,
         fromSelf: String(msg.userId) === String(userId),
         username: msg.username,
-        createdAt: msg.createdAt,
+        createdAt: msg.createdAt || new Date().toISOString(),
       };
       setMessages((prev) => [...prev, newMsg]);
+      if (atBottomRef.current) {
+        requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated: true }));
+      }
+      if (!newMsg.fromSelf) {
+        addNotification({ title: "Staff", message: newMsg.text });
+      }
     });
 
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
-      console.log("🔌 Socket cleaned up");
     };
-  }, [userId, username, ROOM_ID]);
+  }, [ROOM_ID, addNotification, userId, username, loadFromStorage, notificationsMarkAllRead]);
+
+  const loadInitial = async () => {
+    if (!userId || fetchingRef.current) return;
+    fetchingRef.current = true;
+    setLoading(true);
+    try {
+      const res = await apiClient.get("/chat/messages", {
+        params: { roomId: userId, limit: PAGE_SIZE },
+      });
+      const raw = res.data?.messages || res.data || [];
+      const mapped: ChatMessage[] = raw
+        .map((m: any) => ({
+          id: m.id || m._id || `${m.createdAt || Date.now()}`,
+          text: m.text,
+          fromSelf: String(m.userId) === String(userId),
+          username: m.username,
+          createdAt: m.createdAt,
+        }))
+        .sort((a: ChatMessage, b: ChatMessage) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      setMessages(mapped);
+      setHasMore(raw.length >= PAGE_SIZE);
+      initialScrolledRef.current = false;
+    } catch (err) {
+      console.warn("Failed to load messages", err);
+      setHasMore(false);
+    } finally {
+      fetchingRef.current = false;
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInitial();
+  }, [userId]);
+
+  const loadOlder = async () => {
+    if (!userId || fetchingRef.current || !hasMore || !messages.length) return;
+    fetchingRef.current = true;
+    try {
+      const oldest = messages[0];
+      const res = await apiClient.get("/chat/messages", {
+        params: { roomId: userId, before: oldest.createdAt, limit: PAGE_SIZE },
+      });
+      const raw = res.data?.messages || res.data || [];
+      const mapped: ChatMessage[] = raw
+        .map((m: any) => ({
+          id: m.id || m._id || `${m.createdAt || Date.now()}`,
+          text: m.text,
+          fromSelf: String(m.userId) === String(userId),
+          username: m.username,
+          createdAt: m.createdAt,
+        }))
+        .sort((a: ChatMessage, b: ChatMessage) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      if (mapped.length) {
+        setMessages((prev) => [...mapped, ...prev]);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.warn("Failed to load older messages", err);
+      setHasMore(false);
+    } finally {
+      fetchingRef.current = false;
+    }
+  };
 
   const handleSend = () => {
     const trimmed = inputText.trim();
@@ -106,12 +186,7 @@ export default function LivechatScreen() {
 
     socketRef.current.emit(
       "chat:message",
-      {
-        roomId: ROOM_ID,
-        text: trimmed,
-        userId,
-        username,
-      },
+      { roomId: ROOM_ID, text: trimmed, userId, username },
       (res: any) => {
         if (!res?.ok) {
           console.log("Send error:", res?.error);
@@ -120,15 +195,13 @@ export default function LivechatScreen() {
     );
 
     setInputText("");
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 50);
+    requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated: true }));
   };
 
   const formatTime = (x?: string) => {
     if (!x) return "";
     const d = new Date(x);
-    if (isNaN(d.getTime())) return "";
+    if (Number.isNaN(d.getTime())) return "";
     const h = d.getHours();
     const m = d.getMinutes().toString().padStart(2, "0");
     const hour12 = h % 12 || 12;
@@ -154,26 +227,14 @@ export default function LivechatScreen() {
     return (
       <View style={containerStyle}>
         <View style={bubbleStyle}>
-          {!item.fromSelf && (
-            <Text style={styles.username}>{item.username}</Text>
-          )}
+          {!item.fromSelf && <Text style={styles.username}>{item.username}</Text>}
           <Text style={textStyle}>{item.text}</Text>
-          {time !== "" && (
-            <Text
-              style={[
-                styles.timeText,
-                item.fromSelf ? styles.timeTextRight : styles.timeTextLeft,
-              ]}
-            >
-              {time}
-            </Text>
-          )}
+          {time ? <Text style={[styles.timeText, item.fromSelf ? styles.timeTextRight : styles.timeTextLeft]}>{time}</Text> : null}
         </View>
       </View>
     );
   };
 
-  // nếu chưa login
   if (!userId) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -181,25 +242,14 @@ export default function LivechatScreen() {
           <View style={styles.chatCard}>
             <View style={styles.header}>
               <View style={styles.headerRow}>
-                <TouchableOpacity
-                  style={styles.backButton}
-                  onPress={() => router.back()}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
+                <TouchableOpacity style={styles.backButton} onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Support Chat</Text>
               </View>
             </View>
-            <View
-              style={[
-                styles.messagesContainer,
-                { justifyContent: "center", alignItems: "center" },
-              ]}
-            >
-              <Text style={{ color: "#6B7280" }}>
-                Bạn cần đăng nhập để sử dụng live chat.
-              </Text>
+            <View style={[styles.messagesContainer, { justifyContent: "center", alignItems: "center" }]}>
+              <Text style={{ color: "#6B7280" }}>Please sign in to use live chat.</Text>
             </View>
           </View>
         </View>
@@ -211,12 +261,11 @@ export default function LivechatScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.safeArea}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
       >
         <View style={styles.screenBg}>
           <View style={styles.chatCard}>
-            {/* Header có nút back */}
             <View style={styles.header}>
               <View style={styles.headerRow}>
                 <TouchableOpacity
@@ -226,19 +275,13 @@ export default function LivechatScreen() {
                 >
                   <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
-
                 <View>
                   <Text style={styles.headerTitle}>Support Chat</Text>
-                  <Text style={styles.headerSubtitle}>
-                    {isConnected
-                      ? "Online • Usually replies in minutes"
-                      : "Offline"}
-                  </Text>
+                  <Text style={styles.headerSubtitle}>{isConnected ? "Online • Usually replies in minutes" : "Offline"}</Text>
                 </View>
               </View>
             </View>
 
-            {/* Messages */}
             <View style={styles.messagesContainer}>
               <FlatList
                 ref={flatListRef}
@@ -246,13 +289,27 @@ export default function LivechatScreen() {
                 keyExtractor={(item) => item.id}
                 renderItem={renderMessageItem}
                 contentContainerStyle={styles.messagesContent}
-                onContentSizeChange={() =>
-                  flatListRef.current?.scrollToEnd({ animated: true })
-                }
+                keyboardShouldPersistTaps="handled"
+                onContentSizeChange={() => {
+                  if (!initialScrolledRef.current && messages.length) {
+                    flatListRef.current?.scrollToEnd({ animated: false });
+                    initialScrolledRef.current = true;
+                    atBottomRef.current = true;
+                  }
+                }}
+                onScroll={(e) => {
+                  const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+                  const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+                  atBottomRef.current = distanceFromBottom < 40;
+                  if (contentOffset.y < 20 && !fetchingRef.current) {
+                    loadOlder();
+                  }
+                }}
+                scrollEventThrottle={16}
+                ListFooterComponent={loading ? <Text style={styles.loadingText}>Loading�</Text> : null}
               />
             </View>
 
-            {/* Input */}
             <View style={styles.inputBar}>
               <TextInput
                 style={styles.input}
@@ -263,14 +320,11 @@ export default function LivechatScreen() {
                 multiline
               />
               <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  !inputText.trim() && styles.sendButtonDisabled,
-                ]}
+                style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
                 onPress={handleSend}
                 disabled={!inputText.trim()}
               >
-                <Text style={styles.sendButtonText}>➤</Text>
+                <Ionicons name="send" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -294,7 +348,7 @@ const styles = StyleSheet.create({
   chatCard: {
     width: "100%",
     maxWidth: 400,
-    height: "95%",
+    height: "98%",
     backgroundColor: "#F9FAFB",
     borderRadius: 22,
     overflow: "hidden",
@@ -345,12 +399,14 @@ const styles = StyleSheet.create({
   },
   messageRowRight: {
     justifyContent: "flex-end",
+    paddingTop: 1,
   },
   bubble: {
     maxWidth: "80%",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
+    justifyContent: "center",
   },
   bubbleSelf: {
     backgroundColor: "#8B5CF6",
@@ -365,10 +421,11 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 11,
     color: "#6B7280",
-    marginBottom: 2,
+    marginBottom: 6,
   },
   textMessage: {
     fontSize: 14,
+    textAlign: "left",
   },
   textMessageSelf: {
     color: "#F9FAFB",
@@ -379,7 +436,7 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 11,
     color: "#9CA3AF",
-    marginTop: 4,
+    marginTop: 6,
   },
   timeTextLeft: {
     alignSelf: "flex-start",
@@ -419,9 +476,10 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     opacity: 0.4,
   },
-  sendButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "700",
+  loadingText: {
+    textAlign: "center",
+    color: "#6B7280",
+    paddingVertical: 8,
   },
 });
+

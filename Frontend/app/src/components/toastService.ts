@@ -30,3 +30,7 @@ export const hideGlobalToast = () => {
   }
 };
 
+// Dummy default export to satisfy Expo Router route scanning when this file lives under app/
+const ToastServiceRoute = () => null;
+export default ToastServiceRoute;
+

@@ -60,3 +60,7 @@ if (__DEV__) {
   console.log('[config] API_BASE_URL ->', API_BASE_URL);
 }
 
+// Dummy default export to satisfy Expo Router route scanning when this file lives under app/
+const ApiConfigRoute = () => null;
+export default ApiConfigRoute;
+

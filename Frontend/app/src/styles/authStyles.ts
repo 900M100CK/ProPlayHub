@@ -55,7 +55,7 @@ export const homeStyles = StyleSheet.create({
   },
   actionIcon: {
     marginBottom: 6,
-    color: '#818CF8',
+    color: '#A855F7',
     fontSize: 20,
   },
   actionText: {
@@ -158,7 +158,7 @@ export const authStyles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#111827', // bg-gray-900
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
   },
   innerContainer: {
@@ -173,10 +173,10 @@ export const authStyles = StyleSheet.create({
   title: {
     fontSize: 30,
     fontWeight: 'bold',
-    color: '#818CF8', // text-indigo-400
+    color: '#A855F7',
   },
   subtitle: {
-    color: '#9CA3AF', // text-gray-400
+    color: '#6B7280',
     marginTop: 8,
     textAlign: 'center',
   },
@@ -212,17 +212,17 @@ export const authStyles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#D1D5DB', // text-gray-300
+    color: '#111827',
     marginBottom: 8,
   },
   input: {
     width: '100%',
     borderRadius: 8,
-    backgroundColor: '#374151', // bg-gray-700
+    backgroundColor: '#F3F4F6',
     padding: 12,
-    color: '#FFFFFF', // text-white
+    color: '#111827',
     borderWidth: 1,
-    borderColor: '#4B5563', // ring-gray-600
+    borderColor: '#E5E7EB',
     fontSize: 14,
   },
 
@@ -245,18 +245,18 @@ export const authStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
-    backgroundColor: '#4F46E5', // bg-indigo-600
+    backgroundColor: '#A855F7',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    marginTop: 8, // Thêm một chút khoảng cách trên
+    marginTop: 8,
   },
   buttonDisabled: {
-    backgroundColor: '#3730A3', // bg-indigo-800
+    backgroundColor: '#C4B5FD',
   },
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF', // text-white
+    color: '#FFFFFF',
   },
 
   // Bottom Links (Register, Login, Back)
@@ -268,12 +268,12 @@ export const authStyles = StyleSheet.create({
   },
   bottomLinkText: {
     fontSize: 14,
-    color: '#9CA3AF', // text-gray-400
+    color: '#6B7280',
   },
   bottomLinkActionText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#818CF8', // text-indigo-400
+    color: '#A855F7',
   },
 
   // Remember Me (Login Screen specific, but can be here)
@@ -288,7 +288,7 @@ export const authStyles = StyleSheet.create({
     alignItems: 'center',
   },
   rememberMeText: {
-    color: '#D1D5DB', // text-gray-300
+    color: '#4B5563',
     marginLeft: 8,
     fontSize: 14,
   },

@@ -5,15 +5,14 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
-import { useCartStore } from '../stores/cartStore';
 import apiClient from '../api/axiosConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from '../components/ToastProvider';
@@ -37,26 +36,13 @@ interface Subscription {
 const SubscriptionsScreen = () => {
   const router = useRouter();
   const { accessToken, user } = useAuthStore();
-  const { loadCartFromStorage } = useCartStore();
   const { showToast } = useToast();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [cartItemCount, setCartItemCount] = useState(0);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [subscriptionToCancel, setSubscriptionToCancel] = useState<Subscription | null>(null);
   const [cancelling, setCancelling] = useState(false);
-
-  useEffect(() => {
-    // Load cart items so the badge count stays accurate
-    const loadCart = async () => {
-      await loadCartFromStorage();
-      const items = useCartStore.getState().items;
-      setCartItemCount(items.length);
-    };
-    loadCart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // loadCartFromStorage is stable
 
   const loadSubscriptions = async () => {
     try {
@@ -285,26 +271,20 @@ const SubscriptionsScreen = () => {
         }
       />
 
-      <ScrollView 
-        style={subscriptionStyles.content}
-        contentContainerStyle={{ paddingBottom: spacing.xl }}
-        refreshControl={
-          <View style={{ flex: 1 }}>
-            {/* Manual refresh indicator */}
-          </View>
-        }
-      >
+      <View style={subscriptionStyles.contentWrapper}>
+        <ScrollView 
+          style={subscriptionStyles.content}
+          contentContainerStyle={subscriptionStyles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
         {subscriptions.length === 0 ? (
           <View style={subscriptionStyles.emptyContainer}>
-          <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
+            <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
             <Text style={subscriptionStyles.emptyTitle}>No subscriptions yet</Text>
             <Text style={subscriptionStyles.emptyText}>
               You have not subscribed to any packages yet. Explore our services and sign up today!
             </Text>
-            <TouchableOpacity
-              style={subscriptionStyles.browseButton}
-              onPress={() => router.push('./home')}
-            >
+            <TouchableOpacity style={subscriptionStyles.browseButton} onPress={() => router.push('./home')}>
               <Text style={subscriptionStyles.browseButtonText}>Browse packages</Text>
             </TouchableOpacity>
           </View>
@@ -408,7 +388,8 @@ const SubscriptionsScreen = () => {
             ))}
           </>
         )}
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       <ConfirmationModal
         visible={showCancelModal && !!subscriptionToCancel}
@@ -424,37 +405,6 @@ const SubscriptionsScreen = () => {
         onCancel={closeCancelModal}
         onConfirm={confirmCancelSubscription}
       />
-
-      {/* Bottom Navigation */}
-      <View style={subscriptionStyles.bottomNav}>
-        <TouchableOpacity
-          style={subscriptionStyles.navItem}
-          onPress={() => router.push("./home")}
-        >
-          <Ionicons name="home-outline" size={24} color={colors.textSecondary} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={subscriptionStyles.navItem}
-          onPress={() => router.push("./subscriptions")}
-        >
-          <Ionicons name="receipt" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={subscriptionStyles.navItem}
-          onPress={() => router.push('./cart')}
-        >
-          <View style={subscriptionStyles.cartIconContainer}>
-            <Ionicons name="cart-outline" size={24} color={colors.textSecondary} />
-            {cartItemCount > 0 && (
-              <View style={subscriptionStyles.cartBadge}>
-                <Text style={subscriptionStyles.cartBadgeText}>
-                  {cartItemCount > 99 ? '99+' : cartItemCount}
-                </Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -463,6 +413,10 @@ const subscriptionStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  contentWrapper: {
+    flex: 1,
+    paddingBottom: spacing.xl,
   },
   headerIconButton: {
     width: 42,
@@ -475,7 +429,8 @@ const subscriptionStyles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: 0,
+    paddingBottom: 160,
   },
   loadingContainer: {
     flex: 1,
@@ -488,12 +443,17 @@ const subscriptionStyles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+    paddingTop: spacing.md,
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
-    marginTop: spacing.xl,
+    paddingHorizontal: spacing.xl,
   },
   emptyTitle: {
     fontSize: 20,
@@ -501,6 +461,7 @@ const subscriptionStyles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   emptyText: {
     fontSize: 14,
@@ -650,40 +611,6 @@ const subscriptionStyles = StyleSheet.create({
   cancelButtonText: {
     color: '#DC2626',
     fontSize: 14,
-    fontWeight: '700',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    justifyContent: 'space-around',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  navItem: {
-    padding: spacing.xs,
-  },
-  cartIconContainer: {
-    position: 'relative',
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: colors.danger,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: spacing.xs,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.surface,
-  },
-  cartBadgeText: {
-    color: colors.textPrimary,
-    fontSize: 10,
     fontWeight: '700',
   },
 });
