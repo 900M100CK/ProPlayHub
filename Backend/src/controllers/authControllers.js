@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import Session from "../models/Session.js";
 import crypto from "crypto";
-import { sendVerificationEmail, sendWelcomeEmail } from "../libs/email.js";
+import { sendVerificationEmail, sendWelcomeEmail, sendPasswordResetOTP } from "../libs/email.js";
 import { generateTokens } from "../utils/generateTokens.js";
 
 export const login = async (req, res) => {
@@ -48,6 +48,98 @@ export const login = async (req, res) => {
 
   } catch (error) {
     console.error("Login Error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * POST /api/auth/forgot-password
+ * Gửi email chứa mã OTP để reset password
+ */
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Luôn trả về thông báo thành công để tránh user enumeration
+    if (user) {
+      // Tạo mã OTP 6 chữ số
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Hash mã OTP để lưu vào DB
+      const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
+
+      // Lưu OTP đã hash và thời gian hết hạn (5 phút)
+      user.passwordResetOTP = hashedOTP;
+      user.passwordResetOTPExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
+      await user.save();
+
+      // Gửi email chứa mã OTP (chưa hash)
+      try {
+        await sendPasswordResetOTP(user.email, user.name, otp);
+      } catch (emailError) {
+        console.error("Forgot password email send failed:", emailError);
+        // Không báo lỗi cho client để bảo mật
+      }
+    }
+
+    return res.status(200).json({
+      message: "If an account with that email exists, a password reset OTP has been sent.",
+    });
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * Đặt lại mật khẩu bằng OTP
+ */
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "Email, OTP, and new password are required." });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters long." });
+    }
+
+    const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
+
+    // Tìm user bằng email trước
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Kiểm tra các điều kiện một cách riêng biệt để đưa ra thông báo lỗi rõ ràng hơn
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired OTP." });
+    }
+
+    if (user.passwordResetOTP !== hashedOTP) {
+      return res.status(400).json({ message: "Invalid OTP provided." });
+    }
+
+    if (user.passwordResetOTPExpires < Date.now()) {
+      return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+    }
+
+    // Nếu tất cả đều hợp lệ, user đã được tìm thấy và OTP đúng
+
+    user.password = newPassword; // Mongoose middleware sẽ tự động hash
+    user.passwordResetOTP = undefined;
+    user.passwordResetOTPExpires = undefined;
+    await user.save();
+
+    return res.status(200).json({ message: "Password has been reset successfully." });
+  } catch (error) {
+    console.error("Reset Password Error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };

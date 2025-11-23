@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { z } from 'zod';
 import { useAuthStore } from '../stores/authStore'; // Import store
 import { useState } from 'react';
@@ -24,6 +24,7 @@ const ForgotPasswordSchema = z.object({
 });
 
 const ForgotPasswordScreen: React.FC = () => {
+  const router = useRouter();
   // Lấy state và actions từ Zustand store
   // errorMessage và successMessage từ store sẽ là lỗi/thành công từ API
   const {
@@ -59,7 +60,11 @@ const ForgotPasswordScreen: React.FC = () => {
       setValidationError(result.error.issues[0].message);
     } else {
       // Nếu xác thực thành công, gọi action từ store để gửi yêu cầu API
-      sendPasswordResetEmail();
+      // sendPasswordResetEmail returns a Promise<void>, so don't test its (void) result for truthiness
+      sendPasswordResetEmail().then(() => {
+        // Navigate after the request completes
+        router.push({ pathname: './resetPassword', params: { email } });
+      });
     }
   };
 
@@ -123,6 +128,15 @@ const ForgotPasswordScreen: React.FC = () => {
                   )}
                 </TouchableOpacity>
               </>
+            )}
+
+            {/* Link to manually go to reset password screen */}
+            {successMessage && (
+              <View style={styles.bottomLinkContainer}>
+                <TouchableOpacity onPress={() => router.push({ pathname: './resetPassword', params: { email } })}>
+                  <Text style={styles.bottomLinkActionText}>Nhập mã OTP và đặt lại mật khẩu</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             <View style={styles.bottomLinkContainer}>
