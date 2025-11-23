@@ -18,8 +18,7 @@ import { useRouter } from 'expo-router';
 import ScreenHeader from '../components/ScreenHeader';
 import { colors, spacing, radius, shadow } from '../styles/theme';
 import { API_BASE_URL } from '../utils/apiConfig';
-import { useCartStore, CartItem } from '../stores/cartStore';
-import { useToast } from '../components/ToastProvider';
+import { useCartStore } from '../stores/cartStore';
 
 type SubscriptionPackage = {
   _id: string;
@@ -69,8 +68,7 @@ const CATEGORY_ORDER: Record<CategoryKey, number> = {
 
 const SubscriptionCategoriesScreen = () => {
   const router = useRouter();
-  const { addToCart, isInCart, loadCartFromStorage, getItemCount } = useCartStore();
-  const { showToast } = useToast();
+  const { loadCartFromStorage, getItemCount } = useCartStore();
 
   const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,60 +116,10 @@ const SubscriptionCategoriesScreen = () => {
     return packages.filter((pkg) => pkg.category?.toLowerCase() === activeCategory);
   }, [activeCategory, packages]);
 
-  const handleAddToCart = async (pkg: SubscriptionPackage) => {
-    const finalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel);
-    const cartItem: CartItem = {
-      _id: pkg._id,
-      slug: pkg.slug,
-      name: pkg.name,
-      category: pkg.category,
-      type: pkg.type,
-      basePrice: pkg.basePrice,
-      period: pkg.period || '/month',
-      discountLabel: pkg.discountLabel,
-      features: pkg.features || [],
-      isSeasonalOffer: pkg.isSeasonalOffer || false,
-      tags: pkg.tags || [],
-      finalPrice,
-    };
-
-    const result = await addToCart(cartItem);
-    if (result.success) {
-      setCartCount(getItemCount());
-      showToast({
-        type: 'success',
-        title: 'Đã thêm vào giỏ',
-        message: `${pkg.name} đã được thêm vào giỏ hàng.`,
-      });
-      return;
-    }
-
-    if (result.reason === 'AUTH_REQUIRED') {
-      showToast({
-        type: 'info',
-        title: 'Cần đăng nhập',
-        message: 'Đăng nhập để mua gói dịch vụ.',
-        action: {
-          label: 'Đăng nhập',
-          onPress: () => router.push('./login'),
-        },
-      });
-      return;
-    }
-
-    if (result.reason === 'ALREADY_EXISTS') {
-      showToast({
-        type: 'info',
-        title: 'Đã có trong giỏ',
-        message: 'Gói này đã có trong giỏ hàng của bạn.',
-      });
-      return;
-    }
-
-    showToast({
-      type: 'error',
-      title: 'Không thể thêm',
-      message: result.message || 'Vui lòng thử lại sau.',
+  const handleSubscribe = (pkg: SubscriptionPackage) => {
+    router.push({
+      pathname: './checkout',
+      params: { slug: pkg.slug },
     });
   };
 
@@ -316,8 +264,7 @@ const SubscriptionCategoriesScreen = () => {
 
         {!loading &&
           !error &&
-          filteredPackages.map((pkg) => {
-            const inCart = isInCart(pkg.slug);
+            filteredPackages.map((pkg) => {
             const percent = extractDiscountPercent(pkg.discountLabel);
             const topFeatures = pkg.features?.slice(0, 3) || [];
 
@@ -357,13 +304,10 @@ const SubscriptionCategoriesScreen = () => {
                     <Text style={styles.viewButtonText}>Xem chi tiết</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.subscribeButton, inCart && styles.subscribeButtonDisabled]}
-                    disabled={inCart}
-                    onPress={() => handleAddToCart(pkg)}
+                      style={styles.subscribeButton}
+                      onPress={() => handleSubscribe(pkg)}
                   >
-                    <Text style={styles.subscribeButtonText}>
-                      {inCart ? 'Đã trong giỏ' : 'Subscribe'}
-                    </Text>
+                    <Text style={styles.subscribeButtonText}>Subscribe</Text>
                   </TouchableOpacity>
                 </View>
               </View>

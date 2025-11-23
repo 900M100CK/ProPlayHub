@@ -8,6 +8,7 @@ export type AppNotification = {
   message?: string;
   createdAt: number;
   read: boolean;
+  category?: "chat" | "system" | "order" | "cart" | string;
 };
 
 type NotificationState = {
@@ -27,6 +28,11 @@ type NotificationState = {
 
 const getUserId = (state = useAuthStore.getState()) =>
   state.user?._id || (state.user as any)?.id || null;
+
+const isChatNotification = (n: AppNotification) => {
+  const title = (n.title || "").toLowerCase();
+  return n.category === "chat" || title === "staff" || title.includes("message");
+};
 
 export const useNotificationsStore = create<NotificationState>((set, get) => ({
   notifications: [],
@@ -49,17 +55,24 @@ export const useNotificationsStore = create<NotificationState>((set, get) => ({
         message: n.message,
         createdAt: n.createdAt ? new Date(n.createdAt).getTime() : Date.now(),
         read: !!n.read,
+        category: n.category,
       }));
-      // keep only the latest per title
-      const latestByTitle = new Map<string, AppNotification>();
-      list
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .forEach((n) => {
-          if (!latestByTitle.has(n.title)) {
-            latestByTitle.set(n.title, n);
-          }
-        });
-      const normalized = Array.from(latestByTitle.values());
+      const sorted = list.sort((a, b) => b.createdAt - a.createdAt);
+
+      // Keep only the newest chat notification, keep all others
+      const chatKept = new Set<string>();
+      const normalized: AppNotification[] = [];
+      for (const n of sorted) {
+        if (isChatNotification(n)) {
+          const key = n.title || "chat";
+          if (chatKept.has(key)) continue;
+          chatKept.add(key);
+          normalized.push(n);
+        } else {
+          normalized.push(n);
+        }
+      }
+
       set({
         notifications: normalized,
         hydrated: true,
@@ -74,24 +87,43 @@ export const useNotificationsStore = create<NotificationState>((set, get) => ({
   addNotification: async (data) => {
     const auth = useAuthStore.getState();
     const uid = getUserId(auth);
-    if (!auth.accessToken || !uid) return;
-    try {
-      const payload = { title: data.title, message: data.message };
-      const res = await apiClient.post("/notifications", payload);
-      const newNotif: AppNotification = res.data?.notification || {
-        id: res.data?._id || data.id || `${Date.now()}`,
-        title: data.title,
-        message: data.message,
-        createdAt: data.createdAt ?? Date.now(),
-        read: data.read ?? false,
-      };
-      // Keep only the latest notification for the same title (e.g., chat messages)
-      const filtered = get().notifications.filter((n) => n.title !== newNotif.title);
-      const current = [newNotif, ...filtered];
-      set({ notifications: current, unreadCount: current.filter((n) => !n.read).length });
-    } catch (err) {
-      console.warn("Failed to add notification", err);
+    let newNotif: AppNotification = {
+      id: data.id || `${Date.now()}`,
+      title: data.title,
+      message: data.message,
+      createdAt: data.createdAt ?? Date.now(),
+      read: data.read ?? false,
+      category: data.category,
+    };
+
+    // Try to persist when authenticated; otherwise store locally only
+    if (auth.accessToken && uid) {
+      try {
+        const payload = { title: data.title, message: data.message, category: data.category };
+        const res = await apiClient.post("/notifications", payload);
+        newNotif = res.data?.notification || {
+          id: res.data?._id || data.id || `${Date.now()}`,
+          title: data.title,
+          message: data.message,
+          createdAt: data.createdAt ?? Date.now(),
+          read: data.read ?? false,
+          category: data.category,
+        };
+      } catch (err) {
+        console.warn("Failed to add notification", err);
+      }
     }
+
+    const existing = get().notifications;
+    let updated: AppNotification[];
+    if (isChatNotification(newNotif)) {
+      const withoutChat = existing.filter((n) => !isChatNotification(n));
+      updated = [newNotif, ...withoutChat];
+    } else {
+      updated = [newNotif, ...existing];
+    }
+
+    set({ notifications: updated, unreadCount: updated.filter((n) => !n.read).length });
   },
 
   markRead: async (id: string) => {

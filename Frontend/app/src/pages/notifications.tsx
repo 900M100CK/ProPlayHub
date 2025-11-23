@@ -25,16 +25,23 @@ const NotificationsScreen = () => {
 
   const sorted = [...notifications].sort((a, b) => b.createdAt - a.createdAt);
 
-  const handlePress = async (id: string) => {
-    await markRead(id);
-    router.push('/src/pages/livechat');
+  const isChatNotification = (item: any) => {
+    const title = (item?.title || '').toLowerCase();
+    return item?.category === 'chat' || title === 'staff' || title.includes('message');
+  };
+
+  const handlePress = async (item: any) => {
+    await markRead(item.id);
+    if (isChatNotification(item)) {
+      router.push('/src/pages/livechat');
+    }
   };
 
   const renderItem = ({ item }: any) => {
     return (
       <TouchableOpacity
         style={[styles.card, !item.read && styles.cardUnread]}
-        onPress={() => handlePress(item.id)}
+        onPress={() => handlePress(item)}
       >
         <View style={styles.cardContent}>
           <View style={styles.iconWrapper}>
@@ -111,14 +118,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   headerActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+    flexShrink: 0,
   },
   headerButton: {
+    minWidth: 130,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radius.md,
     backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
   },
   headerButtonText: {
     color: colors.headerText,

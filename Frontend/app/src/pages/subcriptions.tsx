@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import ScreenHeader from "../components/ScreenHeader";
 import { useAuthStore } from "../stores/authStore";
 import apiClient from "../api/axiosConfig";
@@ -53,6 +54,7 @@ const formatFullDate = (input?: string) => {
 
 const MySubscriptionsScreen = () => {
   const { user, accessToken } = useAuthStore() as any;
+  const router = useRouter();
 
   const [subs, setSubs] = useState<UserSubscription[]>([]);
   const [loading, setLoading] = useState(false);
@@ -226,16 +228,36 @@ const MySubscriptionsScreen = () => {
                 <View style={styles.cardFooter}>
                   {isActive ? (
                     <>
-                      <TouchableOpacity style={styles.manageButton}>
+                      <TouchableOpacity
+                        style={styles.manageButton}
+                        onPress={() => {
+                          if (sub.packageSlug) {
+                            router.push(`./packageDetail?slug=${sub.packageSlug}`);
+                          }
+                        }}
+                      >
                         <Text style={styles.manageButtonText}>Manage</Text>
                       </TouchableOpacity>
 
-                      <TouchableOpacity style={styles.upgradeButton}>
+                      <TouchableOpacity
+                        style={styles.upgradeButton}
+                        onPress={() => router.push("./subscriptionCategories")}
+                      >
                         <Text style={styles.upgradeButtonText}>Upgrade</Text>
                       </TouchableOpacity>
                     </>
                   ) : (
-                    <TouchableOpacity style={styles.reactivateButton}>
+                    <TouchableOpacity
+                      style={styles.reactivateButton}
+                      onPress={() => {
+                        if (sub.packageSlug) {
+                          router.push({
+                            pathname: "./checkout",
+                            params: { slug: sub.packageSlug },
+                          });
+                        }
+                      }}
+                    >
                       <Text style={styles.reactivateButtonText}>
                         Reactivate
                       </Text>

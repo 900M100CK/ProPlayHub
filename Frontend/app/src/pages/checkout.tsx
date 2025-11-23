@@ -153,57 +153,40 @@ const CheckoutScreen = () => {
         setLoading(true);
         setError(null);
         
-        // Load cart items first
+        // Load cart items first (used only when slug is absent)
         await loadCartFromStorage();
-        
-        // Wait briefly so the cart items get updated inside the store
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Read the newest cart items from the store
+        await new Promise(resolve => setTimeout(resolve, 80));
+
         const currentCartItems = useCartStore.getState().items;
-        
-        // If there is a slug, fetch that package (checkout triggered from packageDetail)
+
+        // If there is a slug, checkout only that package (ignore cart contents)
         if (slug) {
           const res = await fetch(`${API_BASE_URL}/api/packages/${slug}`);
           const data = await res.json();
           if (!res.ok) {
             throw new Error(data.message || 'Failed to fetch package.');
           }
-          // Add mock add-ons for demo
           const pkgWithAddons = { ...data, addOns: MOCK_ADDONS };
           setPkg(pkgWithAddons);
+          setCheckoutItems([pkgWithAddons]);
+          return;
+        }
 
-          // When navigating from the cart, use the items currently in the cart
-          if (currentCartItems.length > 0) {
-            // Add mock add-ons to cart items
-            const itemsWithAddons = currentCartItems.map(item => ({ ...item, addOns: MOCK_ADDONS }));
-            setCheckoutItems(itemsWithAddons);
-          } else {
-            setCheckoutItems([pkgWithAddons]);
-          }
+        // Without a slug, fall back to cart contents
+        if (currentCartItems.length > 0) {
+          const itemsWithAddons = currentCartItems.map(item => ({ ...item, addOns: MOCK_ADDONS }));
+          setCheckoutItems(itemsWithAddons);
+          setPkg(itemsWithAddons[0]);
         } else {
-          // Without a slug, fall back to using the cart contents
-          if (currentCartItems.length > 0) {
-            // Add mock add-ons to cart items
-            const itemsWithAddons = currentCartItems.map(item => ({ ...item, addOns: MOCK_ADDONS }));
-            setCheckoutItems(itemsWithAddons);
-            // Use the first cart item as the active package so order completion works
-            setPkg(itemsWithAddons[0]);
-            setCheckoutItems(currentCartItems);
-            // Use the first cart item as the active package so order completion works
-            setPkg(currentCartItems[0]);
+          // If the cart is empty, fetch the first package as a fallback for testing
+          const res = await fetch(`${API_BASE_URL}/api/packages`);
+          const data = await res.json();
+          if (data && data.length > 0) {
+            const firstPkg = { ...data[0], addOns: MOCK_ADDONS };
+            setPkg(firstPkg);
+            setCheckoutItems([firstPkg]);
           } else {
-            // If the cart is empty, fetch the first package as a fallback for testing
-            const res = await fetch(`${API_BASE_URL}/api/packages`);
-            const data = await res.json();
-            if (data && data.length > 0) {
-              // Add mock add-ons for demo
-              const firstPkg = { ...data[0], addOns: MOCK_ADDONS };
-              setPkg(firstPkg);
-              setCheckoutItems([firstPkg]);
-            } else {
-              throw new Error('No packages available. Please seed packages first.');
-            }
+            throw new Error('No packages available. Please seed packages first.');
           }
         }
       } catch (err: any) {

@@ -3,6 +3,7 @@ import { Animated, Dimensions, Easing, PanResponder, StyleSheet, Text, Touchable
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { registerToastHandlers, unregisterToastHandlers } from './toastService';
+import { useNotificationsStore } from '../stores/notificationsStore';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -19,6 +20,8 @@ export type ToastOptions = {
   action?: ToastAction;
   onPress?: () => void;
   persistent?: boolean; // Nếu true, toast sẽ không tự tắt (dùng cho các alert quan trọng)
+  category?: string;
+  recordNotification?: boolean; // set false to avoid duplicating if already recorded elsewhere
 };
 
 type ToastContextValue = {
@@ -173,8 +176,18 @@ export const ToastProvider: React.FC<React.PropsWithChildren> = ({ children }) =
 
   const showToast = useCallback(
     (options: ToastOptions) => {
-      const { duration, persistent, action, ...rest } = options;
+      const { duration, persistent, action, recordNotification = true, category, ...rest } = options;
       setToast({ type: 'info', ...rest, action });
+
+      if (recordNotification) {
+        const addNotification = useNotificationsStore.getState().addNotification;
+        void addNotification({
+          title: rest.title,
+          message: rest.message,
+          category: category || 'toast',
+        });
+      }
+
       visibleRef.current = true;
       setVisible(true);
       Animated.parallel([

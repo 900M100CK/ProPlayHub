@@ -66,12 +66,14 @@ const NotificationListener = () => {
       addNotification({
         title,
         message,
+        category: 'chat',
       });
       if (!isOnLiveChat) {
         showGlobalToast({
           type: 'info',
           title,
           message,
+          recordNotification: false,
           onPress: () => router.push('/src/pages/livechat'),
         });
       }

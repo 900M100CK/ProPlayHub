@@ -82,4 +82,48 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/subscriptions/me
+ * Return all subscriptions that belong to the authenticated user.
+ */
+router.get("/me", auth, async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const subs = await Subscription.find({ userId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json(subs);
+  } catch (err) {
+    console.error("Fetch my subscriptions error:", err);
+    return res.status(500).json({ message: "Server error fetching subscriptions" });
+  }
+});
+
+/**
+ * DELETE /api/subscriptions/:id
+ * Soft-cancel a subscription that belongs to the authenticated user.
+ */
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const sub = await Subscription.findOne({ _id: id, userId });
+    if (!sub) {
+      return res.status(404).json({ message: "Subscription not found" });
+    }
+
+    sub.status = "cancelled";
+    sub.cancelledAt = new Date();
+    await sub.save();
+
+    return res.json({ message: "Subscription cancelled", subscription: sub });
+  } catch (err) {
+    console.error("Cancel subscription error:", err);
+    return res.status(500).json({ message: "Server error cancelling subscription" });
+  }
+});
+
 export default router;
