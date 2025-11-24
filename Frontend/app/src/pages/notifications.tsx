@@ -27,6 +27,8 @@ const NotificationsScreen = () => {
 
   const isChatNotification = (item: any) => {
     const title = (item?.title || '').toLowerCase();
+    // Exclude OTP / code notices from being treated as chat
+    if (title.includes('otp') || title.includes('code')) return false;
     return item?.category === 'chat' || title === 'staff' || title.includes('message');
   };
 

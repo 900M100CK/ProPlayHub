@@ -366,10 +366,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         type: 'info',
         title: 'Check your email',
         message: 'We sent password reset instructions to your inbox.',
-        action: {
-          label: 'Open reset screen',
-          onPress: () => router.push({ pathname: './reset-password', params: { email } }),
-        },
       });
 
       return true;
