@@ -8,6 +8,7 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -249,15 +250,20 @@ const CartScreen = () => {
             </ScrollView>
 
           {/* Footer showing totals and the checkout button */}
-          <View style={cartStyles.footer}>
+          <View style={[cartStyles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
             <View style={cartStyles.totalRow}>
               <Text style={cartStyles.totalLabel}>Total:</Text>
               <Text style={cartStyles.totalPrice}>£{totalPrice.toFixed(2)}</Text>
             </View>
-            <TouchableOpacity style={cartStyles.checkoutButton} onPress={handleCheckout}>
+            <Pressable
+              style={({ pressed }) => [
+                cartStyles.checkoutButton,
+                { opacity: pressed ? 0.85 : 1 },
+              ]}
+              onPress={handleCheckout}
+            >
               <Text style={cartStyles.checkoutButtonText}>Checkout</Text>
-              <Ionicons name="arrow-forward" size={20} color={colors.surface} style={{ marginLeft: spacing.xs }} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </>
       )}
@@ -424,17 +430,25 @@ const cartStyles = StyleSheet.create({
   footer: {
     marginBottom: 5,
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    borderRadius: 24,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    alignItems: 'center',
+    marginHorizontal: spacing.lg,
+    borderRadius: 20,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 24,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
+    width: '100%',
   },
   totalLabel: {
     fontSize: 18,
@@ -447,17 +461,25 @@ const cartStyles = StyleSheet.create({
     color: colors.textPrimary,
   },
   checkoutButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    flexDirection: 'row',
+    backgroundColor: '#7C3AED',
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: 12,
+    shadowColor: '#4C1D95',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
   },
   checkoutButtonText: {
-    color: colors.textPrimary,
+    color: colors.surface,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
 
