@@ -211,18 +211,20 @@ const SubscriptionsScreen = () => {
       <SafeAreaView style={subscriptionStyles.container}>
         <StatusBar barStyle="light-content" />
         <ScreenHeader title="My subscriptions" />
-        <View style={subscriptionStyles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
-          <Text style={subscriptionStyles.emptyTitle}>Sign-in required</Text>
-          <Text style={subscriptionStyles.emptyText}>
-            Please sign in to view your subscription packages.
-          </Text>
-          <TouchableOpacity
-            style={subscriptionStyles.loginButton}
-            onPress={() => router.push('./login')}
-          >
-            <Text style={subscriptionStyles.loginButtonText}>Sign in</Text>
-          </TouchableOpacity>
+        <View style={subscriptionStyles.body}>
+          <View style={subscriptionStyles.emptyContainer}>
+            <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
+            <Text style={subscriptionStyles.emptyTitle}>Sign-in required</Text>
+            <Text style={subscriptionStyles.emptyText}>
+              Please sign in to view your subscription packages.
+            </Text>
+            <TouchableOpacity
+              style={subscriptionStyles.loginButton}
+              onPress={() => router.push('./login')}
+            >
+              <Text style={subscriptionStyles.loginButtonText}>Sign in</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -240,9 +242,11 @@ const SubscriptionsScreen = () => {
             </TouchableOpacity>
           }
         />
-        <View style={subscriptionStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={subscriptionStyles.loadingText}>Loading...</Text>
+        <View style={subscriptionStyles.body}>
+          <View style={subscriptionStyles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={subscriptionStyles.loadingText}>Loading...</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -271,7 +275,7 @@ const SubscriptionsScreen = () => {
         }
       />
 
-      <View style={subscriptionStyles.contentWrapper}>
+      <View style={subscriptionStyles.body}>
         <ScrollView 
           style={subscriptionStyles.content}
           contentContainerStyle={subscriptionStyles.scrollContent}
@@ -412,7 +416,14 @@ const SubscriptionsScreen = () => {
 const subscriptionStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.headerBackground,
+  },
+  body: {
+    flex: 1,
+    backgroundColor: colors.bodyBackground,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: spacing.md,
   },
   contentWrapper: {
     flex: 1,
@@ -616,4 +627,5 @@ const subscriptionStyles = StyleSheet.create({
 });
 
 export default SubscriptionsScreen;
+
 

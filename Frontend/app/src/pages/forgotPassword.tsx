@@ -47,24 +47,17 @@ const ForgotPasswordScreen: React.FC = () => {
     };
   }, [resetAuthForms]);
 
-  // 2. Hàm xử lý khi nhấn nút "Gửi mã OTP"
-  const handleSendOTP = () => {
-    // Reset lỗi trước mỗi lần thử
+  // 2. HA`m xu? ly� khi nh�n nu�t "Gu?i ma~ OTP"
+  const handleSendOTP = async () => {
     setValidationError(null);
-
-    // 3. Thực hiện xác thực bằng Zod
-    const result = ForgotPasswordSchema.safeParse({ email });
-
+    const result = ForgotPasswordSchema.safeParse({ email: email?.trim() || '' });
     if (!result.success) {
-      // Nếu xác thực thất bại, hiển thị lỗi đầu tiên
       setValidationError(result.error.issues[0].message);
     } else {
-      // Nếu xác thực thành công, gọi action từ store để gửi yêu cầu API
-      // sendPasswordResetEmail returns a Promise<void>, so don't test its (void) result for truthiness
-      sendPasswordResetEmail().then(() => {
-        // Navigate after the request completes
-        router.push({ pathname: './resetPassword', params: { email } });
-      });
+      const ok = await sendPasswordResetEmail();
+      if (ok) {
+        router.push({ pathname: './resetPassword', params: { email: email.trim() } });
+      }
     }
   };
 
@@ -155,3 +148,4 @@ const ForgotPasswordScreen: React.FC = () => {
 };
 
 export default ForgotPasswordScreen;
+

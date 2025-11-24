@@ -1,4 +1,4 @@
-// app/src/pages/packageDetail.tsx
+﻿// app/src/pages/packageDetail.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -19,6 +19,10 @@ import { useToast } from '../components/ToastProvider';
 import ScreenHeader from '../components/ScreenHeader';
 import { API_BASE_URL } from '../utils/apiConfig';
 import apiClient from '../api/axiosConfig';
+import { colors, spacing } from '../styles/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BottomNav from '../components/BottomNav';
+
 
 // Helper: lấy số % từ discountLabel
 const extractDiscountPercent = (label?: string): number | null => {
@@ -38,6 +42,8 @@ const calculateDiscountedPrice = (basePrice: number, discountLabel?: string): nu
 const PackageDetailScreen = () => {
   const router = useRouter();
   const { slug } = useLocalSearchParams<{ slug?: string }>();
+  const insets = useSafeAreaInsets();
+  const bottomGutter = spacing.xxl + Math.max(insets.bottom, spacing.lg);
 
   const [pkg, setPkg] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -155,7 +161,11 @@ const PackageDetailScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={detailStyles.container}>
-        <ActivityIndicator style={{ marginTop: 40 }} />
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title="Package Information" subtitle="Loading package..." />
+        <View style={detailStyles.body}>
+          <ActivityIndicator style={{ marginTop: 40 }} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -165,41 +175,43 @@ const PackageDetailScreen = () => {
       <SafeAreaView style={detailStyles.container}>
         <StatusBar barStyle="light-content" />
         <ScreenHeader title="Package Information" />
-        <View style={detailStyles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-          <Text style={detailStyles.errorText}>{error}</Text>
-          <Text style={detailStyles.errorSubText}>
-            Please make sure backend server is running at {API_BASE_URL}
-          </Text>
-          <TouchableOpacity
-            style={detailStyles.retryButton}
-            onPress={() => {
-              setError(null);
-              // Trigger refetch
-              if (slug) {
-                const fetchDetail = async () => {
-                  try {
-                    setLoading(true);
-                    setError(null);
-                    const res = await fetch(`${API_BASE_URL}/api/packages/${slug}`);
-                    if (!res.ok) {
-                      const errorData = await res.json().catch(() => ({ message: 'Failed to fetch package detail' }));
-                      throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+        <View style={detailStyles.body}>
+          <View style={detailStyles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+            <Text style={detailStyles.errorText}>{error}</Text>
+            <Text style={detailStyles.errorSubText}>
+              Please make sure backend server is running at {API_BASE_URL}
+            </Text>
+            <TouchableOpacity
+              style={detailStyles.retryButton}
+              onPress={() => {
+                setError(null);
+                // Trigger refetch
+                if (slug) {
+                  const fetchDetail = async () => {
+                    try {
+                      setLoading(true);
+                      setError(null);
+                      const res = await fetch(`${API_BASE_URL}/api/packages/${slug}`);
+                      if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({ message: 'Failed to fetch package detail' }));
+                        throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+                      }
+                      const data = await res.json();
+                      setPkg(data);
+                    } catch (err: any) {
+                      setError(err?.message || 'Error fetching package detail');
+                    } finally {
+                      setLoading(false);
                     }
-                    const data = await res.json();
-                    setPkg(data);
-                  } catch (err: any) {
-                    setError(err?.message || 'Error fetching package detail');
-                  } finally {
-                    setLoading(false);
-                  }
-                };
-                fetchDetail();
-              }
-            }}
-          >
-            <Text style={detailStyles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
+                  };
+                  fetchDetail();
+                }
+              }}
+            >
+              <Text style={detailStyles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -208,7 +220,13 @@ const PackageDetailScreen = () => {
   if (!pkg) {
     return (
       <SafeAreaView style={detailStyles.container}>
-        <Text style={detailStyles.errorText}>Package not found</Text>
+        <StatusBar barStyle="light-content" />
+        <ScreenHeader title="Package Information" />
+        <View style={detailStyles.body}>
+          <View style={detailStyles.errorContainer}>
+            <Text style={detailStyles.errorText}>Package not found</Text>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -306,7 +324,12 @@ const PackageDetailScreen = () => {
         subtitle={pkg.category ? `${pkg.category} • ${pkg.type}` : pkg.type}
       />
 
-      <ScrollView style={detailStyles.content} showsVerticalScrollIndicator={false}>
+      <View style={detailStyles.body}>
+      <ScrollView
+        style={detailStyles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: bottomGutter }}
+      >
         {/* Package Card */}
         <View style={detailStyles.packageCard}>
           <View style={detailStyles.packageHeader}>
@@ -426,6 +449,8 @@ const PackageDetailScreen = () => {
           </View>
         </View>
       </ScrollView>
+      </View>
+      <BottomNav />
     </SafeAreaView>
   );
 };
@@ -433,7 +458,14 @@ const PackageDetailScreen = () => {
 const detailStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.headerBackground,
+  },
+  body: {
+    flex: 1,
+    backgroundColor: colors.bodyBackground,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
   },
   content: {
     flex: 1,

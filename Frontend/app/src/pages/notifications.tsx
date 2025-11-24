@@ -96,20 +96,22 @@ const NotificationsScreen = () => {
         }
       />
 
-      {notifications.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="notifications-off-outline" size={48} color={colors.textSecondary} />
-          <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptyText}>When you get alerts, they will appear here.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={sorted}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl * 2 }}
-        />
-      )}
+      <View style={styles.body}>
+        {notifications.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="notifications-off-outline" size={48} color={colors.textSecondary} />
+            <Text style={styles.emptyTitle}>No notifications yet</Text>
+            <Text style={styles.emptyText}>When you get alerts, they will appear here.</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={sorted}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl * 2 }}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 };
@@ -117,7 +119,14 @@ const NotificationsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.headerBackground,
+  },
+  body: {
+    flex: 1,
+    backgroundColor: colors.bodyBackground,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: spacing.md,
   },
   headerActions: {
     flexDirection: 'column',
@@ -206,3 +215,4 @@ const styles = StyleSheet.create({
 });
 
 export default NotificationsScreen;
+

@@ -73,11 +73,12 @@ const AchievementsScreen = () => {
       <StatusBar barStyle="light-content" />
       <ScreenHeader title="My Achievements" />
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={true}
-      >
+      <View style={styles.body}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={true}
+        >
         {/* Page title */}
         <Text style={styles.pageTitle}>Gaming Achievements</Text>
 
@@ -136,7 +137,8 @@ const AchievementsScreen = () => {
             <Text style={styles.shareButtonText}>Share to Discord</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -146,7 +148,13 @@ export default AchievementsScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#A855F7',
+  },
+  body: {
+    flex: 1,
     backgroundColor: '#F3F4F6',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   content: {
     flex: 1,

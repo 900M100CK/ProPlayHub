@@ -1,4 +1,4 @@
-// app/src/pages/cart.tsx
+﻿// app/src/pages/cart.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -9,7 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCartStore } from '../stores/cartStore';
@@ -24,6 +24,8 @@ const CartScreen = () => {
   const { items, removeFromCart, clearCart, getTotalPrice, loadCartFromStorage } = useCartStore();
   const { accessToken, user } = useAuthStore();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
+  const bottomGutter = spacing.xxl + Math.max(insets.bottom, spacing.md);
   const [loading, setLoading] = useState(true);
   const [confirmConfig, setConfirmConfig] = useState<{
     visible: boolean;
@@ -92,19 +94,21 @@ const CartScreen = () => {
       <SafeAreaView style={cartStyles.container}>
         <StatusBar barStyle="light-content" />
         <ScreenHeader title="Cart" />
-        <View style={cartStyles.emptyContainer}>
-          <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
-          <Text style={cartStyles.emptyTitle}>Sign-in required</Text>
-          <Text style={cartStyles.emptyText}>
-            Please sign in to view your cart.
-          </Text>
-          <TouchableOpacity
-            style={cartStyles.loginButton}
-            onPress={() => router.push('./login')}
-          >
-            <Text style={cartStyles.loginButtonText}>Sign in</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={cartStyles.body}>
+            <View style={cartStyles.emptyContainer}>
+              <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
+              <Text style={cartStyles.emptyTitle}>Sign-in required</Text>
+              <Text style={cartStyles.emptyText}>
+                Please sign in to view your cart.
+              </Text>
+              <TouchableOpacity
+                style={cartStyles.loginButton}
+                onPress={() => router.push('./login')}
+              >
+                <Text style={cartStyles.loginButtonText}>Sign in</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
       </SafeAreaView>
     );
   }
@@ -112,9 +116,11 @@ const CartScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={cartStyles.container}>
-        <View style={cartStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <View style={cartStyles.body}>
+            <View style={cartStyles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          </View>
       </SafeAreaView>
     );
   }
@@ -183,28 +189,29 @@ const CartScreen = () => {
         }
       />
 
-      {items.length === 0 ? (
-        <View style={cartStyles.emptyContainer}>
-          <Ionicons name="cart-outline" size={80} color={colors.textSecondary} />
-          <Text style={cartStyles.emptyTitle}>Cart is empty</Text>
-          <Text style={cartStyles.emptyText}>
-            There are no products in your cart yet.
-          </Text>
-          <TouchableOpacity
-            style={cartStyles.shopButton}
-            onPress={() => router.push('./home')}
-          >
-            <Text style={cartStyles.shopButtonText}>Continue shopping</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
+      <View style={cartStyles.body}>
+        {items.length === 0 ? (
+            <View style={cartStyles.emptyContainer}>
+            <Ionicons name="cart-outline" size={80} color={colors.textSecondary} />
+            <Text style={cartStyles.emptyTitle}>Cart is empty</Text>
+            <Text style={cartStyles.emptyText}>
+              There are no products in your cart yet.
+            </Text>
+            <TouchableOpacity
+              style={cartStyles.shopButton}
+              onPress={() => router.push('./home')}
+            >
+              <Text style={cartStyles.shopButtonText}>Continue shopping</Text>
+            </TouchableOpacity>
+            </View>
+        ) : (
         <>
-          <ScrollView
-            style={cartStyles.content}
-            contentContainerStyle={{ paddingBottom: spacing.xl }}
-            showsVerticalScrollIndicator={false}
-          >
-            {items.map((item) => (
+            <ScrollView
+              style={cartStyles.content}
+              contentContainerStyle={{ paddingBottom: bottomGutter }}
+              showsVerticalScrollIndicator={false}
+            >
+              {items.map((item) => (
               <View key={item.slug} style={cartStyles.itemCard}>
                 <View style={cartStyles.itemInfo}>
                   <Text style={cartStyles.itemName}>{item.name}</Text>
@@ -239,7 +246,7 @@ const CartScreen = () => {
                 </TouchableOpacity>
               </View>
             ))}
-          </ScrollView>
+            </ScrollView>
 
           {/* Footer showing totals and the checkout button */}
           <View style={cartStyles.footer}>
@@ -249,21 +256,22 @@ const CartScreen = () => {
             </View>
             <TouchableOpacity style={cartStyles.checkoutButton} onPress={handleCheckout}>
               <Text style={cartStyles.checkoutButtonText}>Checkout</Text>
-              <Ionicons name="arrow-forward" size={20} color={colors.textPrimary} style={{ marginLeft: spacing.xs }} />
+              <Ionicons name="arrow-forward" size={20} color={colors.surface} style={{ marginLeft: spacing.xs }} />
             </TouchableOpacity>
           </View>
         </>
       )}
-      <ConfirmationModal
-        visible={confirmConfig.visible}
-        title={confirmConfig.title}
-        message={confirmConfig.message}
-        confirmLabel={confirmConfig.confirmLabel}
-        cancelLabel={confirmConfig.cancelLabel}
-        loading={confirming}
-        onCancel={closeConfirmModal}
-        onConfirm={handleConfirmAction}
-      />
+        <ConfirmationModal
+          visible={confirmConfig.visible}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmLabel={confirmConfig.confirmLabel}
+          cancelLabel={confirmConfig.cancelLabel}
+          loading={confirming}
+          onCancel={closeConfirmModal}
+          onConfirm={handleConfirmAction}
+        />
+      </View>
     </SafeAreaView>
   );
 };
@@ -271,7 +279,16 @@ const CartScreen = () => {
 const cartStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.headerBackground,
+  },
+  body: {
+    flex: 1,
+    backgroundColor: colors.bodyBackground,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: spacing.md,
+    paddingBottom: 80,
+    marginBottom: -50,
   },
   headerIconButton: {
     width: 42,
@@ -296,6 +313,9 @@ const cartStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
+  },
+  cardFull: {
+    flex: 1,
   },
   emptyTitle: {
     fontSize: 20,
@@ -402,12 +422,13 @@ const cartStyles = StyleSheet.create({
     padding: spacing.xs,
   },
   footer: {
+    marginBottom: 5,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-    paddingBottom: 85,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    borderRadius: 24,
   },
   totalRow: {
     flexDirection: 'row',

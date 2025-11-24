@@ -24,6 +24,8 @@ import apiClient from '../api/axiosConfig';
 import { useToast } from '../components/ToastProvider';
 import ScreenHeader from '../components/ScreenHeader';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { colors, spacing } from '../styles/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ====== MOCK ADD-ONS (for demo) ======
 const MOCK_ADDONS = [
@@ -53,31 +55,52 @@ const calcDiscountedPrice = (basePrice: number, label?: string) => {
 // ====== MOCK PAYMENT METHODS (demo) ======
 type PaymentMethod = {
   id: string;
-  brand: string;
-  last4: string;
-  holder: string;
-  isDefault?: boolean;
+  type: 'card' | 'paypal' | 'bank';
+  brand?: string;
+  last4?: string;
+  name: string;
+  detail?: string;
 };
+
+const keyForUser = (userId: string | null | undefined, base: string) =>
+  `${base}:${userId ?? 'guest'}`;
 
 const MOCK_METHODS: PaymentMethod[] = [
   {
     id: "pm_visa_4242",
+    type: 'card',
     brand: "Visa",
     last4: "4242",
-    holder: "John Smith",
-    isDefault: true,
+    name: "Visa",
+    detail: "**** 4242",
   },
   {
     id: "pm_mc_5522",
+    type: 'card',
     brand: "Mastercard",
     last4: "5522",
-    holder: "John Smith",
+    name: "Mastercard",
+    detail: "**** 5522",
   },
   {
     id: "pm_ppal",
+    type: 'paypal',
     brand: "PayPal",
-    last4: "—",
-    holder: "john@example.com",
+    last4: "0000",
+    name: "PayPal",
+    detail: "john@example.com",
+  },
+];
+
+const PAYMENT_METHOD_STORAGE_KEY = 'selectedPaymentMethod';
+const PAYMENT_METHODS_LIST_STORAGE_KEY = 'paymentMethodsList';
+const PAYMENT_METHODS_DEFAULT: PaymentMethod[] = [
+  ...MOCK_METHODS,
+  {
+    id: 'pm_bank_default',
+    type: 'bank',
+    name: 'Bank transfer',
+    detail: 'Checking **88',
   },
 ];
 
@@ -85,9 +108,11 @@ const CheckoutScreen = () => {
   const router = useRouter();
   const { slug } = useLocalSearchParams<{ slug?: string }>();
 
-  const { accessToken } = useAuthStore() as any;
+  const { accessToken, user } = useAuthStore() as any;
   const { loadCartFromStorage, clearCart } = useCartStore();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
+  const bottomGutter = spacing.xxl + Math.max(insets.bottom, spacing.md);
 
   const [pkg, setPkg] = useState<any | null>(null);
   const [checkoutItems, setCheckoutItems] = useState<any[]>([]);
@@ -101,13 +126,10 @@ const CheckoutScreen = () => {
   const [selectedAddOns, setSelectedAddOns] = useState<Record<string, string[]>>({});
   
   // Payment Method State
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState({
-    type: 'card',
-    brand: 'Visa',
-    last4: '4242',
-    name: 'Visa ending in 4242',
-  });
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(PAYMENT_METHODS_DEFAULT);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHODS_DEFAULT[0]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [loadedPaymentPreference, setLoadedPaymentPreference] = useState(false);
 
   // Load accessToken from AsyncStorage on mount
   useEffect(() => {
@@ -146,6 +168,58 @@ const CheckoutScreen = () => {
 
     loadToken();
   }, []);
+
+  useEffect(() => {
+    const loadPaymentMethods = async () => {
+      try {
+        let methods = PAYMENT_METHODS_DEFAULT;
+        const listKey = keyForUser(user?._id, PAYMENT_METHODS_LIST_STORAGE_KEY);
+        const selectedKey = keyForUser(user?._id, PAYMENT_METHOD_STORAGE_KEY);
+
+        const storedList = await AsyncStorage.getItem(listKey);
+        if (storedList) {
+          const parsed: PaymentMethod[] = JSON.parse(storedList);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            methods = parsed;
+          }
+        }
+        setPaymentMethods(methods);
+
+        let selected: PaymentMethod = methods[0];
+        const storedSelected = await AsyncStorage.getItem(selectedKey);
+        if (storedSelected) {
+          const parsedSel: PaymentMethod = JSON.parse(storedSelected);
+          const match =
+            methods.find((m) => m.id === parsedSel.id) ||
+            methods.find(
+              (m) =>
+                m.type === parsedSel.type &&
+                m.brand === parsedSel.brand &&
+                m.last4 === parsedSel.last4 &&
+                m.name === parsedSel.name
+            );
+          if (match) {
+            selected = match;
+          }
+        }
+        setSelectedPaymentMethod(selected);
+      } catch (err) {
+        console.error('Failed to load payment methods:', err);
+      } finally {
+        setLoadedPaymentPreference(true);
+      }
+    };
+
+    loadPaymentMethods();
+  }, [user?._id]);
+
+  useEffect(() => {
+    if (!loadedPaymentPreference) return;
+    const selectedKey = keyForUser(user?._id, PAYMENT_METHOD_STORAGE_KEY);
+    AsyncStorage.setItem(selectedKey, JSON.stringify(selectedPaymentMethod)).catch((err) =>
+      console.error('Failed to persist payment method:', err)
+    );
+  }, [selectedPaymentMethod, loadedPaymentPreference, user?._id]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -221,9 +295,11 @@ const CheckoutScreen = () => {
       <SafeAreaView style={checkoutStyles.container}>
         <StatusBar barStyle="light-content" />
         <ScreenHeader title={headerTitle} subtitle="Loading your order..." />
-        <View style={checkoutStyles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
-          <Text style={checkoutStyles.loadingText}>Loading package...</Text>
+        <View style={checkoutStyles.body}>
+          <View style={checkoutStyles.loadingContainer}>
+            <ActivityIndicator size="large" color="#8B5CF6" />
+            <Text style={checkoutStyles.loadingText}>Loading package...</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -234,24 +310,26 @@ const CheckoutScreen = () => {
       <SafeAreaView style={checkoutStyles.container}>
         <StatusBar barStyle="light-content" />
         <ScreenHeader title={headerTitle} subtitle="Something went wrong" />
-        <View style={checkoutStyles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-          <Text style={checkoutStyles.errorText}>
-            {error || 'Package not found'}
-          </Text>
-          <Text style={checkoutStyles.errorSubText}>
-            {error 
-              ? 'Please make sure backend server is running and packages are seeded.'
-              : 'Please select a package to proceed with checkout.'}
-          </Text>
-          <TouchableOpacity
-            style={checkoutStyles.backToHomeButton}
-            onPress={() => router.push('./home')}
-          >
-            <Text style={checkoutStyles.backToHomeButtonText}>
-              Back to Home
+        <View style={checkoutStyles.body}>
+          <View style={checkoutStyles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+            <Text style={checkoutStyles.errorText}>
+              {error || 'Package not found'}
             </Text>
-          </TouchableOpacity>
+            <Text style={checkoutStyles.errorSubText}>
+              {error 
+                ? 'Please make sure backend server is running and packages are seeded.'
+                : 'Please select a package to proceed with checkout.'}
+            </Text>
+            <TouchableOpacity
+              style={checkoutStyles.backToHomeButton}
+              onPress={() => router.push('./home')}
+            >
+              <Text style={checkoutStyles.backToHomeButtonText}>
+                Back to Home
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -652,11 +730,12 @@ const CheckoutScreen = () => {
     <SafeAreaView style={checkoutStyles.container}>
       <StatusBar barStyle="light-content" />
       <ScreenHeader title={headerTitle} subtitle={headerSubtitle} />
-
+      <View style={checkoutStyles.body}>
+      {/** Use consistent bottom spacing across devices/nav heights */} 
       <ScrollView 
         style={checkoutStyles.content} 
         bounces={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: bottomGutter }}
       >
         {/* Order Summary */}
         <View style={checkoutStyles.card}>
@@ -836,11 +915,11 @@ const CheckoutScreen = () => {
         <View style={checkoutStyles.card}>
           <Text style={checkoutStyles.cardTitle}>Payment Method</Text>
 
-          {/* Currently selected payment method */}
-          <View style={checkoutStyles.paymentBox}>
-            <View style={checkoutStyles.row}>
-              <Ionicons 
-                name={selectedPaymentMethod.type === 'card' ? 'card-outline' : selectedPaymentMethod.type === 'paypal' ? 'logo-paypal' : 'wallet-outline'} 
+        {/* Currently selected payment method */}
+        <View style={checkoutStyles.paymentBox}>
+          <View style={checkoutStyles.row}>
+            <Ionicons 
+                name={selectedPaymentMethod.type === 'card' ? 'card-outline' : selectedPaymentMethod.type === 'paypal' ? 'logo-paypal' : 'business-outline'} 
                 size={20} 
                 color="#4B5563" 
               />
@@ -857,6 +936,7 @@ const CheckoutScreen = () => {
                 ) : (
                   <Text style={checkoutStyles.cardNumber}>
                     {selectedPaymentMethod.name}
+                    {selectedPaymentMethod.detail ? ` • ${selectedPaymentMethod.detail}` : ''}
                   </Text>
                 )}
               </View>
@@ -906,11 +986,12 @@ const CheckoutScreen = () => {
             }
           }}
           disabled={submitting}
-        >
-          <Text style={checkoutStyles.completeButtonText}>
-            Complete Order
-          </Text>
-        </Pressable>
+          >
+            <Text style={checkoutStyles.completeButtonText}>
+              Complete Order
+            </Text>
+          </Pressable>
+      </View>
       </View>
 
       {/* Payment Method Selection Modal */}
@@ -930,155 +1011,46 @@ const CheckoutScreen = () => {
             </View>
 
             <ScrollView style={checkoutStyles.modalBody}>
-              {/* Credit/Debit Card Options */}
-              <View style={checkoutStyles.paymentOptionSection}>
-                <Text style={checkoutStyles.paymentOptionSectionTitle}>Credit/Debit Card</Text>
-                
-                <Pressable
-                  style={[
-                    checkoutStyles.paymentOption,
-                    selectedPaymentMethod.type === 'card' && selectedPaymentMethod.brand === 'Visa' && checkoutStyles.paymentOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedPaymentMethod({
-                      type: 'card',
-                      brand: 'Visa',
-                      last4: '4242',
-                      name: 'Visa ending in 4242',
-                    });
-                    setShowPaymentModal(false);
-                  }}
-                >
-                  <View style={checkoutStyles.paymentOptionContent}>
-                    <Ionicons name="card-outline" size={24} color="#111827" />
-                    <View style={{ marginLeft: 12, flex: 1 }}>
-                      <Text style={checkoutStyles.paymentOptionName}>Visa •••• 4242</Text>
-                      <Text style={checkoutStyles.paymentOptionDesc}>Credit/Debit Card</Text>
-                    </View>
-                    {selectedPaymentMethod.type === 'card' && selectedPaymentMethod.brand === 'Visa' && (
-                      <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                    )}
-                  </View>
-                </Pressable>
+              {paymentMethods.map((method) => {
+                const isSelected = selectedPaymentMethod?.id === method.id;
+                const iconName =
+                  method.type === 'paypal'
+                    ? 'logo-paypal'
+                    : method.type === 'bank'
+                    ? 'business-outline'
+                    : 'card-outline';
+                const line1 =
+                  method.type === 'card'
+                    ? `${method.brand || 'Card'} ${method.last4 ? '•••• ' + method.last4 : ''}`.trim()
+                    : method.name;
+                const line2 =
+                  method.type === 'card'
+                    ? method.name
+                    : method.detail || 'Tap to use this method';
 
-                <Pressable
-                  style={[
-                    checkoutStyles.paymentOption,
-                    selectedPaymentMethod.type === 'card' && selectedPaymentMethod.brand === 'Mastercard' && checkoutStyles.paymentOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedPaymentMethod({
-                      type: 'card',
-                      brand: 'Mastercard',
-                      last4: '8888',
-                      name: 'Mastercard ending in 8888',
-                    });
-                    setShowPaymentModal(false);
-                  }}
-                >
-                  <View style={checkoutStyles.paymentOptionContent}>
-                    <Ionicons name="card-outline" size={24} color="#111827" />
-                    <View style={{ marginLeft: 12, flex: 1 }}>
-                      <Text style={checkoutStyles.paymentOptionName}>Mastercard •••• 8888</Text>
-                      <Text style={checkoutStyles.paymentOptionDesc}>Credit/Debit Card</Text>
+                return (
+                  <Pressable
+                    key={method.id}
+                    style={[
+                      checkoutStyles.paymentOption,
+                      isSelected && checkoutStyles.paymentOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setSelectedPaymentMethod(method);
+                      setShowPaymentModal(false);
+                    }}
+                  >
+                    <View style={checkoutStyles.paymentOptionContent}>
+                      <Ionicons name={iconName} size={24} color="#111827" />
+                      <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text style={checkoutStyles.paymentOptionName}>{line1}</Text>
+                        <Text style={checkoutStyles.paymentOptionDesc}>{line2}</Text>
+                      </View>
+                      {isSelected && <Ionicons name="checkmark-circle" size={24} color="#10B981" />}
                     </View>
-                    {selectedPaymentMethod.type === 'card' && selectedPaymentMethod.brand === 'Mastercard' && (
-                      <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                    )}
-                  </View>
-                </Pressable>
-
-                <Pressable
-                  style={[
-                    checkoutStyles.paymentOption,
-                    selectedPaymentMethod.type === 'card' && selectedPaymentMethod.brand === 'Amex' && checkoutStyles.paymentOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedPaymentMethod({
-                      type: 'card',
-                      brand: 'Amex',
-                      last4: '0005',
-                      name: 'American Express ending in 0005',
-                    });
-                    setShowPaymentModal(false);
-                  }}
-                >
-                  <View style={checkoutStyles.paymentOptionContent}>
-                    <Ionicons name="card-outline" size={24} color="#111827" />
-                    <View style={{ marginLeft: 12, flex: 1 }}>
-                      <Text style={checkoutStyles.paymentOptionName}>Amex •••• 0005</Text>
-                      <Text style={checkoutStyles.paymentOptionDesc}>Credit Card</Text>
-                    </View>
-                    {selectedPaymentMethod.type === 'card' && selectedPaymentMethod.brand === 'Amex' && (
-                      <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                    )}
-                  </View>
-                </Pressable>
-              </View>
-
-              {/* PayPal */}
-              <View style={checkoutStyles.paymentOptionSection}>
-                <Text style={checkoutStyles.paymentOptionSectionTitle}>Digital Wallets</Text>
-                
-                <Pressable
-                  style={[
-                    checkoutStyles.paymentOption,
-                    selectedPaymentMethod.type === 'paypal' && checkoutStyles.paymentOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedPaymentMethod({
-                      type: 'paypal',
-                      brand: 'PayPal',
-                      last4: '',
-                      name: 'PayPal',
-                    });
-                    setShowPaymentModal(false);
-                  }}
-                >
-                  <View style={checkoutStyles.paymentOptionContent}>
-                    <Ionicons name="logo-paypal" size={24} color="#003087" />
-                    <View style={{ marginLeft: 12, flex: 1 }}>
-                      <Text style={checkoutStyles.paymentOptionName}>PayPal</Text>
-                      <Text style={checkoutStyles.paymentOptionDesc}>Pay with your PayPal account</Text>
-                    </View>
-                    {selectedPaymentMethod.type === 'paypal' && (
-                      <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                    )}
-                  </View>
-                </Pressable>
-              </View>
-
-              {/* Bank Transfer */}
-              <View style={checkoutStyles.paymentOptionSection}>
-                <Text style={checkoutStyles.paymentOptionSectionTitle}>Bank Transfer</Text>
-                
-                <Pressable
-                  style={[
-                    checkoutStyles.paymentOption,
-                    selectedPaymentMethod.type === 'bank' && checkoutStyles.paymentOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedPaymentMethod({
-                      type: 'bank',
-                      brand: 'Bank Transfer',
-                      last4: '',
-                      name: 'Bank Transfer',
-                    });
-                    setShowPaymentModal(false);
-                  }}
-                >
-                  <View style={checkoutStyles.paymentOptionContent}>
-                    <Ionicons name="business-outline" size={24} color="#111827" />
-                    <View style={{ marginLeft: 12, flex: 1 }}>
-                      <Text style={checkoutStyles.paymentOptionName}>Bank Transfer</Text>
-                      <Text style={checkoutStyles.paymentOptionDesc}>Direct bank transfer</Text>
-                    </View>
-                    {selectedPaymentMethod.type === 'bank' && (
-                      <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                    )}
-                  </View>
-                </Pressable>
-              </View>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </View>
         </View>
@@ -1090,7 +1062,16 @@ const CheckoutScreen = () => {
 const checkoutStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.headerBackground,
+  },
+  body: {
+    flex: 1,
+    backgroundColor: colors.bodyBackground,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
+    paddingBottom: 80,
+    marginBottom: -50,
   },
   content: {
     flex: 1,
@@ -1389,27 +1370,41 @@ const checkoutStyles = StyleSheet.create({
     color: '#6B7280',
   },
   footer: {
-    padding: 16,
+    marginBottom: 5,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
-    paddingVertical: 30,
     elevation: 8, // Android shadow
     shadowColor: '#000', // iOS shadow
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
   completeButton: {
-    backgroundColor: "#8B5CF6",
-    paddingVertical: 14,
-    borderRadius: 999,
+    backgroundColor: "#7C3AED",
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 24,
     alignItems: "center",
+    width: '100%',
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: 12,
+    shadowColor: '#4C1D95',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
   },
   completeButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   errorText: {
     marginTop: 40,
@@ -1497,3 +1492,5 @@ const checkoutStyles = StyleSheet.create({
 });
 
 export default CheckoutScreen;
+
+

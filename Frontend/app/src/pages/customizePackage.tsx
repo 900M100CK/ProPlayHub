@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenHeader from '../components/ScreenHeader';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { spacing } from '../styles/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Helper: lấy số % từ discountLabel
 const extractDiscountPercent = (label?: string): number | null => {
@@ -55,6 +57,8 @@ const ADD_ONS = [
 const CustomizePackageScreen = () => {
   const router = useRouter();
   const { slug } = useLocalSearchParams<{ slug?: string }>();
+  const insets = useSafeAreaInsets();
+  const bottomGutter = spacing.xxl + Math.max(insets.bottom, spacing.md);
 
   const [pkg, setPkg] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -119,7 +123,9 @@ const CustomizePackageScreen = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" />
         <ScreenHeader title={headerTitle} subtitle="Loading package..." />
-        <ActivityIndicator style={{ marginTop: 40 }} />
+        <View style={styles.body}>
+          <ActivityIndicator style={{ marginTop: 40 }} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -129,7 +135,9 @@ const CustomizePackageScreen = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" />
         <ScreenHeader title={headerTitle} />
-        <Text style={styles.errorText}>{error}</Text>
+        <View style={styles.body}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -139,7 +147,9 @@ const CustomizePackageScreen = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" />
         <ScreenHeader title={headerTitle} />
-        <Text style={styles.errorText}>Package not found</Text>
+        <View style={styles.body}>
+          <Text style={styles.errorText}>Package not found</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -148,8 +158,12 @@ const CustomizePackageScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <ScreenHeader title={headerTitle} subtitle={headerSubtitle} />
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.body}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: bottomGutter }}
+      >
         {/* Title */}
         <View style={styles.titleBlock}>
           <Text style={styles.mainTitle}>Customize Your Package</Text>
@@ -189,7 +203,7 @@ const CustomizePackageScreen = () => {
       </ScrollView>
 
       {/* Footer: Total + button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: bottomGutter }]}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total:</Text>
           <Text style={styles.totalValue}>£{totalPrice.toFixed(2)}/mo</Text>
@@ -209,6 +223,7 @@ const CustomizePackageScreen = () => {
           <Text style={styles.checkoutButtonText}>Continue to Checkout</Text>
         </TouchableOpacity>
       </View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -216,7 +231,14 @@ const CustomizePackageScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#A855F7',
+  },
+  body: {
+    flex: 1,
     backgroundColor: '#F3F4F6',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
   },
   content: {
     flex: 1,
@@ -275,6 +297,7 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingBottom: spacing.xl + spacing.md,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',

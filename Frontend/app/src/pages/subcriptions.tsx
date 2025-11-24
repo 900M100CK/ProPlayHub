@@ -115,10 +115,12 @@ const MySubscriptionsScreen = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" />
         <ScreenHeader title={headerTitle} />
-        <View style={styles.centered}>
-          <Text style={{ color: "#6B7280" }}>
-            You need to login to view your subscriptions.
-          </Text>
+        <View style={styles.body}>
+          <View style={styles.centered}>
+            <Text style={{ color: "#6B7280" }}>
+              You need to login to view your subscriptions.
+            </Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -128,7 +130,7 @@ const MySubscriptionsScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <ScreenHeader title={headerTitle} subtitle={headerSubtitle} />
-
+      <View style={styles.body}>
       {/* Content */}
       <ScrollView
         style={styles.content}
@@ -269,6 +271,7 @@ const MySubscriptionsScreen = () => {
           })
         )}
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -278,7 +281,14 @@ export default MySubscriptionsScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#A855F7",
+  },
+  body: {
+    flex: 1,
     backgroundColor: "#F3F4F6",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
   },
   content: {
     flex: 1,

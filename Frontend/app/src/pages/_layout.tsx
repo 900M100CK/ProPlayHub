@@ -9,11 +9,19 @@ import { useNotificationsStore } from '../stores/notificationsStore';
 import { SOCKET_BASE_URL } from '../utils/apiConfig';
 import { showGlobalToast } from '../components/toastService';
 
-const NAV_PATHS = [
-  '/src/pages/home',
-  '/src/pages/subscriptioncategories',
-  '/src/pages/subscriptions',
-  '/src/pages/cart',
+const HIDE_NAV_PATTERNS = [
+  'login',
+  'register',
+  'forgotpassword',
+  'resetpassword',
+  'completeprofile',
+  'changepassword',
+  'cart',
+  'checkout',
+  'customizepackage',
+  'packagedetail',
+  'livechat',
+  'orderconfirmation',
 ];
 
 const ROUTE_ORDER: Record<string, number> = {
@@ -91,7 +99,7 @@ const NotificationListener = () => {
 
 const PagesLayout = () => {
   const pathname = (usePathname() || '').toLowerCase();
-  const showNav = NAV_PATHS.some((p) => pathname.startsWith(p));
+  const showNav = !HIDE_NAV_PATTERNS.some((p) => pathname.includes(p));
   const { width } = useWindowDimensions();
   const translateX = useRef(new Animated.Value(0)).current;
   const [prevPath, setPrevPath] = useState(pathname);

@@ -32,7 +32,7 @@ const ResetPasswordSchema = z
 
 const ResetPasswordScreen: React.FC = () => {
   const router = useRouter();
-  const { email: emailFromParams } = useLocalSearchParams<{ email?: string }>();
+  const { email: emailFromParams } = useLocalSearchParams<{ email?: string | string[] }>();
 
   // Lấy state và actions từ Zustand store
   const {
@@ -45,7 +45,7 @@ const ResetPasswordScreen: React.FC = () => {
 
   // State cục bộ cho form
   const [formState, setFormState] = useState({
-    email: emailFromParams || '',
+    email: Array.isArray(emailFromParams) ? (emailFromParams[0] || '') : (emailFromParams || ''),
     otp: '',
     newPassword: '',
     confirmPassword: '',

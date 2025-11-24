@@ -204,11 +204,12 @@ const SubscriptionCategoriesScreen = () => {
         }
       />
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={{ paddingBottom: spacing.xl }}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.body}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.tabs}>
           {CATEGORY_TABS.map((tab) => {
             const active = activeCategory === tab.key;
@@ -314,7 +315,7 @@ const SubscriptionCategoriesScreen = () => {
             );
           })}
       </ScrollView>
-
+      </View>
     </SafeAreaView>
   );
 };
@@ -324,7 +325,14 @@ export default SubscriptionCategoriesScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.headerBackground,
+  },
+  body: {
+    flex: 1,
+    backgroundColor: colors.bodyBackground,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: spacing.md,
   },
   content: {
     flex: 1,

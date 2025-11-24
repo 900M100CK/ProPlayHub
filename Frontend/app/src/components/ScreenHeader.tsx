@@ -1,6 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, StyleProp } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, StyleProp, StatusBar } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { colors, spacing, radius } from "../styles/theme";
@@ -23,7 +22,6 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   showBackButton = true,
 }) => {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const handleBackPress = () => {
     if (onBackPress) {
@@ -35,7 +33,11 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({
 
   return (
     <View style={{ backgroundColor: colors.headerBackground }}>
-      <View style={{ height: insets.top, backgroundColor: colors.headerBackground }} />
+      <StatusBar
+        translucent={false}
+        backgroundColor={colors.headerBackground}
+        barStyle="light-content"
+      />
       <View style={[styles.container, containerStyle]}>
         {showBackButton ? (
           <TouchableOpacity
@@ -69,14 +71,14 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.headerBackground,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.lg,
     paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.sm,
     borderBottomLeftRadius: radius.lg,
     borderBottomRightRadius: radius.lg,
-    gap: spacing.sm,
   },
   backButton: {
     width: 42,

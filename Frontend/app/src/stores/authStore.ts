@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import apiClient, { setApiToken } from '../api/axiosConfig'; // Use the preconfigured apiClient
@@ -193,9 +193,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       
     } catch (error) {
-      console.error('Login error:', error);
       if (axios.isAxiosError(error) && error.response) {
-        // Surface server-side errors
+        // Surface server-side errors without console noise
         set({ errorMessage: error.response.data.message || 'The email or password is incorrect.' });
       } else {
         // Network or unknown error
@@ -275,7 +274,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         message: 'We sent you a welcome email and signed you in automatically.',
       });
     } catch (error) {
-      console.error('Registration error:', error);
       if (axios.isAxiosError(error) && error.response) {
         set({ errorMessage: error.response.data.message || 'Registration failed. Please try again.' });
       } else {
@@ -346,7 +344,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ errorMessage: null, successMessage: null });
 
     // 2. Client-side validation with Zod
-    const validationResult = ForgotPasswordSchema.safeParse({ email });
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    const validationResult = ForgotPasswordSchema.safeParse({ email: normalizedEmail });
     if (!validationResult.success) {
       const firstError = validationResult.error.issues[0].message;
       set({ errorMessage: firstError });
@@ -371,7 +370,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return true;
 
     } catch (error) {
-      console.error('Forgot password error:', error);
       if (axios.isAxiosError(error) && error.response) {
         set({ errorMessage: error.response.data.message || 'Email not found or another error occurred.' });
       } else {
@@ -386,29 +384,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // Action to reset password with OTP
   resetPasswordWithOTP: async (email, otp, newPassword) => {
+    const trimmedEmail = (email || '').trim();
+    const trimmedOtp = (otp || '').trim();
     set({ isLoading: true, errorMessage: null, successMessage: null });
     try {
       const response = await apiClient.post('/auth/reset-password', {
-        email,
-        otp,
+        email: trimmedEmail,
+        otp: trimmedOtp,
         newPassword,
       });
 
       set({
         isLoading: false,
-        successMessage: response.data.message || 'Mật khẩu đã được đặt lại thành công!',
+        successMessage: response.data.message || 'Password reset successfully.',
         errorMessage: null,
       });
-
-      // Tự động điều hướng người dùng đến trang đăng nhập sau một khoảng thời gian
-      setTimeout(() => {
-        // Giả sử bạn đang dùng expo-router
-        // import { router } from 'expo-router';
-        // router.replace('./login');
-      }, 3000);
-
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Đã xảy ra lỗi. Vui lòng thử lại.';
+      const message = error.response?.data?.message || 'Could not reset password. Please try again.';
       set({
         isLoading: false,
         errorMessage: message,
@@ -418,3 +410,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 export default useAuthStore;
+
+
+
+

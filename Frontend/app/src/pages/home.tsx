@@ -181,8 +181,8 @@ const HomeScreen = () => {
   const filteredRecommended = searchPackages(recommendedPackages, searchQuery);
 
   return (
-    <SafeAreaView style={homeStyles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={homeStyles.container}> 
+      <StatusBar barStyle="light-content" /> 
 
       {/* Header Section */}
       <View style={homeStyles.header}>
@@ -196,11 +196,11 @@ const HomeScreen = () => {
               style={homeStyles.headerIconButton}
               onPress={() => router.push("./livechat")}
             >
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={24}
-                color="#FFFFFF"
-              />
+              <Ionicons 
+                name="chatbubble-ellipses-outline" 
+                size={24} 
+                color="#FFFFFF" 
+              /> 
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -208,11 +208,11 @@ const HomeScreen = () => {
               onPress={() => router.push("./notifications")}
             >
               <View style={homeStyles.badgeWrapper}>
-                <Ionicons
-                  name="notifications-outline"
-                  size={24}
-                  color="#FFFFFF"
-                />
+                <Ionicons 
+                  name="notifications-outline" 
+                  size={24} 
+                  color="#FFFFFF" 
+                /> 
                 {unreadCount > 0 && (
                   <View style={homeStyles.notificationBadge}>
                     <Text style={homeStyles.notificationBadgeText}>
@@ -226,47 +226,47 @@ const HomeScreen = () => {
             {/* Profile icon */}
             <TouchableOpacity
               style={homeStyles.headerIconButton}
-              onPress={() => router.push("./profile")}
+              onPress={() => router.push("/src/pages/profile")}
             >
-              <Ionicons
-                name="person-outline"
-                size={24}
-                color="#FFFFFF"
-              />
+              <Ionicons 
+                name="person-outline" 
+                size={24} 
+                color="#FFFFFF" 
+              /> 
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Search Bar */}
         <View style={homeStyles.searchContainer}>
-          <Ionicons
-            name="search-outline"
-            size={20}
-            color="#D1D5DB"
-            style={homeStyles.searchIcon}
-          />
-          <TextInput
-            style={homeStyles.searchInput}
-            placeholder="Search..."
-            placeholderTextColor="#D1D5DB"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
+          <Ionicons 
+            name="search-outline" 
+            size={20} 
+            color="#D1D5DB" 
+            style={homeStyles.searchIcon} 
+          /> 
+          <TextInput 
+            style={homeStyles.searchInput} 
+            placeholder="Search..." 
+            placeholderTextColor="#D1D5DB" 
+            value={searchQuery} 
+            onChangeText={setSearchQuery} 
+            returnKeyType="search" 
+          /> 
           {searchQuery.length > 0 && (
             <TouchableOpacity
               onPress={() => setSearchQuery("")}
               style={homeStyles.clearButton}
             >
-              <Ionicons
-                name="close-circle"
-                size={20}
-                color="#D1D5DB"
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+              <Ionicons 
+                name="close-circle" 
+                size={20} 
+                color="#D1D5DB" 
+              /> 
+            </TouchableOpacity> 
+          )} 
+        </View> 
+      </View> 
 
       {/* Nội dung */}
       {loading ? (
@@ -478,7 +478,7 @@ const HomeScreen = () => {
 const homeStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#A855F7",
   },
   header: {
     backgroundColor: "#A855F7",
@@ -549,14 +549,21 @@ const homeStyles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    backgroundColor: "#F3F4F6",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
   },
   scrollContent: {
     paddingBottom: 24,
+    paddingHorizontal: 16,
+    backgroundColor: "#F3F4F6",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#F3F4F6",
   },
   errorText: {
     color: "#EF4444",
