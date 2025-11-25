@@ -11,7 +11,7 @@ import {
   resetPassword,
   changePassword,
 } from "../controllers/authControllers.js";
-import { startExpiredOtpCleanupJob } from './src/cron/cleanup.js'; // <-- IMPORT CRON JOB
+import { startExpiredOtpCleanupJob } from '../libs/cleanup.js'; // <-- IMPORT CRON JOB
 import auth from '../middlewares/auth.js';
 
 
