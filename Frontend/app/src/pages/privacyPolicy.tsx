@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, View, Text, StyleSheet, StatusBar } from 'react-native';
+import {ScrollView, View, Text, StyleSheet, StatusBar } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
 import { colors, spacing, radius } from '../styles/theme';
 

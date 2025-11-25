@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { useAuthStore } from '../stores/authStore';
 import { authStyles as styles } from '../styles/authStyles';
 import { Ionicons } from '@expo/vector-icons';
+import { OtpInput } from 'react-native-otp-entry';
 
 // 1. Định nghĩa schema xác thực với Zod
 const ResetPasswordSchema = z
@@ -51,8 +52,10 @@ const ResetPasswordScreen: React.FC = () => {
     confirmPassword: '',
   });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    new: false,
+    confirm: false,
+  });
 
   // Reset form khi component unmount
   useEffect(() => {
@@ -126,13 +129,20 @@ const ResetPasswordScreen: React.FC = () => {
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Mã OTP</Text>
-                  <TextInput
-                    style={[styles.input, validationErrors.otp ? { borderColor: '#EF4444', borderWidth: 1 } : undefined]}
-                    value={formState.otp}
-                    onChangeText={(val) => handleInputChange('otp', val)}
-                    placeholder="123456"
-                    keyboardType="number-pad"
-                    maxLength={6}
+                  <OtpInput
+                    numberOfDigits={6}
+                    onTextChange={(text) => handleInputChange('otp', text)}
+                    focusColor="#A855F7"
+                    theme={{
+                      containerStyle: { width: '100%', marginVertical: 10 },
+                      pinCodeContainerStyle: {
+                        width: 48,
+                        height: 48,
+                        backgroundColor: '#374151',
+                        borderColor: validationErrors.otp ? '#EF4444' : '#4B5563',
+                      },
+                      pinCodeTextStyle: { color: '#FFFFFF' },
+                    }}
                   />
                   {validationErrors.otp && <Text style={styles.errorText}>{validationErrors.otp}</Text>}
                 </View>
@@ -145,10 +155,15 @@ const ResetPasswordScreen: React.FC = () => {
                       value={formState.newPassword}
                       onChangeText={(val) => handleInputChange('newPassword', val)}
                       placeholder="Ít nhất 8 ký tự"
-                      secureTextEntry={!isPasswordVisible}
+                      secureTextEntry={!passwordVisibility.new}
                     />
-                    <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)} style={styles.eyeIcon}>
-                      <Ionicons name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} size={24} color="#9CA3AF" />
+                    <TouchableOpacity
+                      onPress={() =>
+                        setPasswordVisibility((prev) => ({ ...prev, new: !prev.new }))
+                      }
+                      style={styles.eyeIcon}
+                    >
+                      <Ionicons name={passwordVisibility.new ? 'eye-off-outline' : 'eye-outline'} size={24} color="#9CA3AF" />
                     </TouchableOpacity>
                   </View>
                   {validationErrors.newPassword && <Text style={styles.errorText}>{validationErrors.newPassword}</Text>}
@@ -162,10 +177,15 @@ const ResetPasswordScreen: React.FC = () => {
                       value={formState.confirmPassword}
                       onChangeText={(val) => handleInputChange('confirmPassword', val)}
                       placeholder="Nhập lại mật khẩu mới"
-                      secureTextEntry={!isConfirmPasswordVisible}
+                      secureTextEntry={!passwordVisibility.confirm}
                     />
-                    <TouchableOpacity onPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)} style={styles.eyeIcon}>
-                      <Ionicons name={isConfirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'} size={24} color="#9CA3AF" />
+                    <TouchableOpacity
+                      onPress={() =>
+                        setPasswordVisibility((prev) => ({ ...prev, confirm: !prev.confirm }))
+                      }
+                      style={styles.eyeIcon}
+                    >
+                      <Ionicons name={passwordVisibility.confirm ? 'eye-off-outline' : 'eye-outline'} size={24} color="#9CA3AF" />
                     </TouchableOpacity>
                   </View>
                   {validationErrors.confirmPassword && <Text style={styles.errorText}>{validationErrors.confirmPassword}</Text>}

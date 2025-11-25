@@ -39,10 +39,19 @@ export const login = async (req, res) => {
     const userObj = user.toObject();
     delete userObj.password;
 
+    // So sánh createdAt và updatedAt để xác định user mới.
+    // Nếu chênh lệch dưới 10 giây, coi như là user mới chưa cập nhật profile.
+    const timeDifference = Math.abs(user.updatedAt.getTime() - user.createdAt.getTime());
+    const isNewUser = timeDifference < 10000; // 10 giây
+
+    // Thêm trường isNewUser vào user object trả về
+    userObj.isNewUser = isNewUser;
+
     return res.status(200).json({
       message: "User logged in successfully",
       accessToken,
       user: userObj,
+      isNewUser, // Trả về isNewUser ở cấp cao nhất để dễ truy cập
       expiresIn: "15", // 15 minutes
     });
 
@@ -71,7 +80,7 @@ export const forgotPassword = async (req, res) => {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
       // Hash mã OTP để lưu vào DB
-      const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
+      const hashedOTP = crypto.createHash("sha256").update(otp.trim()).digest("hex");
 
       // Lưu OTP đã hash và thời gian hết hạn (5 phút)
       user.passwordResetOTP = hashedOTP;
@@ -112,22 +121,18 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Password must be at least 8 characters long." });
     }
 
-    const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
+    const hashedOTP = crypto.createHash("sha256").update(otp.trim()).digest("hex");
 
     // Tìm user bằng email trước
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
+      passwordResetOTP: hashedOTP, // So sánh OTP đã hash ngay trong câu query
+      passwordResetOTPExpires: { $gt: Date.now() }, // Kiểm tra thời gian hết hạn
+    });
 
-    // Kiểm tra các điều kiện một cách riêng biệt để đưa ra thông báo lỗi rõ ràng hơn
+    // Nếu không tìm thấy user nào khớp với cả 3 điều kiện, OTP không hợp lệ hoặc đã hết hạn.
     if (!user) {
       return res.status(400).json({ message: "Invalid or expired OTP." });
-    }
-
-    if (user.passwordResetOTP !== hashedOTP) {
-      return res.status(400).json({ message: "Invalid OTP provided." });
-    }
-
-    if (user.passwordResetOTPExpires < Date.now()) {
-      return res.status(400).json({ message: "OTP has expired. Please request a new one." });
     }
 
     // Nếu tất cả đều hợp lệ, user đã được tìm thấy và OTP đúng

@@ -59,6 +59,13 @@ const UserSchema = new mongoose.Schema(
     isEmailVerified: { type: Boolean, default: false },
     achievements: { type: [String], default: [] },
     paymentProcessorId: { type: String, trim: true, select: false },
+
+    // === CÁC TRƯỜNG CHO VIỆC RESET PASSWORD VÀ VERIFY EMAIL ===
+    passwordResetOTP: { type: String, select: false },
+    passwordResetOTPExpires: { type: Date, select: false },
+
+    verificationToken: { type: String, select: false },
+    verificationTokenExpires: { type: Date, select: false },
   },
   {
     timestamps: true,

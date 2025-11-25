@@ -24,6 +24,14 @@ const ForgotPasswordSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
 });
 
+// Schema for completing profile
+const CompleteProfileSchema = z.object({
+  age: z.string().min(1, { message: 'Age is required.' }).transform(val => parseInt(val, 10)),
+  location: z.string().min(1, { message: 'Location is required.' }),
+  address: z.string().optional(),
+  gamingPlatformPreferences: z.array(z.string()).min(1, { message: 'Please select at least one platform.' }),
+});
+
 // Describe the User type based on the API response
 type User = {
   _id: string;
@@ -63,6 +71,7 @@ type AuthState = {
   logout: () => Promise<void>; // Logout action
   sendPasswordResetEmail: () => Promise<boolean>; // Forgot-password action
   resetPasswordWithOTP: (email: string, otp: string, newPassword: string) => Promise<void>;
+  completeProfile: (data: z.infer<typeof CompleteProfileSchema>) => Promise<void>;
   resetAuthForms: () => void;
 };
 
@@ -172,14 +181,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: data.user, accessToken: data.accessToken, errorMessage: null });
 
       // --- Smart redirect ---
-      const profileIsComplete = 
-        data.user.age && 
-        data.user.location && 
-        data.user.gamingPlatformPreferences && 
-        data.user.gamingPlatformPreferences.length > 0;
-
-      // If email is verified but the profile is incomplete, require the completion screen
-      const redirectTo = (data.user.isEmailVerified && !profileIsComplete) ? './completeProfile' : './home';
+      // Nếu isNewUser là true, chuyển đến completeProfile. Ngược lại, đến home.
+      const redirectTo = data.isNewUser ? './completeProfile' : './home';
 
       // Redirect automatically without waiting for user confirmation
       setTimeout(() => {
@@ -408,9 +411,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     }
   },
+
+  completeProfile: async (data) => {
+    set({ isLoading: true, errorMessage: null, successMessage: null });
+
+    const validationResult = CompleteProfileSchema.safeParse(data);
+    if (!validationResult.success) {
+      const firstError = validationResult.error.issues[0].message;
+      set({ errorMessage: firstError, isLoading: false });
+      showGlobalToast({ type: 'error', title: 'Validation Error', message: firstError });
+      return;
+    }
+
+    try {
+      const response = await apiClient.put('/auth/complete-profile', validationResult.data);
+
+      const updatedUser = response.data.user;
+
+      // Update user in state and storage
+      set({
+        user: updatedUser,
+        isLoading: false,
+        successMessage: 'Profile completed successfully!',
+      });
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+
+      showGlobalToast({
+        type: 'success',
+        title: 'Profile Complete!',
+        message: 'Welcome to ProPlayHub!',
+      });
+
+      // Navigate to home screen after completion
+      router.replace('./home');
+
+    } catch (error) {
+      let message = 'Could not complete your profile. Please try again.';
+      if (axios.isAxiosError(error) && error.response) {
+        message = error.response.data.message || error.response.data.details || message;
+      }
+      set({ isLoading: false, errorMessage: message });
+      showGlobalToast({ type: 'error', title: 'Update Failed', message });
+    }
+  },
 }));
 export default useAuthStore;
-
-
-
-
