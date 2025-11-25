@@ -11,6 +11,7 @@ import {
   resetPassword,
   changePassword,
 } from "../controllers/authControllers.js";
+import { startExpiredOtpCleanupJob } from './src/cron/cleanup.js'; // <-- IMPORT CRON JOB
 import auth from '../middlewares/auth.js';
 
 
@@ -33,6 +34,11 @@ router.get("/me", auth, getCurrentUser);
 router.put("/profile", auth, updateProfile);
 router.put("/complete-profile", auth, completeProfile);
 router.post("/logout", auth, logout);
+
+//Cron Job to clean up expired OTPs and verification tokens
+startExpiredOtpCleanupJob();
+console.log('✅ Expired token cleanup job scheduled to run daily at midnight.');
+
 
 
 export default router;
