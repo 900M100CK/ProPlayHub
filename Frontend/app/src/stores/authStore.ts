@@ -8,20 +8,20 @@ import { showGlobalToast } from '../components/toastService';
 
 // 1. Define validation schemas with Zod
 const LoginSchema = z.object({
-  email: z.email({ message: 'Invalid email address.' }),
+  email: z.string().email({ message: 'Invalid email address.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
 
 const RegisterSchema = z.object({
   name: z.string().min(1, { message: 'Name is required.' }),
   username: z.string().min(3, { message: 'Username must be at least 3 characters.' }),
-  email: z.email({ message: 'Invalid email address.' }),
+  email: z.string().email({message: 'Invalid email address.'}),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
 
 // Forgot-password schema
 const ForgotPasswordSchema = z.object({
-  email: z.email({ message: 'Invalid email address.' }),
+  email: z.string().email({ message: 'Invalid email address.' }),
 });
 
 // Describe the User type based on the API response
