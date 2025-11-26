@@ -15,6 +15,7 @@ import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import discountRoutes from "./routes/discountRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import crmRoutes from "./routes/crmRoutes.js";
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/discounts", discountRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/crm", crmRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "Live chat server running" });
@@ -223,6 +225,7 @@ connectDB()
     server.listen(PORT, () => {
       console.log(`Server is running on http://localhost:${PORT}`);
       console.log(`Staff UI: http://localhost:${PORT}/staff.html`);
+      console.log(`CRM Dashboard: http://localhost:${PORT}/crm.html`);
     });
   })
   .catch((err) => {

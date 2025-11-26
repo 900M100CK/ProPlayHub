@@ -21,14 +21,14 @@ import { OtpInput } from 'react-native-otp-entry';
 // 1. Định nghĩa schema xác thực với Zod
 const ResetPasswordSchema = z
   .object({
-    email: z.string().email({ message: 'Địa chỉ email không hợp lệ.' }),
-    otp: z.string().length(6, { message: 'Mã OTP phải có 6 chữ số.' }),
-    newPassword: z.string().min(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự.' }),
+    email: z.string().email({ message: 'Invalid email address.' }),
+    otp: z.string().length(6, { message: 'OTP code must be 6 digits.' }),
+    newPassword: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
     confirmPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: 'Mật khẩu xác nhận không khớp.',
-    path: ['confirmPassword'], // Gán lỗi cho trường confirmPassword
+    message: 'Confirmation password does not match.',
+    path: ['confirmPassword'],
   });
 
 const ResetPasswordScreen: React.FC = () => {
@@ -64,7 +64,7 @@ const ResetPasswordScreen: React.FC = () => {
     };
   }, [resetAuthForms]);
 
-  // 2. Hàm xử lý khi nhấn nút "Đặt lại mật khẩu"
+  // 2. Handle password reset submission
   const handleResetPassword = () => {
     setValidationErrors({});
 
@@ -95,8 +95,8 @@ const ResetPasswordScreen: React.FC = () => {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.innerContainer}>
             <View style={styles.header}>
-              <Text style={styles.title}>Đặt lại mật khẩu</Text>
-              <Text style={styles.subtitle}>Nhập mã OTP và mật khẩu mới của bạn.</Text>
+              <Text style={styles.title}>Reset Password</Text>
+              <Text style={styles.subtitle}>Enter the OTP and your new password.</Text>
             </View>
 
             {errorMessage && (
@@ -106,12 +106,26 @@ const ResetPasswordScreen: React.FC = () => {
             )}
 
             {successMessage ? (
-              <View style={styles.successContainer}>
-                <Text style={styles.successText}>{successMessage}</Text>
-                <TouchableOpacity style={styles.button} onPress={() => router.replace('./login')}>
-                  <Text style={styles.buttonText}>Đi đến Đăng nhập</Text>
+              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                <View
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 36,
+                    backgroundColor: '#22C55E',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                  }}
+                >
+                  <Ionicons name="checkmark" size={40} color="#FFFFFF" />
+                </View>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Password has been reset!</Text>
+                <Text style={{ fontSize: 15, color: '#6B7280', textAlign: 'center', marginBottom: 32 }}>{successMessage}</Text>
+                <TouchableOpacity style={styles.button} onPress={() => router.replace('./login')} >
+                  <Text style={styles.buttonText}>Back to Login</Text>
                 </TouchableOpacity>
-              </View>
+              </View>              
             ) : (
               <>
                 <View style={styles.inputGroup}>
@@ -128,7 +142,7 @@ const ResetPasswordScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Mã OTP</Text>
+                  <Text style={styles.label}>OTP Code</Text>
                   <OtpInput
                     numberOfDigits={6}
                     onTextChange={(text) => handleInputChange('otp', text)}
@@ -148,13 +162,13 @@ const ResetPasswordScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Mật khẩu mới</Text>
+                  <Text style={styles.label}>New Password</Text>
                   <View style={styles.passwordContainer}>
                     <TextInput
                       style={[styles.input, validationErrors.newPassword ? { borderColor: '#EF4444', borderWidth: 1 } : undefined]}
                       value={formState.newPassword}
                       onChangeText={(val) => handleInputChange('newPassword', val)}
-                      placeholder="Ít nhất 8 ký tự"
+                      placeholder="At least 8 characters"
                       secureTextEntry={!passwordVisibility.new}
                     />
                     <TouchableOpacity
@@ -170,13 +184,13 @@ const ResetPasswordScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Xác nhận mật khẩu mới</Text>
+                  <Text style={styles.label}>Confirm New Password</Text>
                   <View style={styles.passwordContainer}>
                     <TextInput
                       style={[styles.input, validationErrors.confirmPassword ? { borderColor: '#EF4444', borderWidth: 1 } : undefined]}
                       value={formState.confirmPassword}
                       onChangeText={(val) => handleInputChange('confirmPassword', val)}
-                      placeholder="Nhập lại mật khẩu mới"
+                      placeholder="Re-enter new password"
                       secureTextEntry={!passwordVisibility.confirm}
                     />
                     <TouchableOpacity
@@ -199,19 +213,22 @@ const ResetPasswordScreen: React.FC = () => {
                   {isLoading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.buttonText}>Đặt lại mật khẩu</Text>
+                    <Text style={styles.buttonText}>Reset Password</Text>
                   )}
                 </TouchableOpacity>
               </>
             )}
 
-            <View style={styles.bottomLinkContainer}>
-              <Link href="./login" asChild>
-                <TouchableOpacity>
-                  <Text style={styles.bottomLinkActionText}>Quay lại Đăng nhập</Text>
-                </TouchableOpacity>
-              </Link>
-            </View>
+            {/* Chỉ hiển thị nút quay lại ở đây nếu form đang hiển thị */}
+            {!successMessage && (
+              <View style={styles.bottomLinkContainer}>
+                <Link href="./login" asChild>
+                  <TouchableOpacity>
+                    <Text style={styles.bottomLinkActionText}>Back to Login</Text>
+                  </TouchableOpacity>
+                </Link>
+              </View>
+            )}
           </View>
         </TouchableWithoutFeedback>
       </SafeAreaView>

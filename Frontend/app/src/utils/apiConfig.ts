@@ -45,7 +45,7 @@ const resolveExpoHostUrl = (): string | undefined => {
 const fallbackUrl =
   Platform.OS === 'android'
     ? 'http://10.0.2.2:3000'
-    : 'http://localhost:3000';
+    : 'http://172.16.83.82:3000';
 
 export const API_BASE_URL =
   normalizeUrl(resolveEnvUrl()) ??

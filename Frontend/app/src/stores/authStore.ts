@@ -1,10 +1,14 @@
-﻿import { create } from 'zustand';
+﻿﻿import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import apiClient, { setApiToken } from '../api/axiosConfig'; // Use the preconfigured apiClient
 import axios from 'axios'; // Keep axios for isAxiosError checks
 import { z } from 'zod';
 import { showGlobalToast } from '../components/toastService';
+
+// Define constants for AsyncStorage keys to avoid typos
+const REMEMBERED_EMAIL_KEY = 'rememberedEmail';
+const REMEMBERED_PASSWORD_KEY = 'rememberedPassword';
 
 // 1. Define validation schemas with Zod
 const LoginSchema = z.object({
@@ -71,6 +75,7 @@ type AuthState = {
   logout: () => Promise<void>; // Logout action
   sendPasswordResetEmail: () => Promise<boolean>; // Forgot-password action
   resetPasswordWithOTP: (email: string, otp: string, newPassword: string) => Promise<void>;
+  restoreSession: () => Promise<void>; // New action to restore session
   completeProfile: (data: z.infer<typeof CompleteProfileSchema>) => Promise<void>;
   resetAuthForms: () => void;
 };
@@ -105,8 +110,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   loadRememberedCredentials: async () => {
     try {
-      const rememberedEmail = await AsyncStorage.getItem('rememberedEmail');
-      const rememberedPassword = await AsyncStorage.getItem('rememberedPassword');
+      const rememberedEmail = await AsyncStorage.getItem(REMEMBERED_EMAIL_KEY);
+      const rememberedPassword = await AsyncStorage.getItem(REMEMBERED_PASSWORD_KEY);
       
       if (rememberedEmail !== null && rememberedPassword !== null) {
         set({ 
@@ -120,6 +125,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (e) {
       console.error('Failed to load remembered credentials.', e);
+    }
+  },
+
+  restoreSession: async () => {
+    set({ isLoading: true });
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const userString = await AsyncStorage.getItem('user');
+
+      if (token && userString) {
+        // 1. Tạm thời đặt token và user vào state
+        const user = JSON.parse(userString);
+        set({ accessToken: token, user });
+        setApiToken(token); // Cập nhật token cho apiClient
+
+        // 2. Xác thực token bằng cách gọi một endpoint được bảo vệ
+        // Endpoint `/auth/me` hoặc `/auth/profile` là lựa chọn tốt
+        try {
+          const response = await apiClient.get('/auth/me'); // Giả sử bạn có endpoint này
+          // Nếu thành công, cập nhật lại thông tin user mới nhất
+          set({ user: response.data.user, isLoading: false });
+          // Người dùng đã được xác thực, có thể điều hướng ở layout
+        } catch (verifyError) {
+          // Token không hợp lệ (hết hạn, bị thu hồi, v.v.)
+          console.log('Session restore failed, token invalid. Logging out.');
+          await get().logout(); // Xóa dữ liệu cũ và điều hướng về login
+        }
+      } else {
+        // Không có token, không cần làm gì cả
+        set({ isLoading: false });
+      }
+    } catch (e) {
+      console.error('Failed to restore session.', e);
+      set({ isLoading: false });
     }
   },
 
@@ -157,12 +196,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       if (rememberMe) {
         // Persist both email and password for future auto-fill
-        await AsyncStorage.setItem('rememberedEmail', email);
-        await AsyncStorage.setItem('rememberedPassword', password);
+        await AsyncStorage.setItem(REMEMBERED_EMAIL_KEY, validationResult.data.email);
+        await AsyncStorage.setItem(REMEMBERED_PASSWORD_KEY, validationResult.data.password);
       } else {
         // Remove stored credentials when "remember me" is unchecked
-        await AsyncStorage.removeItem('rememberedEmail');
-        await AsyncStorage.removeItem('rememberedPassword');
+        await AsyncStorage.removeItem(REMEMBERED_EMAIL_KEY);
+        await AsyncStorage.removeItem(REMEMBERED_PASSWORD_KEY);
       }
 
       // Persist tokens and user info in state plus AsyncStorage
@@ -306,8 +345,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Clear AsyncStorage
       await AsyncStorage.removeItem('accessToken');
       await AsyncStorage.removeItem('user');
-      await AsyncStorage.removeItem('rememberedEmail');
-      await AsyncStorage.removeItem('rememberedPassword'); // Remove stored password on logout
+      await AsyncStorage.removeItem(REMEMBERED_EMAIL_KEY);
+      await AsyncStorage.removeItem(REMEMBERED_PASSWORD_KEY); // Remove stored password on logout
       
       // Clear apiClient headers
       setApiToken(null);
@@ -331,7 +370,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('Logout error:', error);
       // Even if there's an error, clear state and navigate
-      AsyncStorage.multiRemove(['accessToken', 'user', 'rememberedEmail', 'rememberedPassword']).catch(() => {});
+      AsyncStorage.multiRemove(['accessToken', 'user', REMEMBERED_EMAIL_KEY, REMEMBERED_PASSWORD_KEY]).catch(() => {});
       set({ user: null, accessToken: null });
       setApiToken(null);
       setTimeout(() => {
