@@ -21,7 +21,7 @@ export const login = async (req, res) => {
     }).select('+password');
 
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "Email or Password is wrong." });
     }
 
     // Generate tokens and create session
