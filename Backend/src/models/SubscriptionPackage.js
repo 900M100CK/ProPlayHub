@@ -54,6 +54,12 @@ const SubscriptionPackageSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // 🔹 Đếm số lượt bán để xác định độ phổ biến
+    salesCount: {
+      type: Number,
+      default: 0,
+      index: true, // Index để tăng tốc độ sắp xếp
+    },
   },
   {
     timestamps: true,

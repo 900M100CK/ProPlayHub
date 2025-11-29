@@ -22,6 +22,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCartStore } from "../stores/cartStore";
 import { useNotificationsStore } from "../stores/notificationsStore";
 import { API_BASE_URL } from "../utils/apiConfig";
+import apiClient from "../api/axiosConfig"; // Import apiClient
 import { spacing } from "../styles/theme";
 
 // Kiểu dữ liệu gói dịch vụ
@@ -124,22 +125,47 @@ const HomeScreen = () => {
     loadNotifications();
   }, [loadNotifications]);
 
-  // Fetch toàn bộ packages từ backend
+  // Fetch packages từ backend
   useEffect(() => {
     const fetchPackages = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`${API_BASE_URL}/api/packages`);
-        
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({ message: 'Failed to fetch packages' }));
-          throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+        // Lấy token để xác thực
+        const token = await AsyncStorage.getItem('accessToken');
+        if (token) {
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         }
 
-        const data = await res.json();
-        console.log("Packages from API:", data); // kiểm tra số lượng trong Metro
+        // Chuẩn bị params cho API recommended
+        const recommendedParams: { preferences?: string } = {};
+        if (user?.gamingPlatformPreferences && user.gamingPlatformPreferences.length > 0) {
+          recommendedParams.preferences = user.gamingPlatformPreferences.join(',');
+        }
+
+        // Gọi đồng thời 2 API: 1 cho tất cả (để lấy seasonal), 1 cho recommended
+        const [allPackagesResponse, recommendedResponse] = await Promise.all([
+          // API này lấy tất cả packages để lọc ra seasonal offers
+          apiClient.get('/packages'), 
+          // API mới này lấy các gói recommended đã được cá nhân hóa
+          // Gửi kèm preferences của user để backend lọc
+          apiClient.get('/packages/recommended', { params: recommendedParams }) 
+        ]);
+
+        const allPackagesData = allPackagesResponse.data || [];
+        const recommendedData = recommendedResponse.data || [];
+
+        // Lọc ra các gói seasonal từ danh sách tất cả
+        const seasonal = allPackagesData.filter((p: SubscriptionPackage) => p.isSeasonalOffer);
+
+        // Kết hợp seasonal và recommended đã cá nhân hóa
+        // Dùng Set để tránh trùng lặp nếu một gói vừa recommended vừa xuất hiện trong allPackagesData
+        const combined = [...seasonal, ...recommendedData];
+        const uniquePackageMap = new Map(combined.map(p => [p._id, p]));
+        const data = Array.from(uniquePackageMap.values());
+
+        console.log("Packages from API:", data.length);
 
         setAllPackages(data);
       } catch (err: any) {
@@ -152,7 +178,7 @@ const HomeScreen = () => {
     };
 
     fetchPackages();
-  }, []);
+  }, [user]); // Thêm user vào dependency array để fetch lại khi user thay đổi
 
   // Helper function để search packages
   const searchPackages = (packages: SubscriptionPackage[], query: string): SubscriptionPackage[] => {
@@ -297,16 +323,16 @@ const HomeScreen = () => {
             onPress={() => {
               setError(null);
               // Trigger refetch
-              const fetchPackages = async () => {
+              const refetch = async () => {
                 try {
                   setLoading(true);
                   setError(null);
-                  const res = await fetch(`${API_BASE_URL}/api/packages`);
-                  if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({ message: 'Failed to fetch packages' }));
+                  const res = await apiClient.get('/packages');
+                  if (res.status !== 200) {
+                    const errorData = res.data || { message: 'Failed to fetch packages' };
                     throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
                   }
-                  const data = await res.json();
+                  const data = res.data;
                   setAllPackages(data);
                 } catch (err: any) {
                   setError(err?.message || 'Error fetching packages');
@@ -314,7 +340,7 @@ const HomeScreen = () => {
                   setLoading(false);
                 }
               };
-              fetchPackages();
+              refetch();
             }}
           >
             <Text style={homeStyles.retryButtonText}>Retry</Text>
