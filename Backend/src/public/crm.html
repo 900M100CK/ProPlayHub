@@ -222,6 +222,7 @@
       <div class="tabs">
         <button class="tab-btn active" data-tab="customers">Customers</button>
         <button class="tab-btn" data-tab="events">Event Management</button>
+        <button class="tab-btn" data-tab="packages">Packages</button>
         <button class="tab-btn" data-tab="discounts">Discount Management</button>
       </div>
 
@@ -265,6 +266,94 @@
             </div>
             <button type="submit" class="btn-primary">Add Event</button>
           </form>
+        </div>
+      </div>
+
+      <div id="packages-content" class="tab-content">
+        <div class="card">
+          <h2>Add New Package</h2>
+          <form id="add-package-form">
+            <div class="form-group">
+              <label for="package-name">Package Name</label>
+              <input type="text" id="package-name" name="name" required />
+            </div>
+            <div class="form-group">
+              <label for="package-slug">Slug</label>
+              <input type="text" id="package-slug" name="slug" placeholder="e.g. premium-pc" required />
+            </div>
+            <div class="form-group">
+              <label for="package-category">Category</label>
+              <select id="package-category" name="category" required>
+                <option value="">Select category</option>
+                <option value="PC">PC</option>
+                <option value="PlayStation">PlayStation</option>
+                <option value="Xbox">Xbox</option>
+                <option value="Streaming">Streaming</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="package-type">Package Type</label>
+              <input type="text" id="package-type" name="type" required />
+            </div>
+            <div class="form-group">
+              <label for="package-base-price">Base Price</label>
+              <input type="number" id="package-base-price" name="basePrice" min="0" step="0.01" required />
+            </div>
+            <div class="form-group">
+              <label for="package-period">Billing Period</label>
+              <input type="text" id="package-period" name="period" placeholder="/month" />
+            </div>
+            <div class="form-group">
+              <label for="package-discount-label">Discount Label</label>
+              <input type="text" id="package-discount-label" name="discountLabel" placeholder="e.g. 15% OFF" />
+            </div>
+            <div class="form-group">
+              <label for="package-discount-percent">Discount Percent</label>
+              <input type="number" id="package-discount-percent" name="discountPercent" min="0" max="100" step="1" />
+            </div>
+            <div class="form-group">
+              <label for="package-features">Features (comma separated)</label>
+              <textarea id="package-features" name="features" rows="3" placeholder="Cloud saves, Premium support"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="package-tags">Tags (comma separated)</label>
+              <input type="text" id="package-tags" name="tags" placeholder="popular,exclusive" />
+            </div>
+            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+              <input type="checkbox" id="package-seasonal" name="isSeasonalOffer" value="true" style="width:auto;" />
+              <label for="package-seasonal" style="margin-bottom: 0;">Seasonal Offer</label>
+            </div>
+            <button type="submit" class="btn-primary">Add Package</button>
+          </form>
+
+          <h2 style="margin-top: 40px;">Existing Packages</h2>
+          <div class="filter-bar">
+            <input type="search" id="package-search" placeholder="Search by name, slug, type..." style="flex-grow: 1;" />
+            <select id="package-category-filter">
+              <option value="all">All Categories</option>
+              <option value="PC">PC</option>
+              <option value="PlayStation">PlayStation</option>
+              <option value="Xbox">Xbox</option>
+              <option value="Streaming">Streaming</option>
+            </select>
+          </div>
+
+          <table class="customer-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Slug</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Discount</th>
+                <th>Seasonal</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="package-list-body">
+              <!-- Package data populated by JS -->
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -351,6 +440,72 @@
       </div>
     </div>
 
+    <!-- Edit Package Modal -->
+    <div id="edit-package-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Edit Package</h2>
+          <button class="modal-close-btn package-close-btn">&times;</button>
+        </div>
+        <form id="edit-package-form">
+          <input type="hidden" id="edit-package-id" name="packageId" />
+          <div class="form-group">
+            <label for="edit-package-name">Package Name</label>
+            <input type="text" id="edit-package-name" name="name" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-package-slug">Slug</label>
+            <input type="text" id="edit-package-slug" name="slug" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-package-category">Category</label>
+            <select id="edit-package-category" name="category" required>
+              <option value="PC">PC</option>
+              <option value="PlayStation">PlayStation</option>
+              <option value="Xbox">Xbox</option>
+              <option value="Streaming">Streaming</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-package-type">Package Type</label>
+            <input type="text" id="edit-package-type" name="type" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-package-base-price">Base Price</label>
+            <input type="number" id="edit-package-base-price" name="basePrice" min="0" step="0.01" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-package-period">Billing Period</label>
+            <input type="text" id="edit-package-period" name="period" />
+          </div>
+          <div class="form-group">
+            <label for="edit-package-discount-label">Discount Label</label>
+            <input type="text" id="edit-package-discount-label" name="discountLabel" />
+          </div>
+          <div class="form-group">
+            <label for="edit-package-discount-percent">Discount Percent</label>
+            <input type="number" id="edit-package-discount-percent" name="discountPercent" min="0" max="100" step="1" />
+          </div>
+          <div class="form-group">
+            <label for="edit-package-features">Features (comma separated)</label>
+            <textarea id="edit-package-features" name="features" rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="edit-package-tags">Tags (comma separated)</label>
+            <input type="text" id="edit-package-tags" name="tags" />
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="edit-package-seasonal" name="isSeasonalOffer" value="true" style="width:auto;" />
+            <label for="edit-package-seasonal" style="margin-bottom: 0;">Seasonal Offer</label>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary package-close-btn">Cancel</button>
+            <button type="submit" class="btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
@@ -377,6 +532,8 @@
               loadCustomers();
             } else if (target === "discounts") {
               loadDiscounts();
+            } else if (target === "packages") {
+              loadPackages();
             }
             
           });
@@ -429,6 +586,226 @@
             customerListBody.appendChild(row);
           });
         }
+
+        // --- Package Management ---
+        const addPackageForm = document.getElementById("add-package-form");
+        const packageListBody = document.getElementById("package-list-body");
+        const packageSearchInput = document.getElementById("package-search");
+        const packageCategoryFilter = document.getElementById("package-category-filter");
+        let packageSearchTimeout;
+        let cachedPackages = [];
+
+        const buildPackagePayload = (formData) => ({
+          name: formData.get("name")?.trim() || "",
+          slug: formData.get("slug")?.trim() || "",
+          category: formData.get("category") || "",
+          type: formData.get("type")?.trim() || "",
+          basePrice: formData.get("basePrice") || "",
+          period: formData.get("period")?.trim() || "",
+          discountLabel: formData.get("discountLabel")?.trim() || "",
+          discountPercent: formData.get("discountPercent") || "",
+          features: formData.get("features") || "",
+          tags: formData.get("tags") || "",
+          isSeasonalOffer: !!formData.get("isSeasonalOffer"),
+        });
+
+        if (addPackageForm) {
+          addPackageForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const formData = new FormData(addPackageForm);
+            const payload = buildPackagePayload(formData);
+
+            fetch("/api/crm/packages", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+              .then((res) => {
+                if (!res.ok) {
+                  return res.json().then((err) => {
+                    throw new Error(err.message || "Failed to add package");
+                  });
+                }
+                return res.json();
+              })
+              .then(() => {
+                alert("Package created successfully.");
+                addPackageForm.reset();
+                loadPackages();
+              })
+              .catch((error) => {
+                console.error("Error creating package:", error);
+                alert(`Error: ${error.message}`);
+              });
+          });
+        }
+
+        async function loadPackages() {
+          if (!packageListBody) return;
+          const searchTerm = packageSearchInput?.value.trim();
+          const category = packageCategoryFilter?.value;
+          const url = new URL("/api/crm/packages", window.location.origin);
+          if (searchTerm) url.searchParams.set("search", searchTerm);
+          if (category && category !== "all") url.searchParams.set("category", category);
+
+          packageListBody.innerHTML =
+            '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);">Loading packages...</td></tr>';
+          try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const packages = await response.json();
+            cachedPackages = packages;
+            renderPackages(packages);
+          } catch (error) {
+            console.error("Failed to load packages:", error);
+            packageListBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--danger);">Failed to load packages. ${error.message}</td></tr>`;
+          }
+        }
+
+        const formatPrice = (price) => {
+          const number = Number(price);
+          if (Number.isNaN(number)) return price || "-";
+          return `$${number.toFixed(2)}`;
+        };
+
+        function renderPackages(packages) {
+          packageListBody.innerHTML = "";
+          if (!packages.length) {
+            packageListBody.innerHTML =
+              '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);">No packages found.</td></tr>';
+            return;
+          }
+
+          packages.forEach((pkg) => {
+            const row = document.createElement("tr");
+            const discount = pkg.discountLabel
+              ? pkg.discountLabel
+              : pkg.discountPercent
+              ? `${pkg.discountPercent}% OFF`
+              : "-";
+
+            row.innerHTML = `
+              <td>
+                <strong>${pkg.name}</strong><br />
+                <span style="color:var(--muted);font-size:12px;">${pkg.period || ""}</span>
+              </td>
+              <td>${pkg.slug}</td>
+              <td>${pkg.category}</td>
+              <td>${formatPrice(pkg.basePrice)}</td>
+              <td>${discount}</td>
+              <td>${pkg.isSeasonalOffer ? "Yes" : "No"}</td>
+              <td>
+                <button class="btn-edit-outline" data-id="${pkg._id}">Edit</button>
+                <button class="btn-danger-outline" data-id="${pkg._id}">Delete</button>
+              </td>
+            `;
+            packageListBody.appendChild(row);
+          });
+        }
+
+        if (packageSearchInput) {
+          packageSearchInput.addEventListener("input", () => {
+            clearTimeout(packageSearchTimeout);
+            packageSearchTimeout = setTimeout(loadPackages, 300);
+          });
+        }
+        packageCategoryFilter?.addEventListener("change", loadPackages);
+
+        const packageModal = document.getElementById("edit-package-modal");
+        const editPackageForm = document.getElementById("edit-package-form");
+        const packageModalCloseButtons = packageModal?.querySelectorAll(".package-close-btn") || [];
+
+        const listToString = (value) => {
+          if (!value) return "";
+          return Array.isArray(value) ? value.join(", ") : value;
+        };
+
+        function openPackageModal(pkg) {
+          if (!packageModal) return;
+          document.getElementById("edit-package-id").value = pkg._id;
+          document.getElementById("edit-package-name").value = pkg.name || "";
+          document.getElementById("edit-package-slug").value = pkg.slug || "";
+          document.getElementById("edit-package-category").value = pkg.category || "PC";
+          document.getElementById("edit-package-type").value = pkg.type || "";
+          document.getElementById("edit-package-base-price").value = pkg.basePrice ?? "";
+          document.getElementById("edit-package-period").value = pkg.period || "";
+          document.getElementById("edit-package-discount-label").value = pkg.discountLabel || "";
+          document.getElementById("edit-package-discount-percent").value =
+            pkg.discountPercent ?? "";
+          document.getElementById("edit-package-features").value = listToString(pkg.features);
+          document.getElementById("edit-package-tags").value = listToString(pkg.tags);
+          document.getElementById("edit-package-seasonal").checked = !!pkg.isSeasonalOffer;
+          packageModal.classList.add("active");
+        }
+
+        function closePackageModal() {
+          packageModal?.classList.remove("active");
+        }
+
+        packageModalCloseButtons.forEach((btn) => btn.addEventListener("click", closePackageModal));
+
+        packageListBody?.addEventListener("click", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) return;
+          if (target.classList.contains("btn-danger-outline")) {
+            const packageId = target.dataset.id;
+            const pkg = cachedPackages.find((p) => p._id === packageId);
+            const name = pkg?.name || "this package";
+            if (confirm(`Delete "${name}"? This action cannot be undone.`)) {
+              fetch(`/api/crm/packages/${packageId}`, { method: "DELETE" })
+                .then((res) => {
+                  if (!res.ok) {
+                    return res.json().then((err) => {
+                      throw new Error(err.message || "Failed to delete package");
+                    });
+                  }
+                })
+                .then(() => {
+                  loadPackages();
+                  alert("Package deleted.");
+                })
+                .catch((error) => {
+                  console.error("Delete package error:", error);
+                  alert(`Error: ${error.message}`);
+                });
+            }
+          } else if (target.classList.contains("btn-edit-outline")) {
+            const packageId = target.dataset.id;
+            const pkg = cachedPackages.find((p) => p._id === packageId);
+            if (pkg) {
+              openPackageModal(pkg);
+            }
+          }
+        });
+
+        editPackageForm?.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const formData = new FormData(editPackageForm);
+          const payload = buildPackagePayload(formData);
+          const packageId = formData.get("packageId");
+
+          fetch(`/api/crm/packages/${packageId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+            .then((res) => {
+              if (!res.ok) {
+                return res.json().then((err) => {
+                  throw new Error(err.message || "Failed to update package");
+                });
+              }
+              return res.json();
+            })
+            .then(() => {
+              closePackageModal();
+              loadPackages();
+            })
+            .catch((error) => {
+              console.error("Update package error:", error);
+              alert(`Error: ${error.message}`);
+            });
+        });
 
         // --- Event Management ---
         const addEventForm = document.getElementById("add-event-form");
@@ -526,10 +903,10 @@
           });
         }
 
-        // --- Modal Logic ---
-        const editModal = document.getElementById('edit-discount-modal');
-        const editForm = document.getElementById('edit-discount-form');
-        const closeBtns = document.querySelectorAll('.modal-close-btn');
+        // --- Discount Modal Logic ---
+        const discountModal = document.getElementById('edit-discount-modal');
+        const editDiscountForm = document.getElementById('edit-discount-form');
+        const discountModalCloseBtns = discountModal.querySelectorAll('.modal-close-btn');
 
         function openEditModal(discount) {
           document.getElementById('edit-discount-id').value = discount._id;
@@ -538,11 +915,11 @@
           // Format date for input type="date" (YYYY-MM-DD)
           document.getElementById('edit-discount-is-active').checked = discount.isActive;
           document.getElementById('edit-discount-expiry').value = new Date(discount.expiryDate).toISOString().split('T')[0];
-          editModal.classList.add('active');
+          discountModal.classList.add('active');
         }
 
-        function closeEditModal() { editModal.classList.remove('active'); }
-        closeBtns.forEach(btn => btn.addEventListener('click', closeEditModal));
+        function closeEditModal() { discountModal.classList.remove('active'); }
+        discountModalCloseBtns.forEach(btn => btn.addEventListener('click', closeEditModal));
 
         // Xử lý sự kiện click trên bảng discount (Edit và Delete)
         discountListBody.addEventListener('click', (e) => {
@@ -580,9 +957,9 @@
         });
 
         // Xử lý submit form chỉnh sửa
-        editForm.addEventListener('submit', (e) => {
+        editDiscountForm.addEventListener('submit', (e) => {
           e.preventDefault();
-          const formData = new FormData(editForm);
+          const formData = new FormData(editDiscountForm);
           const discountData = Object.fromEntries(formData.entries());
           const discountId = discountData.discountId;
 
@@ -614,3 +991,5 @@
     </script>
   </body>
 </html>
+
+

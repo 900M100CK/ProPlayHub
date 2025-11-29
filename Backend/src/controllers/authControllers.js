@@ -72,32 +72,29 @@ export const forgotPassword = async (req, res) => {
       return res.status(400).json({ message: "Email is required." });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
 
-    // Luôn trả về thông báo thành công để tránh user enumeration
-    if (user) {
-      // Tạo mã OTP 6 chữ số
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    if (!user) {
+      return res.status(404).json({ message: "Email is not registered. Please sign up first." });
+    }
 
-      // Hash mã OTP để lưu vào DB
-      const hashedOTP = crypto.createHash("sha256").update(otp.trim()).digest("hex");
+    // Generate and email an OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOTP = crypto.createHash("sha256").update(otp.trim()).digest("hex");
+    user.passwordResetOTP = hashedOTP;
+    user.passwordResetOTPExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
+    await user.save();
 
-      // Lưu OTP đã hash và thời gian hết hạn (5 phút)
-      user.passwordResetOTP = hashedOTP;
-      user.passwordResetOTPExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
-      await user.save();
-
-      // Gửi email chứa mã OTP (chưa hash)
-      try {
-        await sendPasswordResetOTP(user.email, user.name, otp);
-      } catch (emailError) {
-        console.error("Forgot password email send failed:", emailError);
-        // Không báo lỗi cho client để bảo mật
-      }
+    try {
+      await sendPasswordResetOTP(user.email, user.name, otp);
+    } catch (emailError) {
+      console.error("Forgot password email send failed:", emailError);
+      // Keep response generic for security
     }
 
     return res.status(200).json({
-      message: "If an account with that email exists, a password reset OTP has been sent.",
+      message: "Password reset OTP has been sent to your email.",
     });
   } catch (error) {
     console.error("Forgot Password Error:", error);

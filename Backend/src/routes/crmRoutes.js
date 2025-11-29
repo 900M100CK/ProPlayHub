@@ -1,6 +1,7 @@
 import express from "express";
 import User from "../models/User.js";
 import DiscountCode from "../models/DiscountCode.js";
+import SubscriptionPackage from "../models/SubscriptionPackage.js";
 
 const router = express.Router();
 
@@ -12,6 +13,18 @@ const ensureStaff = (req, res, next) => {
   //   return res.status(403).json({ message: "Forbidden: Staff access required." });
   // }
   next();
+};
+
+const parseListField = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim());
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
 };
 
 /**
@@ -137,6 +150,180 @@ router.delete("/discounts/:id", ensureStaff, async (req, res) => {
   } catch (error) {
     console.error("Error deleting discount for CRM:", error);
     res.status(500).json({ message: "Server error deleting discount." });
+  }
+});
+
+/**
+ * GET /api/crm/packages
+ * Fetch subscription packages with optional search/filter.
+ */
+router.get("/packages", ensureStaff, async (req, res) => {
+  try {
+    const { search, category } = req.query;
+    const query = {};
+
+    if (search) {
+      const regex = new RegExp(search, "i");
+      query.$or = [{ name: regex }, { slug: regex }, { type: regex }];
+    }
+
+    if (category && category !== "All") {
+      query.category = category;
+    }
+
+    const packages = await SubscriptionPackage.find(query).sort({ createdAt: -1 }).lean();
+    res.json(packages);
+  } catch (error) {
+    console.error("Error fetching packages for CRM:", error);
+    res.status(500).json({ message: "Server error fetching packages." });
+  }
+});
+
+/**
+ * POST /api/crm/packages
+ * Create a new subscription package.
+ */
+router.post("/packages", ensureStaff, async (req, res) => {
+  try {
+    const {
+      name,
+      slug,
+      category,
+      type,
+      basePrice,
+      period,
+      discountLabel,
+      discountPercent,
+      features,
+      tags,
+      isSeasonalOffer,
+    } = req.body;
+
+    if (!name || !slug || !category || !type || basePrice === undefined) {
+      return res.status(400).json({ message: "Name, slug, category, type, and base price are required." });
+    }
+
+    const normalizedSlug = slug.toString().trim().toLowerCase();
+    const priceNumber = Number(basePrice);
+    if (Number.isNaN(priceNumber)) {
+      return res.status(400).json({ message: "Base price must be a valid number." });
+    }
+
+    let discountPercentNumber;
+    if (discountPercent !== undefined && discountPercent !== "") {
+      discountPercentNumber = Number(discountPercent);
+      if (Number.isNaN(discountPercentNumber)) {
+        return res.status(400).json({ message: "Discount percent must be a valid number." });
+      }
+    }
+
+    const newPackage = await SubscriptionPackage.create({
+      name: name.trim(),
+      slug: normalizedSlug,
+      category,
+      type: type.trim(),
+      basePrice: priceNumber,
+      period: period?.trim() || "/month",
+      discountLabel: discountLabel?.trim() || undefined,
+      discountPercent: discountPercentNumber,
+      features: parseListField(features),
+      tags: parseListField(tags),
+      isSeasonalOffer: isSeasonalOffer === true || isSeasonalOffer === "true",
+    });
+
+    res.status(201).json(newPackage);
+  } catch (error) {
+    console.error("Error creating subscription package:", error);
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "Slug already exists. Please choose another one." });
+    }
+    res.status(500).json({ message: "Server error creating subscription package." });
+  }
+});
+
+/**
+ * PUT /api/crm/packages/:id
+ * Update an existing subscription package.
+ */
+router.put("/packages/:id", ensureStaff, async (req, res) => {
+  try {
+    const {
+      name,
+      slug,
+      category,
+      type,
+      basePrice,
+      period,
+      discountLabel,
+      discountPercent,
+      features,
+      tags,
+      isSeasonalOffer,
+    } = req.body;
+
+    if (!name || !slug || !category || !type || basePrice === undefined) {
+      return res.status(400).json({ message: "Name, slug, category, type, and base price are required." });
+    }
+
+    const normalizedSlug = slug.toString().trim().toLowerCase();
+    const priceNumber = Number(basePrice);
+    if (Number.isNaN(priceNumber)) {
+      return res.status(400).json({ message: "Base price must be a valid number." });
+    }
+
+    let discountPercentNumber;
+    if (discountPercent !== undefined && discountPercent !== "") {
+      discountPercentNumber = Number(discountPercent);
+      if (Number.isNaN(discountPercentNumber)) {
+        return res.status(400).json({ message: "Discount percent must be a valid number." });
+      }
+    }
+
+    const updatedPackage = await SubscriptionPackage.findByIdAndUpdate(
+      req.params.id,
+      {
+        name: name.trim(),
+        slug: normalizedSlug,
+        category,
+        type: type.trim(),
+        basePrice: priceNumber,
+        period: period?.trim() || "/month",
+        discountLabel: discountLabel?.trim() || undefined,
+        discountPercent: discountPercentNumber,
+        features: parseListField(features),
+        tags: parseListField(tags),
+        isSeasonalOffer: isSeasonalOffer === true || isSeasonalOffer === "true",
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedPackage) {
+      return res.status(404).json({ message: "Package not found." });
+    }
+
+    res.json(updatedPackage);
+  } catch (error) {
+    console.error("Error updating subscription package:", error);
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "Slug already exists. Please choose another one." });
+    }
+    res.status(500).json({ message: "Server error updating subscription package." });
+  }
+});
+
+/**
+ * DELETE /api/crm/packages/:id
+ */
+router.delete("/packages/:id", ensureStaff, async (req, res) => {
+  try {
+    const deleted = await SubscriptionPackage.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Package not found." });
+    }
+    res.json({ message: "Package deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting subscription package:", error);
+    res.status(500).json({ message: "Server error deleting subscription package." });
   }
 });
 
