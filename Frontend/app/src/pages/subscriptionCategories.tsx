@@ -29,6 +29,7 @@ type SubscriptionPackage = {
   basePrice: number;
   period: string;
   discountLabel?: string;
+  discountPercent?: number;
   features: string[];
   isSeasonalOffer: boolean;
   tags?: string[];
@@ -45,14 +46,24 @@ const STREAMING_TAB = { key: 'streaming', label: 'Streaming' } as const;
 
 type CategoryKey = typeof CATEGORY_TABS[number]['key'] | typeof STREAMING_TAB.key;
 
-const extractDiscountPercent = (label?: string): number | null => {
+const extractDiscountPercent = (
+  label?: string,
+  explicitPercent?: number | null
+): number | null => {
+  if (typeof explicitPercent === 'number' && explicitPercent > 0) {
+    return explicitPercent;
+  }
   if (!label) return null;
   const match = label.match(/(\d+)\s*%/);
   return match ? parseInt(match[1], 10) : null;
 };
 
-const calculateDiscountedPrice = (basePrice: number, discountLabel?: string): number => {
-  const percent = extractDiscountPercent(discountLabel);
+const calculateDiscountedPrice = (
+  basePrice: number,
+  discountLabel?: string,
+  explicitPercent?: number | null
+): number => {
+  const percent = extractDiscountPercent(discountLabel, explicitPercent);
   if (!percent) return basePrice;
   const discounted = basePrice * (1 - percent / 100);
   return Number(discounted.toFixed(2));
@@ -124,8 +135,12 @@ const SubscriptionCategoriesScreen = () => {
   };
 
   const renderPrice = (pkg: SubscriptionPackage) => {
-    const percent = extractDiscountPercent(pkg.discountLabel);
-    const finalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel);
+    const percent = extractDiscountPercent(pkg.discountLabel, pkg.discountPercent);
+    const finalPrice = calculateDiscountedPrice(
+      pkg.basePrice,
+      pkg.discountLabel,
+      pkg.discountPercent
+    );
 
     if (!percent) {
       return (
@@ -266,7 +281,7 @@ const SubscriptionCategoriesScreen = () => {
         {!loading &&
           !error &&
             filteredPackages.map((pkg) => {
-            const percent = extractDiscountPercent(pkg.discountLabel);
+            const percent = extractDiscountPercent(pkg.discountLabel, pkg.discountPercent);
             const topFeatures = pkg.features?.slice(0, 3) || [];
 
             return (

@@ -29,7 +29,14 @@ router.post("/", auth, async (req, res) => {
       nextBillingDate,
     } = req.body;
 
-    if (!packageSlug || !packageName || !pricePerPeriod) {
+    const normalizedSlug = typeof packageSlug === "string" ? packageSlug.trim().toLowerCase() : "";
+    const normalizedName = typeof packageName === "string" ? packageName.trim() : "";
+    const normalizedPrice =
+      typeof pricePerPeriod === "number"
+        ? pricePerPeriod
+        : Number.parseFloat(pricePerPeriod ?? "NaN");
+
+    if (!normalizedSlug || !normalizedName || Number.isNaN(normalizedPrice)) {
       return res.status(400).json({
         message: "Missing packageSlug / packageName / pricePerPeriod",
       });
@@ -38,7 +45,7 @@ router.post("/", auth, async (req, res) => {
     // Không cho phép user đăng ký trùng gói nếu subscription vẫn đang active
     const existingActiveSub = await Subscription.findOne({
       userId: req.user._id,
-      packageSlug,
+      packageSlug: normalizedSlug,
       status: "active",
     });
 
@@ -52,10 +59,10 @@ router.post("/", auth, async (req, res) => {
     // 1. Tạo subscription mới
     const sub = await Subscription.create({
       userId: req.user._id,
-      packageSlug,
-      packageName,
+      packageSlug: normalizedSlug,
+      packageName: normalizedName,
       period: period || "per month",
-      pricePerPeriod,
+      pricePerPeriod: Number(normalizedPrice.toFixed(2)),
       startedAt: new Date(),
       nextBillingDate: nextBillingDate ? new Date(nextBillingDate) : undefined,
     });

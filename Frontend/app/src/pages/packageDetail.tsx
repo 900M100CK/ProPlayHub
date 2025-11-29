@@ -25,19 +25,33 @@ import BottomNav from '../components/BottomNav';
 
 
 // Helper: lấy số % từ discountLabel
-const extractDiscountPercent = (label?: string): number | null => {
+const extractDiscountPercent = (
+  label?: string,
+  explicitPercent?: number | null
+): number | null => {
+  if (typeof explicitPercent === 'number' && explicitPercent > 0) {
+    return explicitPercent;
+  }
   if (!label) return null;
   const match = label.match(/(\d+)\s*%/);
   return match ? parseInt(match[1], 10) : null;
 };
 
+
+
 // Helper: tính giá sau giảm
-const calculateDiscountedPrice = (basePrice: number, discountLabel?: string): number => {
-  const percent = extractDiscountPercent(discountLabel);
+const calculateDiscountedPrice = (
+  basePrice: number,
+  discountLabel?: string,
+  explicitPercent?: number | null
+): number => {
+  const percent = extractDiscountPercent(discountLabel, explicitPercent);
   if (!percent) return basePrice;
   const discounted = basePrice * (1 - percent / 100);
   return Number(discounted.toFixed(2));
 };
+
+
 
 const PackageDetailScreen = () => {
   const router = useRouter();
@@ -231,9 +245,9 @@ const PackageDetailScreen = () => {
     );
   }
 
-  const discountPercent = extractDiscountPercent(pkg.discountLabel);
+  const discountPercent = extractDiscountPercent(pkg.discountLabel, pkg.discountPercent);
   const originalPrice = pkg.basePrice;
-  const finalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel);
+  const finalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel, pkg.discountPercent);
 
   // Handle add to cart
   const handleAddToCart = async () => {

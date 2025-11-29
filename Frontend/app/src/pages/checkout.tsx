@@ -25,14 +25,24 @@ const PAYMENT_METHOD_STORAGE_KEY = 'selectedPaymentMethod';
 const keyForUser = (userId: string | null | undefined) =>
   `${PAYMENT_METHOD_STORAGE_KEY}:${userId ?? 'guest'}`;
 
-const extractDiscountPercent = (label?: string): number | null => {
+const extractDiscountPercent = (
+  label?: string,
+  explicitPercent?: number | null
+): number | null => {
+  if (typeof explicitPercent === 'number' && explicitPercent > 0) {
+    return explicitPercent;
+  }
   if (!label) return null;
   const match = label.match(/(\d+)\s*%/);
   return match ? parseInt(match[1], 10) : null;
 };
 
-const calculateDiscountedPrice = (basePrice: number, discountLabel?: string) => {
-  const percent = extractDiscountPercent(discountLabel);
+const calculateDiscountedPrice = (
+  basePrice: number,
+  discountLabel?: string,
+  explicitPercent?: number | null
+) => {
+  const percent = extractDiscountPercent(discountLabel, explicitPercent);
   if (!percent) {
     return Number(basePrice.toFixed(2));
   }
@@ -58,6 +68,7 @@ type ApiPackage = {
   basePrice: number;
   period: string;
   discountLabel?: string;
+  discountPercent?: number;
   features?: string[];
   isSeasonalOffer?: boolean;
   tags?: string[];
@@ -75,7 +86,7 @@ const packageToCartItem = (pkg: ApiPackage): CartItem => ({
   features: pkg.features || [],
   isSeasonalOffer: Boolean(pkg.isSeasonalOffer),
   tags: pkg.tags,
-  finalPrice: calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel),
+  finalPrice: calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel, pkg.discountPercent),
 });
 
 const getMethodIcon = (method: PaymentMethod | null) => {
@@ -201,6 +212,23 @@ const CheckoutScreen = () => {
   const hasItems = checkoutItems.length > 0;
   const headerSubtitle = slugParam ? 'Confirm your subscription' : 'Review your cart';
 
+  const buildSubscriptionPayload = (item: CartItem) => {
+    const slug = item.slug?.trim();
+    const name = item.name?.trim();
+    const price = Number(
+      Number.isFinite(item.finalPrice) ? item.finalPrice : item.basePrice
+    );
+    if (!slug || !name || !Number.isFinite(price)) {
+      throw new Error('Invalid subscription data. Please reload and try again.');
+    }
+    return {
+      packageSlug: slug.toLowerCase(),
+      packageName: name,
+      period: item.period || '/month',
+      pricePerPeriod: Number(price.toFixed(2)),
+    };
+  };
+
   const handlePlaceOrder = async () => {
     if (!hasItems) {
       showToast({
@@ -240,12 +268,8 @@ const CheckoutScreen = () => {
     setProcessing(true);
     try {
       for (const item of checkoutItems) {
-        await apiClient.post('/subscriptions', {
-          packageSlug: item.slug,
-          packageName: item.name,
-          period: item.period,
-          pricePerPeriod: item.finalPrice,
-        });
+        const payload = buildSubscriptionPayload(item);
+        await apiClient.post('/subscriptions', payload);
       }
 
       if (slugParam) {
@@ -506,6 +530,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: spacing.md,
+    paddingBottom: 80,
+    marginBottom: -50,
   },
   content: {
     flex: 1,
@@ -818,5 +844,4 @@ const styles = StyleSheet.create({
 });
 
 export default CheckoutScreen;
-
 

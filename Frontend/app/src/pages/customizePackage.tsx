@@ -21,15 +21,24 @@ import { spacing } from '../styles/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Helper: lấy số % từ discountLabel
-const extractDiscountPercent = (label?: string): number | null => {
+const extractDiscountPercent = (label?: string, explicitPercent?: number | null): number | null => {
+  if (typeof explicitPercent === 'number' && explicitPercent > 0) {
+    return explicitPercent;
+  }
   if (!label) return null;
   const match = label.match(/(\d+)\s*%/);
   return match ? parseInt(match[1], 10) : null;
 };
 
+
+
 // Helper: tính giá sau giảm
-const calculateDiscountedPrice = (basePrice: number, discountLabel?: string): number => {
-  const percent = extractDiscountPercent(discountLabel);
+const calculateDiscountedPrice = (
+  basePrice: number,
+  discountLabel?: string,
+  explicitPercent?: number | null
+): number => {
+  const percent = extractDiscountPercent(discountLabel, explicitPercent);
   if (!percent) return basePrice;
   const discounted = basePrice * (1 - percent / 100);
   return Number(discounted.toFixed(2));
@@ -94,7 +103,7 @@ const CustomizePackageScreen = () => {
 
   const basePriceAfterDiscount = useMemo(() => {
     if (!pkg) return 0;
-    return calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel);
+    return calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel, pkg.discountPercent);
   }, [pkg]);
 
   const addonsTotal = useMemo(() => {

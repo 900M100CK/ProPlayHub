@@ -49,13 +49,14 @@
       }
 
       main {
-        padding: 20px;
+        padding: clamp(16px, 4vw, 32px);
         max-width: 1200px;
         margin: 0 auto;
       }
 
       .tabs {
         display: flex;
+        flex-wrap: wrap;
         gap: 4px;
         border-bottom: 1px solid var(--border);
         margin-bottom: 20px;
@@ -101,6 +102,7 @@
 
       .filter-bar {
         display: flex;
+        flex-wrap: wrap;
         gap: 16px;
         margin-bottom: 20px;
         align-items: center;
@@ -127,7 +129,8 @@
       }
 
       .form-group input,
-      .form-group textarea {
+      .form-group textarea,
+      .form-group select {
         width: 100%;
         padding: 10px 12px;
         border-radius: 10px;
@@ -136,12 +139,31 @@
         color: var(--text);
         font-size: 14px;
       }
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+      }
+      .form-group.full-width {
+        grid-column: 1 / -1;
+      }
 
       .form-group input:focus,
-      .form-group textarea:focus {
+      .form-group textarea:focus,
+      .form-group select:focus {
         outline: none;
         border-color: var(--primary);
         box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.16);
+      }
+      .form-group select {
+        appearance: none;
+        background-image: linear-gradient(45deg, transparent 50%, var(--primary) 50%),
+          linear-gradient(135deg, var(--primary) 50%, transparent 50%);
+        background-position: calc(100% - 18px) center, calc(100% - 12px) center;
+        background-size: 6px 6px, 6px 6px;
+        background-repeat: no-repeat;
+        padding-right: 36px;
+        cursor: pointer;
       }
 
       .btn-primary {
@@ -194,13 +216,27 @@
         cursor: pointer;
         transition: all 0.15s ease;
       }
+      .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 12px;
+      }
+      .table-responsive table { min-width: 600px; }
       .btn-danger-outline:hover { background: rgba(239, 68, 68, 0.1); }
 
     </style>
     <style> /* Modal Styles */
       .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; }
       .modal-overlay.active { display: flex; }
-      .modal-content { background: var(--panel); padding: 28px; border-radius: 16px; width: 90%; max-width: 500px; box-shadow: 0 20px 50px rgba(0,0,0,0.2); }
+      .modal-content {
+        background: var(--panel);
+        padding: 28px;
+        border-radius: 16px;
+        width: min(90%, 520px);
+        max-height: 88vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+      }
       .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
       .modal-header h2 { margin: 0; font-size: 18px; }
       .modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--muted); }
@@ -208,6 +244,33 @@
       .btn-secondary { padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); background: #fff; color: var(--text); font-weight: 600; cursor: pointer; }
       .btn-edit-outline { padding: 4px 8px; font-size: 12px; border-radius: 8px; border: 1px solid var(--primary-2); background: transparent; color: var(--primary-2); cursor: pointer; transition: all 0.15s ease; margin-right: 6px; }
       .btn-edit-outline:hover { background: rgba(139, 92, 246, 0.1); }
+
+      @media (max-width: 1024px) {
+        main { padding: 20px; }
+        .card { padding: 20px; }
+      }
+
+      @media (max-width: 768px) {
+        header h1 { font-size: 16px; }
+        .tabs { gap: 8px; }
+        .filter-bar { flex-direction: column; align-items: stretch; }
+        .filter-bar input,
+        .filter-bar select { width: 100%; }
+        .table-responsive table { min-width: 500px; }
+        .modal-content { width: 92%; max-width: 520px; padding: 22px; max-height: 90vh; }
+      }
+
+      @media (max-width: 600px) {
+        header { text-align: left; }
+        .card h2 { font-size: 18px; }
+        .form-group { width: 100%; }
+        .tab-btn { flex: 1 1 auto; }
+        .table-responsive table { min-width: 420px; }
+        .modal-content { width: 96%; padding: 18px; max-height: 92vh; }
+        .modal-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+        .modal-footer { width: 100%; flex-direction: column; }
+        .modal-footer button { width: 100%; }
+      }
     </style>
   </head>
   <body>
@@ -232,19 +295,21 @@
           <div class="filter-bar">
             <input type="search" id="customer-search" placeholder="Search by username or email..." style="flex-grow: 1;" />
           </div>
-          <table class="customer-table">
-            <thead>
-              <tr>
-                <th>User ID</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Joined Date</th>
-              </tr>
-            </thead>
-            <tbody id="customer-list-body">
-              <!-- Customer data will be populated by JS -->
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="customer-table">
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Joined Date</th>
+                </tr>
+              </thead>
+              <tbody id="customer-list-body">
+                <!-- Customer data will be populated by JS -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -273,51 +338,53 @@
         <div class="card">
           <h2>Add New Package</h2>
           <form id="add-package-form">
-            <div class="form-group">
-              <label for="package-name">Package Name</label>
-              <input type="text" id="package-name" name="name" required />
-            </div>
-            <div class="form-group">
-              <label for="package-slug">Slug</label>
-              <input type="text" id="package-slug" name="slug" placeholder="e.g. premium-pc" required />
-            </div>
-            <div class="form-group">
-              <label for="package-category">Category</label>
-              <select id="package-category" name="category" required>
-                <option value="">Select category</option>
-                <option value="PC">PC</option>
-                <option value="PlayStation">PlayStation</option>
-                <option value="Xbox">Xbox</option>
-                <option value="Streaming">Streaming</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="package-type">Package Type</label>
-              <input type="text" id="package-type" name="type" required />
-            </div>
-            <div class="form-group">
-              <label for="package-base-price">Base Price</label>
-              <input type="number" id="package-base-price" name="basePrice" min="0" step="0.01" required />
-            </div>
-            <div class="form-group">
-              <label for="package-period">Billing Period</label>
-              <input type="text" id="package-period" name="period" placeholder="/month" />
-            </div>
-            <div class="form-group">
-              <label for="package-discount-label">Discount Label</label>
-              <input type="text" id="package-discount-label" name="discountLabel" placeholder="e.g. 15% OFF" />
-            </div>
-            <div class="form-group">
-              <label for="package-discount-percent">Discount Percent</label>
-              <input type="number" id="package-discount-percent" name="discountPercent" min="0" max="100" step="1" />
-            </div>
-            <div class="form-group">
-              <label for="package-features">Features (comma separated)</label>
-              <textarea id="package-features" name="features" rows="3" placeholder="Cloud saves, Premium support"></textarea>
-            </div>
-            <div class="form-group">
-              <label for="package-tags">Tags (comma separated)</label>
-              <input type="text" id="package-tags" name="tags" placeholder="popular,exclusive" />
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="package-name">Package Name</label>
+                <input type="text" id="package-name" name="name" required />
+              </div>
+              <div class="form-group">
+                <label for="package-slug">Slug</label>
+                <input type="text" id="package-slug" name="slug" placeholder="e.g. premium-pc" required />
+              </div>
+              <div class="form-group">
+                <label for="package-category">Category</label>
+                <select id="package-category" name="category" required>
+                  <option value="">Select category</option>
+                  <option value="PC">PC</option>
+                  <option value="PlayStation">PlayStation</option>
+                  <option value="Xbox">Xbox</option>
+                  <option value="Streaming">Streaming</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="package-type">Package Type</label>
+                <input type="text" id="package-type" name="type" required />
+              </div>
+              <div class="form-group">
+                <label for="package-base-price">Base Price</label>
+                <input type="number" id="package-base-price" name="basePrice" min="0" step="0.01" required />
+              </div>
+              <div class="form-group">
+                <label for="package-period">Billing Period</label>
+                <input type="text" id="package-period" name="period" placeholder="/month" />
+              </div>
+              <div class="form-group">
+                <label for="package-discount-label">Discount Label</label>
+                <input type="text" id="package-discount-label" name="discountLabel" placeholder="e.g. 15% OFF" />
+              </div>
+              <div class="form-group">
+                <label for="package-discount-percent">Discount Percent</label>
+                <input type="number" id="package-discount-percent" name="discountPercent" min="0" max="100" step="1" />
+              </div>
+              <div class="form-group full-width">
+                <label for="package-features">Features (comma separated)</label>
+                <textarea id="package-features" name="features" rows="3" placeholder="Cloud saves, Premium support"></textarea>
+              </div>
+              <div class="form-group full-width">
+                <label for="package-tags">Tags (comma separated)</label>
+                <input type="text" id="package-tags" name="tags" placeholder="popular,exclusive" />
+              </div>
             </div>
             <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
               <input type="checkbox" id="package-seasonal" name="isSeasonalOffer" value="true" style="width:auto;" />
@@ -338,22 +405,24 @@
             </select>
           </div>
 
-          <table class="customer-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Slug</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Discount</th>
-                <th>Seasonal</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="package-list-body">
-              <!-- Package data populated by JS -->
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="customer-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Slug</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Discount</th>
+                  <th>Seasonal</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="package-list-body">
+                <!-- Package data populated by JS -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -386,20 +455,22 @@
             </select>
           </div>
 
-          <table class="customer-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Value (%)</th>
-                <th>Expiry Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="discount-list-body">
-              <!-- Discount data will be populated by JS -->
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="customer-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Value (%)</th>
+                  <th>Expiry Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="discount-list-body">
+                <!-- Discount data will be populated by JS -->
+              </tbody>
+            </table>
+          </div>
 
         </div>
       </div>
@@ -449,50 +520,52 @@
         </div>
         <form id="edit-package-form">
           <input type="hidden" id="edit-package-id" name="packageId" />
-          <div class="form-group">
-            <label for="edit-package-name">Package Name</label>
-            <input type="text" id="edit-package-name" name="name" required />
-          </div>
-          <div class="form-group">
-            <label for="edit-package-slug">Slug</label>
-            <input type="text" id="edit-package-slug" name="slug" required />
-          </div>
-          <div class="form-group">
-            <label for="edit-package-category">Category</label>
-            <select id="edit-package-category" name="category" required>
-              <option value="PC">PC</option>
-              <option value="PlayStation">PlayStation</option>
-              <option value="Xbox">Xbox</option>
-              <option value="Streaming">Streaming</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="edit-package-type">Package Type</label>
-            <input type="text" id="edit-package-type" name="type" required />
-          </div>
-          <div class="form-group">
-            <label for="edit-package-base-price">Base Price</label>
-            <input type="number" id="edit-package-base-price" name="basePrice" min="0" step="0.01" required />
-          </div>
-          <div class="form-group">
-            <label for="edit-package-period">Billing Period</label>
-            <input type="text" id="edit-package-period" name="period" />
-          </div>
-          <div class="form-group">
-            <label for="edit-package-discount-label">Discount Label</label>
-            <input type="text" id="edit-package-discount-label" name="discountLabel" />
-          </div>
-          <div class="form-group">
-            <label for="edit-package-discount-percent">Discount Percent</label>
-            <input type="number" id="edit-package-discount-percent" name="discountPercent" min="0" max="100" step="1" />
-          </div>
-          <div class="form-group">
-            <label for="edit-package-features">Features (comma separated)</label>
-            <textarea id="edit-package-features" name="features" rows="3"></textarea>
-          </div>
-          <div class="form-group">
-            <label for="edit-package-tags">Tags (comma separated)</label>
-            <input type="text" id="edit-package-tags" name="tags" />
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="edit-package-name">Package Name</label>
+              <input type="text" id="edit-package-name" name="name" required />
+            </div>
+            <div class="form-group">
+              <label for="edit-package-slug">Slug</label>
+              <input type="text" id="edit-package-slug" name="slug" required />
+            </div>
+            <div class="form-group">
+              <label for="edit-package-category">Category</label>
+              <select id="edit-package-category" name="category" required>
+                <option value="PC">PC</option>
+                <option value="PlayStation">PlayStation</option>
+                <option value="Xbox">Xbox</option>
+                <option value="Streaming">Streaming</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-package-type">Package Type</label>
+              <input type="text" id="edit-package-type" name="type" required />
+            </div>
+            <div class="form-group">
+              <label for="edit-package-base-price">Base Price</label>
+              <input type="number" id="edit-package-base-price" name="basePrice" min="0" step="0.01" required />
+            </div>
+            <div class="form-group">
+              <label for="edit-package-period">Billing Period</label>
+              <input type="text" id="edit-package-period" name="period" />
+            </div>
+            <div class="form-group">
+              <label for="edit-package-discount-label">Discount Label</label>
+              <input type="text" id="edit-package-discount-label" name="discountLabel" />
+            </div>
+            <div class="form-group">
+              <label for="edit-package-discount-percent">Discount Percent</label>
+              <input type="number" id="edit-package-discount-percent" name="discountPercent" min="0" max="100" step="1" />
+            </div>
+            <div class="form-group full-width">
+              <label for="edit-package-features">Features (comma separated)</label>
+              <textarea id="edit-package-features" name="features" rows="3"></textarea>
+            </div>
+            <div class="form-group full-width">
+              <label for="edit-package-tags">Tags (comma separated)</label>
+              <input type="text" id="edit-package-tags" name="tags" />
+            </div>
           </div>
           <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
             <input type="checkbox" id="edit-package-seasonal" name="isSeasonalOffer" value="true" style="width:auto;" />

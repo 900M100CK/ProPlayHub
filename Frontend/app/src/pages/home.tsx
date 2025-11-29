@@ -34,28 +34,40 @@ type SubscriptionPackage = {
   basePrice: number;
   period: string;
   discountLabel?: string;
+  discountPercent?: number;
   features: string[];
   isSeasonalOffer: boolean;
   tags?: string[];
 };
 
 // Helper: lấy số % từ discountLabel (vd: "Black Friday 50% OFF" -> 50)
-const extractDiscountPercent = (label?: string): number | null => {
+const extractDiscountPercent = (
+  label?: string,
+  explicitPercent?: number | null
+): number | null => {
+  if (typeof explicitPercent === "number" && explicitPercent > 0) {
+    return explicitPercent;
+  }
   if (!label) return null;
   const match = label.match(/(\d+)\s*%/);
   return match ? parseInt(match[1], 10) : null;
 };
 
+
+
 // Helper: tính giá sau giảm
 const calculateDiscountedPrice = (
   basePrice: number,
-  discountLabel?: string
+  discountLabel?: string,
+  explicitPercent?: number | null
 ): number => {
-  const percent = extractDiscountPercent(discountLabel);
+  const percent = extractDiscountPercent(discountLabel, explicitPercent);
   if (!percent) return basePrice;
   const discounted = basePrice * (1 - percent / 100);
   return Number(discounted.toFixed(2));
 };
+
+
 
 const HomeScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -329,12 +341,14 @@ const HomeScreen = () => {
 
               {filteredSeasonal.map((pkg) => {
                 const discountPercent = extractDiscountPercent(
-                  pkg.discountLabel
+                  pkg.discountLabel,
+                  pkg.discountPercent
                 );
                 const originalPrice = pkg.basePrice;
                 const finalPrice = calculateDiscountedPrice(
                   pkg.basePrice,
-                  pkg.discountLabel
+                  pkg.discountLabel,
+                  pkg.discountPercent
                 );
 
                 return (
@@ -396,11 +410,15 @@ const HomeScreen = () => {
 
             {filteredRecommended.length > 0 ? (
               filteredRecommended.map((pkg) => {
-              const discountPercent = extractDiscountPercent(pkg.discountLabel);
+              const discountPercent = extractDiscountPercent(
+                pkg.discountLabel,
+                pkg.discountPercent
+              );
               const originalPrice = pkg.basePrice;
               const finalPrice = calculateDiscountedPrice(
                 pkg.basePrice,
-                pkg.discountLabel
+                pkg.discountLabel,
+                pkg.discountPercent
               );
 
               return (
