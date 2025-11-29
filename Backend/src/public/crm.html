@@ -345,7 +345,13 @@
               </div>
               <div class="form-group">
                 <label for="package-slug">Slug</label>
-                <input type="text" id="package-slug" name="slug" placeholder="e.g. premium-pc" required />
+                <select id="package-slug" name="slug" required>
+                  <option value="">Select slug</option>
+                  <option value="basic-pc">basic-pc</option>
+                  <option value="premium-pc">premium-pc</option>
+                  <option value="ultimate-pc">ultimate-pc</option>
+                  <option value="basic-ps">basic-ps</option>
+                </select>
               </div>
               <div class="form-group">
                 <label for="package-category">Category</label>
@@ -359,7 +365,12 @@
               </div>
               <div class="form-group">
                 <label for="package-type">Package Type</label>
-                <input type="text" id="package-type" name="type" required />
+                <select id="package-type" name="type" required>
+                  <option value="">Select type</option>
+                  <option value="Hourly">Hourly</option>
+                  <option value="Daily">Daily</option>
+                  <option value="Monthly">Monthly</option>
+                </select>
               </div>
               <div class="form-group">
                 <label for="package-base-price">Base Price</label>
@@ -411,6 +422,7 @@
                 <tr>
                   <th>Name</th>
                   <th>Slug</th>
+                  <th>Type</th>
                   <th>Category</th>
                   <th>Price</th>
                   <th>Discount</th>
@@ -527,7 +539,13 @@
             </div>
             <div class="form-group">
               <label for="edit-package-slug">Slug</label>
-              <input type="text" id="edit-package-slug" name="slug" required />
+              <select id="edit-package-slug" name="slug" required>
+                <option value="">Select slug</option>
+                <option value="basic-pc">basic-pc</option>
+                <option value="premium-pc">premium-pc</option>
+                <option value="ultimate-pc">ultimate-pc</option>
+                <option value="basic-ps">basic-ps</option>
+              </select>
             </div>
             <div class="form-group">
               <label for="edit-package-category">Category</label>
@@ -540,7 +558,12 @@
             </div>
             <div class="form-group">
               <label for="edit-package-type">Package Type</label>
-              <input type="text" id="edit-package-type" name="type" required />
+              <select id="edit-package-type" name="type" required>
+                <option value="">Select type</option>
+                <option value="Hourly">Hourly</option>
+                <option value="Daily">Daily</option>
+                <option value="Monthly">Monthly</option>
+              </select>
             </div>
             <div class="form-group">
               <label for="edit-package-base-price">Base Price</label>
@@ -722,7 +745,7 @@
           if (category && category !== "all") url.searchParams.set("category", category);
 
           packageListBody.innerHTML =
-            '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);">Loading packages...</td></tr>';
+            '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted);">Loading packages...</td></tr>';
           try {
             const response = await fetch(url);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -731,7 +754,7 @@
             renderPackages(packages);
           } catch (error) {
             console.error("Failed to load packages:", error);
-            packageListBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--danger);">Failed to load packages. ${error.message}</td></tr>`;
+            packageListBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--danger);">Failed to load packages. ${error.message}</td></tr>`;
           }
         }
 
@@ -745,7 +768,7 @@
           packageListBody.innerHTML = "";
           if (!packages.length) {
             packageListBody.innerHTML =
-              '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);">No packages found.</td></tr>';
+              '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted);">No packages found.</td></tr>';
             return;
           }
 
@@ -763,6 +786,7 @@
                 <span style="color:var(--muted);font-size:12px;">${pkg.period || ""}</span>
               </td>
               <td>${pkg.slug}</td>
+              <td>${pkg.type || "-"}</td>
               <td>${pkg.category}</td>
               <td>${formatPrice(pkg.basePrice)}</td>
               <td>${discount}</td>
@@ -1064,5 +1088,3 @@
     </script>
   </body>
 </html>
-
-
