@@ -1,7 +1,7 @@
 // ============================================
 // My Achievements Screen (UI Only)
 // ============================================
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   StatusBar,
   TouchableOpacity,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,34 +20,109 @@ import * as Clipboard from 'expo-clipboard';
 import { useToast } from '../components/ToastProvider';
 import ScreenHeader from '../components/ScreenHeader';
 
+import apiClient from '../api/axiosConfig'; // Import apiClient
+import { colors } from '../styles/theme';
+
+interface AchievementStats {
+  totalPackages: number;
+  totalSpent: number;
+  daysOnApp: number;
+  purchasedSlugs?: string[]; // Thêm trường này (tùy chọn, nếu bạn đã cập nhật backend)
+}
+
+// --- Bắt đầu thay đổi cho hệ thống cấp độ ---
+type AchievementLevel = 'bronze' | 'silver' | 'gold';
+
+interface AchievementTier {
+  level: AchievementLevel;
+  threshold: number;
+  description: string;
+  color: string;
+}
+
+interface AchievementDefinition {
+  id: string;
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  tiers: AchievementTier[];
+  getValue: (stats: AchievementStats) => number; // Hàm để lấy giá trị cần so sánh
+}
+// --- Kết thúc thay đổi cho hệ thống cấp độ ---
+
 const AchievementsScreen = () => {
   const router = useRouter();
   const { showToast } = useToast();
 
-  // Dummy stats (will be replaced by real data later)
-  const stats = {
-    hoursPlayed: 247,
-    gamesCompleted: 18,
-  };
+  const [stats, setStats] = useState<AchievementStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const recentAchievements = [
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        // Gọi API để lấy dữ liệu thành tích
+        const response = await apiClient.get('/achievements/stats');
+        setStats(response.data);
+      } catch (err: any) {
+        console.error('Failed to fetch achievement stats:', err);
+        setError(err.response?.data?.message || 'Could not load your achievements.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  // Cấu trúc lại mảng thành tích với các cấp độ
+  const achievementDefinitions: AchievementDefinition[] = [
     {
       id: '1',
-      title: 'Master Player',
-      description: 'Completed 10 games',
-      color: '#FACC15', // yellow
+      title: 'Loyal Customer',
       icon: 'trophy-outline' as const,
+      getValue: (s) => s.totalPackages,
+      tiers: [
+        { level: 'bronze', threshold: 1, description: 'Make your first purchase', color: '#CD7F32' },
+        { level: 'silver', threshold: 5, description: 'Purchase 5 packages', color: '#C0C0C0' },
+        { level: 'gold', threshold: 10, description: 'Purchase 10 packages', color: '#FFD700' },
+      ],
     },
     {
       id: '2',
-      title: 'Marathon Gamer',
-      description: '200+ hours played',
-      color: '#38BDF8', // blue
+      title: 'Big Spender',
+      icon: 'heart-outline' as const,
+      getValue: (s) => s.totalSpent,
+      tiers: [
+        { level: 'bronze', threshold: 50, description: 'Spend over £50', color: '#CD7F32' },
+        { level: 'silver', threshold: 200, description: 'Spend over £200', color: '#C0C0C0' },
+        { level: 'gold', threshold: 500, description: 'Spend over £500', color: '#FFD700' },
+      ],
+    },
+    {
+      id: '3',
+      title: 'Veteran Member',
       icon: 'star-outline' as const,
+      getValue: (s) => s.daysOnApp,
+      tiers: [
+        { level: 'bronze', threshold: 30, description: 'Member for 30 days', color: '#CD7F32' },
+        { level: 'silver', threshold: 180, description: 'Member for 6 months', color: '#C0C0C0' },
+        { level: 'gold', threshold: 365, description: 'Member for a year', color: '#FFD700' },
+      ],
     },
   ];
 
-  const shareMessage = `Check out my gaming stats on ProPlayHub! I've played for ${stats.hoursPlayed} hours and completed ${stats.gamesCompleted} games. #ProPlayHub #Gaming`;
+  // Hàm helper để xác định cấp độ cao nhất đạt được
+  const getHighestAchievedTier = (definition: AchievementDefinition, currentStats: AchievementStats | null): AchievementTier | null => {
+    if (!currentStats) return null;
+    const currentValue = definition.getValue(currentStats);
+    // Sắp xếp các cấp độ từ cao đến thấp để tìm cấp cao nhất
+    const sortedTiers = [...definition.tiers].sort((a, b) => b.threshold - a.threshold);
+    return sortedTiers.find(tier => currentValue >= tier.threshold) || null;
+  };
+
+  const shareMessage = `Check out my stats on ProPlayHub! I've purchased ${stats?.totalPackages || 0} packages and been a member for ${stats?.daysOnApp || 0} days. #ProPlayHub #Gaming`;
 
   const handleShareToTwitter = () => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`;
@@ -71,7 +147,7 @@ const AchievementsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <ScreenHeader title="My Achievements" />
+      <ScreenHeader title="My Achievements" showBackButton />
 
       <View style={styles.body}>
         <ScrollView
@@ -82,6 +158,18 @@ const AchievementsScreen = () => {
         {/* Page title */}
         <Text style={styles.pageTitle}>Gaming Achievements</Text>
 
+        {loading ? (
+          <View style={styles.centeredContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading your stats...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.centeredContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color={colors.danger} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : stats ? (
+          <>
         {/* Stats card */}
         <LinearGradient
           colors={['#4F46E5', '#6366F1']}
@@ -96,12 +184,12 @@ const AchievementsScreen = () => {
 
           <View style={styles.statsRow}>
             <View style={[styles.statBox, { marginRight: 8 }]}>
-              <Text style={styles.statValue}>{stats.hoursPlayed}</Text>
-              <Text style={styles.statLabel}>Hours Played</Text>
+              <Text style={styles.statValue}>{stats.totalPackages}</Text>
+              <Text style={styles.statLabel}>Packages Bought</Text>
             </View>
             <View style={[styles.statBox, { marginLeft: 8 }]}>
-              <Text style={styles.statValue}>{stats.gamesCompleted}</Text>
-              <Text style={styles.statLabel}>Games Completed</Text>
+              <Text style={styles.statValue}>£{stats.totalSpent.toFixed(2)}</Text>
+              <Text style={styles.statLabel}>Total Spent</Text>
             </View>
           </View>
         </LinearGradient>
@@ -110,17 +198,26 @@ const AchievementsScreen = () => {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Recent Achievements</Text>
 
-          {recentAchievements.map((a) => (
-            <View key={a.id} style={styles.achievementRow}>
-              <View style={[styles.achievementIcon, { backgroundColor: a.color }]}>
-                <Ionicons name={a.icon} size={20} color="#F9FAFB" />
+          {achievementDefinitions.map((definition) => {
+            const highestTier = getHighestAchievedTier(definition, stats);
+            const nextTier = definition.tiers.find(t => !highestTier || t.threshold > highestTier.threshold);
+            const displayTier = highestTier || nextTier; // Hiển thị cấp đã đạt hoặc cấp tiếp theo
+            const isAchieved = !!highestTier;
+
+            return (
+              <View key={definition.id} style={[styles.achievementRow, !isAchieved && styles.achievementLocked]}>
+                <View style={[styles.achievementIcon, { backgroundColor: isAchieved ? displayTier?.color : '#D1D5DB' }]}>
+                  <Ionicons name={isAchieved ? definition.icon : 'lock-closed-outline'} size={20} color="#F9FAFB" />
+                </View>
+                <View style={styles.achievementTextWrapper}>
+                  <Text style={styles.achievementTitle}>{definition.title} {highestTier ? `(${highestTier.level})` : ''}</Text>
+                  <Text style={styles.achievementDescription}>
+                    {isAchieved ? `Achieved: ${displayTier?.description}` : `Next: ${displayTier?.description}`}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.achievementTextWrapper}>
-                <Text style={styles.achievementTitle}>{a.title}</Text>
-                <Text style={styles.achievementDescription}>{a.description}</Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {/* Share progress */}
@@ -137,6 +234,13 @@ const AchievementsScreen = () => {
             <Text style={styles.shareButtonText}>Share to Discord</Text>
           </TouchableOpacity>
         </View>
+          </>
+        ) : (
+          <View style={styles.centeredContainer}>
+            <Text>No achievement data available.</Text>
+          </View>
+        )}
+
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -170,6 +274,25 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 16,
   },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.danger,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+
+
 
   // Stats card
   statsCard: {
@@ -233,6 +356,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
+  },
+  achievementLocked: {
+    opacity: 0.6,
   },
   achievementIcon: {
     width: 40,
