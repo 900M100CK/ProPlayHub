@@ -287,15 +287,21 @@ const CheckoutScreen = () => {
       <SafeAreaView style={styles.container}>
         <ScreenHeader title="Checkout" subtitle="Sign in to continue" />
         <View style={styles.body}>
-          <View style={styles.emptyState}>
-            <Ionicons name="lock-closed-outline" size={56} color={colors.textSecondary} />
-            <Text style={styles.emptyTitle}>Sign in required</Text>
-            <Text style={styles.emptyText}>
-              You need to be signed in before completing a subscription.
-            </Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('./login')}>
-              <Text style={styles.primaryButtonText}>Go to login</Text>
-            </TouchableOpacity>
+          <View style={styles.lockWrapper}>
+            <View style={styles.lockCard}>
+              <View style={styles.lockIcon}>
+                <Ionicons name="lock-closed-outline" size={28} color={colors.primary} />
+              </View>
+              <View style={styles.lockTextGroup}>
+                <Text style={styles.lockTitle}>Sign in to continue</Text>
+                <Text style={styles.lockSubtitle}>
+                  Keep your checkout secure by signing in with your ProPlay account first.
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.lockButton} onPress={() => router.push('./login')}>
+                <Text style={styles.lockButtonText}>Sign in now</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </SafeAreaView>
@@ -747,6 +753,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
     gap: spacing.md,
+  },
+  lockWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  lockCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 380,
+    ...shadow.card,
+  },
+  lockIcon: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#F3E8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockTextGroup: {
+    gap: spacing.xs,
+  },
+  lockTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  lockSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  lockButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    width: '100%',
+    alignItems: 'center',
+  },
+  lockButtonText: {
+    color: colors.headerText,
+    fontWeight: '700',
+    fontSize: 16,
   },
   emptyTitle: {
     fontSize: 20,

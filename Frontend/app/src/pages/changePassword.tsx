@@ -9,12 +9,12 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenHeader from '../components/ScreenHeader';
-import { colors, spacing, radius } from '../styles/theme';
+import { colors, spacing, radius, shadow } from '../styles/theme';
 import apiClient from '../api/axiosConfig';
 import { useToast } from '../components/ToastProvider';
 import { useAuthStore } from '../stores/authStore';
@@ -32,6 +32,11 @@ const ChangePasswordScreen = () => {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const passwordTips = [
+    'Use at least 8 characters for stronger security.',
+    'Mix uppercase, lowercase, numbers, or symbols.',
+    'Avoid reusing passwords from other services.',
+  ];
 
   const handleSave = async () => {
     setErrorMessage(null);
@@ -98,89 +103,123 @@ const ChangePasswordScreen = () => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Update Your Password</Text>
-          <Text style={styles.subtext}>
-            Choose a strong password with at least 8 characters.
-          </Text>
+          <View style={styles.headerTextGroup}>
+            <Text style={styles.title}>Update Your Password</Text>
+            <Text style={styles.subtext}>
+              Choose a strong password with at least 8 characters.
+            </Text>
+          </View>
 
-          {errorMessage ? (
-            <View style={styles.inlineError}>
-              <Text style={styles.inlineErrorText}>{errorMessage}</Text>
+          <View style={styles.secureBadge}>
+            <View style={styles.secureIcon}>
+              <Ionicons name="shield-checkmark-outline" size={22} color={colors.primary} />
             </View>
-          ) : null}
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Current Password</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                secureTextEntry={!showCurrent}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                placeholder="Enter Current Password"
-                placeholderTextColor={colors.muted}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowCurrent((prev) => !prev)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons
-                  name={showCurrent ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={colors.muted}
-                />
-              </TouchableOpacity>
+            <View style={styles.secureTextBlock}>
+              <Text style={styles.secureTitle}>Keep your account safe</Text>
+              <Text style={styles.secureSubtitle}>
+                Use a unique password and avoid sharing it with anyone.
+              </Text>
             </View>
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>New Password</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                secureTextEntry={!showNew}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="Enter New Password"
-                placeholderTextColor={colors.muted}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowNew((prev) => !prev)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons
-                  name={showNew ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={colors.muted}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <View style={styles.formCard}>
+            {errorMessage ? (
+              <View style={styles.inlineError}>
+                <Text style={styles.inlineErrorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Confirm New Password</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                secureTextEntry={!showConfirm}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Re-enter New Password"
-                placeholderTextColor={colors.muted}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowConfirm((prev) => !prev)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons
-                  name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={colors.muted}
+            <View style={styles.field}>
+              <Text style={styles.label}>Current Password</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  secureTextEntry={!showCurrent}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Enter Current Password"
+                  placeholderTextColor={colors.muted}
                 />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowCurrent((prev) => !prev)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name={showCurrent ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={colors.muted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>New Password</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  secureTextEntry={!showNew}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Enter New Password"
+                  placeholderTextColor={colors.muted}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowNew((prev) => !prev)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name={showNew ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={colors.muted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Confirm New Password</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  secureTextEntry={!showConfirm}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Re-enter New Password"
+                  placeholderTextColor={colors.muted}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowConfirm((prev) => !prev)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={colors.muted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.passwordHint}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.accent} />
+              <Text style={styles.passwordHintText}>
+                Password must include at least 8 characters and one number.
+              </Text>
+            </View>
+
+            <View style={styles.tipsSection}>
+              {passwordTips.map((tip) => (
+                <View key={tip} style={styles.tipRow}>
+                  <View style={styles.tipIcon}>
+                    <Ionicons name="checkmark" size={14} color={colors.headerText} />
+                  </View>
+                  <Text style={styles.tipText}>{tip}</Text>
+                </View>
+              ))}
             </View>
           </View>
 
@@ -192,7 +231,7 @@ const ChangePasswordScreen = () => {
             {saving ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.saveButtonText}>Save</Text>
+              <Text style={styles.saveButtonText}>Save changes</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -214,6 +253,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: spacing.md,
+    paddingBottom: 80,
+    marginBottom: -100,
   },
   content: {
     flex: 1,
@@ -223,6 +264,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     gap: spacing.md,
   },
+  headerTextGroup: {
+    gap: spacing.xs,
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
@@ -231,7 +275,48 @@ const styles = StyleSheet.create({
   subtext: {
     color: colors.textSecondary,
     fontSize: 14,
-    marginTop: 4,
+  },
+  secureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: '#F5F3FF',
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    marginTop: spacing.md,
+  },
+  secureIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secureTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  secureTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  secureSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+  formCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.15)',
+    gap: spacing.md,
+    ...shadow.card,
   },
   inlineError: {
     backgroundColor: '#FEF2F2',
@@ -256,12 +341,12 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 14,
     paddingVertical: 12,
     paddingRight: 44,
-    color: '#111827',
+    color: colors.textPrimary,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     fontSize: 14,
@@ -277,6 +362,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  passwordHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: '#FFF7ED',
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  passwordHintText: {
+    flex: 1,
+    color: '#9A3412',
+    fontSize: 12,
+  },
+  tipsSection: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 4,
+  },
+  tipIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
   saveButton: {
     marginTop: spacing.xl,
     backgroundColor: colors.primary,
@@ -289,7 +412,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: colors.headerText,
     fontSize: 16,
     fontWeight: '700',
   },
