@@ -16,6 +16,7 @@ import discountRoutes from "./routes/discountRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import crmRoutes from "./routes/crmRoutes.js";
+import achievementRoutes from "./routes/achievementRoutes.js";
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ app.use("/api/discounts", discountRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/crm", crmRoutes);
+app.use("/api/achievements", achievementRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "Live chat server running" });

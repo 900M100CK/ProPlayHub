@@ -1,7 +1,17 @@
 // src/controllers/subscriptionController.js
-import Subscription from '../models/Subscription.js';
+import Subscription from '../models/userSubscription.js';
 import SubscriptionPackage from '../models/SubscriptionPackage.js';
+import User from '../models/user.js';
 import { sendSubscriptionReceiptEmail } from '../libs/email.js';
+import { Expo } from 'expo-server-sdk';
+import {
+  getAchievementStatsForUser,
+  getAchievementDefinitions,
+  getHighestAchievedTier,
+} from '../utils/achievementUtils.js';
+
+// Khởi tạo Expo SDK
+const expo = new Expo();
 
 export const checkoutSubscription = async (req, res) => {
   try {
@@ -13,6 +23,9 @@ export const checkoutSubscription = async (req, res) => {
     if (!pkg) {
       return res.status(404).json({ message: 'Package not found' });
     }
+
+    // === LOGIC THÀNH TÍCH: Lấy stats TRƯỚC khi mua ===
+    const oldStats = await getAchievementStatsForUser(user._id);
 
     // 2. Tính giá cuối cùng (ví dụ: app order -15% + discount gói)
     let finalPrice = pkg.basePrice;
@@ -48,6 +61,44 @@ export const checkoutSubscription = async (req, res) => {
       startedAt: now,
       nextBillingDate: nextBilling,
     });
+
+    // === LOGIC THÀNH TÍCH: So sánh và gửi thông báo ===
+    // Chạy ngầm để không làm chậm response trả về cho người dùng
+    (async () => {
+      try {
+        const newStats = await getAchievementStatsForUser(user._id);
+        const achievementDefinitions = getAchievementDefinitions();
+        const userWithToken = await User.findById(user._id).select('+pushToken');
+
+        if (!userWithToken?.pushToken || !Expo.isExpoPushToken(userWithToken.pushToken)) {
+          return; // Không có token hợp lệ, không làm gì cả
+        }
+
+        const notificationsToSend = [];
+
+        achievementDefinitions.forEach((definition) => {
+          const oldTier = getHighestAchievedTier(definition, oldStats);
+          const newTier = getHighestAchievedTier(definition, newStats);
+
+          // Nếu cấp độ mới cao hơn cấp độ cũ (hoặc từ null -> có cấp độ)
+          if (newTier && (!oldTier || newTier.threshold > oldTier.threshold)) {
+            notificationsToSend.push({
+              to: userWithToken.pushToken,
+              sound: 'default',
+              title: '🏆 New Achievement Unlocked!',
+              body: `You've reached ${definition.title} (${newTier.level})!`,
+              data: { screen: 'achievements' }, // Dữ liệu để điều hướng khi người dùng nhấn vào
+            });
+          }
+        });
+
+        if (notificationsToSend.length > 0) {
+          await expo.sendPushNotificationsAsync(notificationsToSend);
+        }
+      } catch (achievementError) {
+        console.error('Error processing achievements and sending notifications:', achievementError);
+      }
+    })();
 
     // 5. Gửi email hóa đơn (không throw lỗi ra ngoài)
     sendSubscriptionReceiptEmail(
