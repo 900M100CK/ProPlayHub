@@ -396,6 +396,10 @@
                 <label for="package-tags">Tags (comma separated)</label>
                 <input type="text" id="package-tags" name="tags" placeholder="popular,exclusive" />
               </div>
+              <div class="form-group full-width">
+                <label for="package-addons">Add-ons (JSON format)</label>
+                <textarea id="package-addons" name="addons" rows="4" placeholder='[{"key":"p-support","name":"Priority Support","price":5.99}]'></textarea>
+              </div>
             </div>
             <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
               <input type="checkbox" id="package-seasonal" name="isSeasonalOffer" value="true" style="width:auto;" />
@@ -589,6 +593,10 @@
               <label for="edit-package-tags">Tags (comma separated)</label>
               <input type="text" id="edit-package-tags" name="tags" />
             </div>
+            <div class="form-group full-width">
+              <label for="edit-package-addons">Add-ons (JSON format)</label>
+              <textarea id="edit-package-addons" name="addons" rows="4"></textarea>
+            </div>
           </div>
           <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
             <input type="checkbox" id="edit-package-seasonal" name="isSeasonalOffer" value="true" style="width:auto;" />
@@ -703,12 +711,20 @@
           features: formData.get("features") || "",
           tags: formData.get("tags") || "",
           isSeasonalOffer: !!formData.get("isSeasonalOffer"),
+          addons: (() => {
+            try {
+              const addonsJson = formData.get("addons")?.trim();
+              return addonsJson ? JSON.parse(addonsJson) : [];
+            } catch (e) {
+              return []; // Trả về mảng rỗng nếu JSON không hợp lệ
+            }
+          })(),
         });
 
         if (addPackageForm) {
           addPackageForm.addEventListener("submit", (e) => {
             e.preventDefault();
-            const formData = new FormData(addPackageForm);
+            const formData = new FormData(e.target);
             const payload = buildPackagePayload(formData);
 
             fetch("/api/crm/packages", {
@@ -740,7 +756,7 @@
           if (!packageListBody) return;
           const searchTerm = packageSearchInput?.value.trim();
           const category = packageCategoryFilter?.value;
-          const url = new URL("/api/crm/packages", window.location.origin);
+          const url = new URL("/api/packages", window.location.origin); // SỬA Ở ĐÂY
           if (searchTerm) url.searchParams.set("search", searchTerm);
           if (category && category !== "all") url.searchParams.set("category", category);
 
@@ -831,6 +847,9 @@
             pkg.discountPercent ?? "";
           document.getElementById("edit-package-features").value = listToString(pkg.features);
           document.getElementById("edit-package-tags").value = listToString(pkg.tags);
+          document.getElementById("edit-package-addons").value = pkg.addons
+            ? JSON.stringify(pkg.addons, null, 2)
+            : "";
           document.getElementById("edit-package-seasonal").checked = !!pkg.isSeasonalOffer;
           packageModal.classList.add("active");
         }
@@ -903,6 +922,37 @@
               alert(`Error: ${error.message}`);
             });
         });
+
+        // --- Đồng bộ Package Type và Billing Period ---
+        function syncPeriodWithType(typeSelectId, periodInputId) {
+          const typeSelect = document.getElementById(typeSelectId);
+          const periodInput = document.getElementById(periodInputId);
+
+          if (!typeSelect || !periodInput) return;
+
+          // Hàm để cập nhật giá trị period
+          const updatePeriod = () => {
+            const selectedType = typeSelect.value;
+            let periodValue = '';
+            switch (selectedType) {
+              case 'Hourly':
+                periodValue = '/hour';
+                break;
+              case 'Daily':
+                periodValue = '/day';
+                break;
+              case 'Monthly':
+                periodValue = '/month';
+                break;
+              default:
+                periodValue = '/month'; // Giá trị mặc định
+            }
+            periodInput.value = periodValue;
+          };
+
+          // Lắng nghe sự kiện thay đổi và gọi hàm cập nhật
+          typeSelect.addEventListener('change', updatePeriod);
+        }
 
         // --- Event Management ---
         const addEventForm = document.getElementById("add-event-form");
@@ -1083,6 +1133,10 @@
 
         // Initial load
         loadCustomers();
+
+        // Kích hoạt đồng bộ cho cả hai form
+        syncPeriodWithType('package-type', 'package-period');
+        syncPeriodWithType('edit-package-type', 'edit-package-period');
         // Không cần loadDiscounts() ban đầu vì tab đó không active
       });
     </script>

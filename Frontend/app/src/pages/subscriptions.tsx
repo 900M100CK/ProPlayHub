@@ -20,6 +20,12 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import { colors, spacing, radius, shadow } from '../styles/theme';
 import ScreenHeader from '../components/ScreenHeader';
 
+interface PurchasedAddon {
+  key: string;
+  name: string;
+  price: number;
+}
+
 interface Subscription {
   _id: string;
   packageSlug: string;
@@ -31,6 +37,7 @@ interface Subscription {
   nextBillingDate?: string;
   cancelledAt?: string;
   createdAt: string;
+  purchasedAddons?: PurchasedAddon[];
 }
 
 const SubscriptionsScreen = () => {
@@ -369,6 +376,20 @@ const SubscriptionsScreen = () => {
                     </View>
                   )}
                 </View>
+                
+                {/* Purchased Addons */}
+                {subscription.purchasedAddons && subscription.purchasedAddons.length > 0 && (
+                  <View style={subscriptionStyles.addonsContainer}>
+                    <Text style={subscriptionStyles.addonsTitle}>Purchased Add-ons:</Text>
+                    {subscription.purchasedAddons.map((addon) => (
+                      <View key={addon.key} style={subscriptionStyles.addonRow}>
+                        <Ionicons name="add-circle-outline" size={16} color={colors.textSecondary} />
+                        <Text style={subscriptionStyles.addonName}>{addon.name}</Text>
+                        <Text style={subscriptionStyles.addonPrice}>+£{addon.price.toFixed(2)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
 
                 {/* Actions */}
                 {subscription.status === 'active' && (
@@ -586,6 +607,33 @@ const subscriptionStyles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
   },
+  addonsContainer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  addonsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  addonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  addonName: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    marginLeft: spacing.xs,
+  },
+  addonPrice: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
   actionsContainer: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -627,5 +675,3 @@ const subscriptionStyles = StyleSheet.create({
 });
 
 export default SubscriptionsScreen;
-
-

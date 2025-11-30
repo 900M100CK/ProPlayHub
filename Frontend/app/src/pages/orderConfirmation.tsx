@@ -12,9 +12,10 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 
 const OrderConfirmationScreen = () => {
   const router = useRouter();
-  const { packageName, price } = useLocalSearchParams<{
+  const { packageName, price, period } = useLocalSearchParams<{
     packageName?: string;
     price?: string;
+    period?: string;
   }>();
 
   // Tạo ID đơn hàng giả cho đẹp UI
@@ -25,6 +26,7 @@ const OrderConfirmationScreen = () => {
 
   const pkgName = packageName || "Your Subscription";
   const pkgPrice = price || "0.00";
+  const pkgPeriod = period || "/month";
 
   const handleBackHome = () => {
     // Đổi path này cho đúng màn hình Home của bạn nếu khác
@@ -54,7 +56,7 @@ const OrderConfirmationScreen = () => {
             </View>
 
             <Text style={styles.orderName}>{pkgName}</Text>
-            <Text style={styles.orderPrice}>£{pkgPrice}/month</Text>
+            <Text style={styles.orderPrice}>£{pkgPrice}{pkgPeriod}</Text>
           </View>
 
           {/* Info text */}
@@ -65,7 +67,7 @@ const OrderConfirmationScreen = () => {
           {/* Buttons */}
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={() => router.push("./subcriptions")}
+            onPress={() => router.push("./subscriptions")}
           >
             <Text style={styles.primaryButtonText}>View My Subscriptions</Text>
           </TouchableOpacity>

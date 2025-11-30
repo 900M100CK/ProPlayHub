@@ -1,4 +1,4 @@
-﻿// app/src/pages/packageDetail.tsx
+﻿﻿// app/src/pages/packageDetail.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -22,6 +22,12 @@ import apiClient from '../api/axiosConfig';
 import { colors, spacing } from '../styles/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../components/BottomNav';
+
+interface Addon {
+  key: string;
+  name: string;
+  price: number;
+}
 
 
 // Helper: lấy số % từ discountLabel
@@ -62,6 +68,8 @@ const PackageDetailScreen = () => {
   const [pkg, setPkg] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedAddons, setSelectedAddons] = useState<Set<string>>(new Set());
+  const [totalPrice, setTotalPrice] = useState(0);
   
   const { addToCart, isInCart, removeFromCart } = useCartStore();
   const { accessToken } = useAuthStore();
@@ -105,6 +113,28 @@ const PackageDetailScreen = () => {
     fetchDetail();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
+
+  // Effect để tính toán lại tổng giá tiền khi gói hoặc các add-on thay đổi
+  useEffect(() => {
+    if (!pkg) {
+      setTotalPrice(0);
+      return;
+    }
+
+    // 1. Tính giá gói sau khi đã giảm giá
+    const packagePrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel, pkg.discountPercent);
+
+    // 2. Tính tổng giá các add-on đã chọn
+    const addonsPrice = pkg.addons?.reduce((sum: number, addon: Addon) => {
+      if (selectedAddons.has(addon.key)) {
+        return sum + addon.price;
+      }
+      return sum;
+    }, 0) || 0;
+
+    // 3. Cập nhật tổng giá tiền
+    setTotalPrice(Number((packagePrice + addonsPrice).toFixed(2)));
+  }, [pkg, selectedAddons]);
 
   useEffect(() => {
     if (!pkg?.slug) {
@@ -246,8 +276,14 @@ const PackageDetailScreen = () => {
   }
 
   const discountPercent = extractDiscountPercent(pkg.discountLabel, pkg.discountPercent);
-  const originalPrice = pkg.basePrice;
-  const finalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel, pkg.discountPercent);
+  const packageOriginalPrice = pkg.basePrice;
+  const packageFinalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel, pkg.discountPercent);
+
+  const handleToggleAddon = (addonKey: string) => {
+    const newSelection = new Set(selectedAddons);
+    newSelection.has(addonKey) ? newSelection.delete(addonKey) : newSelection.add(addonKey);
+    setSelectedAddons(newSelection);
+  };
 
   // Handle add to cart
   const handleAddToCart = async () => {
@@ -274,7 +310,7 @@ const PackageDetailScreen = () => {
       features: pkg.features || [],
       isSeasonalOffer: pkg.isSeasonalOffer || false,
       tags: pkg.tags || [],
-      finalPrice: finalPrice,
+      finalPrice: totalPrice, // Sử dụng tổng giá đã tính toán
     };
 
     const result = await addToCart(cartItem);
@@ -364,11 +400,11 @@ const PackageDetailScreen = () => {
             {discountPercent ? (
               <>
                 <Text style={detailStyles.originalPrice}>
-                  £{originalPrice.toFixed(2)}
+                  £{packageOriginalPrice.toFixed(2)}
                   <Text style={detailStyles.period}> {pkg.period}</Text>
                 </Text>
                 <Text style={detailStyles.finalPrice}>
-                  £{finalPrice.toFixed(2)}
+                  £{totalPrice.toFixed(2)}
                   <Text style={detailStyles.period}> {pkg.period}</Text>
                 </Text>
                 <Text style={detailStyles.discountNote}>
@@ -377,7 +413,7 @@ const PackageDetailScreen = () => {
               </>
             ) : (
               <Text style={detailStyles.finalPrice}>
-                £{originalPrice.toFixed(2)}
+                £{totalPrice.toFixed(2)}
                 <Text style={detailStyles.period}> {pkg.period}</Text>
               </Text>
             )}
@@ -392,6 +428,31 @@ const PackageDetailScreen = () => {
               </View>
             ))}
           </View>
+
+          {/* Add-ons Section */}
+          {pkg.addons && pkg.addons.length > 0 && (
+            <View style={detailStyles.addonsContainer}>
+              <Text style={detailStyles.addonsTitle}>Available Add-ons</Text>
+              {pkg.addons.map((addon: Addon) => {
+                const isSelected = selectedAddons.has(addon.key);
+                return (
+                  <TouchableOpacity
+                    key={addon.key}
+                    style={detailStyles.addonItem}
+                    onPress={() => handleToggleAddon(addon.key)}
+                  >
+                    <Ionicons
+                      name={isSelected ? 'checkbox' : 'square-outline'}
+                      size={22}
+                      color={isSelected ? colors.primary : colors.textSecondary}
+                    />
+                    <Text style={detailStyles.addonName}>{addon.name}</Text>
+                    <Text style={detailStyles.addonPrice}>+£{addon.price.toFixed(2)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
           {/* Footer: nút Add to Cart và Subscribe */}
           <View style={detailStyles.packageFooter}>
@@ -429,7 +490,10 @@ const PackageDetailScreen = () => {
                 onPress={() =>
                   router.push({
                     pathname: './checkout',
-                    params: { slug: pkg.slug },
+                    params: { 
+                      slug: pkg.slug,
+                      selectedAddons: JSON.stringify(Array.from(selectedAddons))
+                    },
                   })
                 }
               >
@@ -565,6 +629,35 @@ const detailStyles = StyleSheet.create({
   featureText: {
     fontSize: 15,
     color: '#4B5563',
+  },
+  addonsContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    marginTop: 20,
+    paddingTop: 20,
+    marginBottom: 12,
+  },
+  addonsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
+  },
+  addonItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  addonName: {
+    flex: 1,
+    fontSize: 15,
+    color: '#4B5563',
+    marginLeft: 12,
+  },
+  addonPrice: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#374151',
   },
   packageFooter: {
     marginTop: 8,

@@ -18,61 +18,6 @@ const isAdmin = (req, res, next) => {
 
 // --- Package Routes ---
 
-// GET recommended packages (for home screen)
-// This route should come BEFORE routes with /:id
-router.get("/packages/recommended", auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select('gamingPlatformPreferences');
-    const preferences = user?.gamingPlatformPreferences || [];
-
-    // Base query: không phải là seasonal offer
-    const query = { isSeasonalOffer: false };
-
-    // Nếu user có sở thích, lọc theo sở thích đó
-    if (preferences.length > 0) {
-      query.category = { $in: preferences };
-    }
-
-    // Sắp xếp theo lượt bán (salesCount) giảm dần
-    const recommendedPackages = await Package.find(query).sort({ salesCount: -1 });
-
-    // Nếu không có kết quả nào (ví dụ: user chỉ thích 'Xbox' nhưng không có gói Xbox nào)
-    // thì trả về danh sách chung được sắp xếp theo lượt bán
-    if (recommendedPackages.length === 0 && preferences.length > 0) {
-        const generalPackages = await Package.find({ isSeasonalOffer: false }).sort({ salesCount: -1 });
-        return res.json(generalPackages);
-    }
-
-    res.json(recommendedPackages);
-  } catch (err) {
-    console.error("GET /api/crm/packages/recommended error:", err);
-    res.status(500).json({ message: "Failed to load recommended packages." });
-  }
-});
-
-// GET all packages (with search and filter)
-router.get("/packages", async (req, res) => {
-  try {
-    const { search, category } = req.query;
-    let query = {};
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { slug: { $regex: search, $options: "i" } },
-        { type: { $regex: search, $options: "i" } },
-      ];
-    }
-    if (category) {
-      query.category = category;
-    }
-    const packages = await Package.find(query).sort({ name: 1 });
-    res.json(packages);
-  } catch (err) {
-    console.error("GET /api/crm/packages error:", err);
-    res.status(500).json({ message: "Failed to load packages." });
-  }
-});
-
 // POST a new package
 router.post("/packages", isAdmin, async (req, res) => {
   try {
@@ -111,17 +56,14 @@ router.delete("/packages/:id", isAdmin, async (req, res) => {
       return res.status(404).json({ message: "Package not found." });
     }
 
-    // 2. Tìm và hủy tất cả các đăng ký đang hoạt động ("active") liên quan đến gói này
-    const activeSubscriptions = await Subscription.find({
-      packageSlug: packageToDelete.slug,
-      status: "active",
-    });
+    // 2. Hủy tất cả các đăng ký đang hoạt động ("active") liên quan đến gói này bằng packageId
+    const updateResult = await Subscription.updateMany(
+      { packageId: id, status: "active" },
+      { $set: { status: "cancelled", cancelledAt: new Date() } }
+    );
 
-    if (activeSubscriptions.length > 0) {
-      await Subscription.updateMany(
-        { packageSlug: packageToDelete.slug, status: "active" },
-        { $set: { status: "cancelled", cancelledAt: new Date() } }
-      );
+    if (updateResult.modifiedCount > 0) {
+      console.log(`Cancelled ${updateResult.modifiedCount} active subscriptions for deleted package ${id}`);
     }
 
     // 3. Sau khi đã hủy các đăng ký, tiến hành xóa gói

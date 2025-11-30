@@ -10,11 +10,28 @@ const SubscriptionSchema = new mongoose.Schema(
       index: true,
     },
 
+    // ID của gói gốc để tham chiếu ổn định
+    packageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SubscriptionPackage",
+      required: true,
+    },
+
     // Thông tin gói tại thời điểm đăng ký (denormalized cho đơn giản)
     packageSlug: { type: String, required: true },
     packageName: { type: String, required: true },
     period: { type: String, default: "per month" }, // ví dụ: "per month"
     pricePerPeriod: { type: Number, required: true },
+
+    // Lưu lại các add-on đã mua tại thời điểm đăng ký
+    purchasedAddons: [
+      {
+        _id: false,
+        key: { type: String, required: true },
+        name: { type: String, required: true },
+        price: { type: Number, required: true }, // Giá tại thời điểm mua
+      },
+    ],
 
     status: {
       type: String,

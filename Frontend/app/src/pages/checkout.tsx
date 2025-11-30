@@ -73,6 +73,7 @@ type ApiPackage = {
   isSeasonalOffer?: boolean;
   tags?: string[];
 };
+type Addon = { key: string; name: string; price: number };
 
 const packageToCartItem = (pkg: ApiPackage): CartItem => ({
   _id: pkg._id,
@@ -106,8 +107,9 @@ const CheckoutScreen = () => {
   const clearCart = useCartStore((state) => state.clearCart);
   const removeFromCart = useCartStore((state) => state.removeFromCart);
   const isInCart = useCartStore((state) => state.isInCart);
-  const params = useLocalSearchParams<{ slug?: string | string[] }>();
+  const params = useLocalSearchParams<{ slug?: string | string[]; selectedAddons?: string }>();
   const slugParam = Array.isArray(params.slug) ? params.slug[0] : params.slug;
+  const selectedAddonsParam = params.selectedAddons ? JSON.parse(params.selectedAddons) : [];
   const isCartCheckout = !slugParam;
 
   const [checkoutItems, setCheckoutItems] = useState<CartItem[]>([]);
@@ -144,13 +146,27 @@ const CheckoutScreen = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`${API_BASE_URL}/api/packages/${slugParam}`);
-        const data = (await res.json()) as ApiPackage & { message?: string };
+        const res = await fetch(`${API_BASE_URL}/api/packages/${slugParam}`); // Lấy thông tin gói từ API
+        const data = (await res.json()) as ApiPackage & { message?: string; addons?: Addon[] };
         if (!res.ok) {
           throw new Error(data?.message || 'Package not found.');
         }
         if (isMounted) {
-          setCheckoutItems([packageToCartItem(data)]);
+          // Tính toán lại giá cuối cùng bao gồm add-ons
+          let finalPrice = calculateDiscountedPrice(data.basePrice, data.discountLabel, data.discountPercent);
+          const addonsPrice = (data.addons || []).reduce((sum, addon) => {
+            if (selectedAddonsParam.includes(addon.key)) {
+              return sum + addon.price;
+            }
+            return sum;
+          }, 0);
+
+          finalPrice += addonsPrice; // Cộng giá add-on vào
+
+          const cartItem = packageToCartItem(data);
+          cartItem.finalPrice = Number(finalPrice.toFixed(2)); // Ghi đè giá cuối cùng
+
+          setCheckoutItems([cartItem]);
         }
       } catch (err) {
         console.error('Checkout load error:', err);
@@ -168,7 +184,7 @@ const CheckoutScreen = () => {
     return () => {
       isMounted = false;
     };
-  }, [slugParam]);
+  }, [slugParam, selectedAddonsParam]); // Thêm selectedAddonsParam vào dependency array
 
   useEffect(() => {
     if (slugParam) return;
@@ -212,23 +228,6 @@ const CheckoutScreen = () => {
   const hasItems = checkoutItems.length > 0;
   const headerSubtitle = slugParam ? 'Confirm your subscription' : 'Review your cart';
 
-  const buildSubscriptionPayload = (item: CartItem) => {
-    const slug = item.slug?.trim();
-    const name = item.name?.trim();
-    const price = Number(
-      Number.isFinite(item.finalPrice) ? item.finalPrice : item.basePrice
-    );
-    if (!slug || !name || !Number.isFinite(price)) {
-      throw new Error('Invalid subscription data. Please reload and try again.');
-    }
-    return {
-      packageSlug: slug.toLowerCase(),
-      packageName: name,
-      period: item.period || '/month',
-      pricePerPeriod: Number(price.toFixed(2)),
-    };
-  };
-
   const handlePlaceOrder = async () => {
     if (!hasItems) {
       showToast({
@@ -268,8 +267,11 @@ const CheckoutScreen = () => {
     setProcessing(true);
     try {
       for (const item of checkoutItems) {
-        const payload = buildSubscriptionPayload(item);
-        await apiClient.post('/subscriptions', payload);
+        const payload = {
+          packageSlug: item.slug,
+          selectedAddons: selectedAddonsParam, // Gửi mảng các key của add-on
+        };
+        await apiClient.post('/subscriptions', payload); // Backend sẽ tự tính toán giá cuối cùng
       }
 
       if (slugParam) {
@@ -291,6 +293,7 @@ const CheckoutScreen = () => {
         params: {
           packageName: checkoutItems[0]?.name || 'Your subscription',
           price: checkoutItems[0]?.finalPrice.toFixed(2) || total.toFixed(2),
+          period: checkoutItems[0]?.period || '/month',
         },
       });
     } catch (err: any) {
@@ -844,4 +847,3 @@ const styles = StyleSheet.create({
 });
 
 export default CheckoutScreen;
-

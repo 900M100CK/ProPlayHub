@@ -1,91 +1,105 @@
 // routes/subscriptionRoutes.js
 import express from "express";
 import auth from "../middlewares/auth.js";
+import SubscriptionPackage from "../models/SubscriptionPackage.js";
 import Subscription from "../models/userSubscription.js";
-import { sendSubscriptionReceiptEmail } from "../libs/email.js"; // 👈 THÊM DÒNG NÀY
+import { sendSubscriptionReceiptEmail } from "../libs/email.js";
 
 const router = express.Router();
 
 /**
  * POST /api/subscriptions
- * Tạo subscription mới khi user complete order ở Checkout
+ * Tạo subscription mới khi user thanh toán ở Checkout.
+ * Backend sẽ tự tính toán giá cuối cùng để đảm bảo an toàn.
  * Body mong đợi:
  * {
- *   packageSlug,
- *   packageName,
- *   period,
- *   pricePerPeriod,
- *   nextBillingDate   (optional, string ISO)
+ *   "packageSlug": "premium-pc",
+ *   "selectedAddons": ["priority-support", "extra-storage"] // (optional) Mảng các 'key' của add-on
  * }
  * Lưu ý: Route này nên chỉ được gọi SAU KHI thanh toán thành công (VISACheck OK).
  */
 router.post("/", auth, async (req, res) => {
   try {
-    const {
-      packageSlug,
-      packageName,
-      period,
-      pricePerPeriod,
-      nextBillingDate,
-    } = req.body;
+    const { packageSlug } = req.body;
+    const user = req.user;
+    // Lấy mảng các key của add-on từ body, đảm bảo nó là một mảng
+    const selectedAddonKeys = Array.isArray(req.body.selectedAddons) ? req.body.selectedAddons : [];
 
-    const normalizedSlug = typeof packageSlug === "string" ? packageSlug.trim().toLowerCase() : "";
-    const normalizedName = typeof packageName === "string" ? packageName.trim() : "";
-    const normalizedPrice =
-      typeof pricePerPeriod === "number"
-        ? pricePerPeriod
-        : Number.parseFloat(pricePerPeriod ?? "NaN");
+    if (!packageSlug) return res.status(400).json({ message: "packageSlug is required." });
 
-    if (!normalizedSlug || !normalizedName || Number.isNaN(normalizedPrice)) {
-      return res.status(400).json({
-        message: "Missing packageSlug / packageName / pricePerPeriod",
-      });
+    // 1. Lấy thông tin gói từ DB
+    const pkg = await SubscriptionPackage.findOne({ slug: packageSlug });
+    if (!pkg) {
+      return res.status(404).json({ message: "Package not found." });
     }
 
-    // Không cho phép user đăng ký trùng gói nếu subscription vẫn đang active
+    // 2. Kiểm tra xem user đã có gói active này chưa
     const existingActiveSub = await Subscription.findOne({
-      userId: req.user._id,
-      packageSlug: normalizedSlug,
+      userId: user._id,
+      packageSlug: pkg.slug,
       status: "active",
     });
 
     if (existingActiveSub) {
       return res.status(409).json({
-        message:
-          "Bạn đã đăng ký gói này rồi. Vui lòng hủy gói hiện tại trước khi đăng ký lại.",
+        message: "You already have an active subscription for this package.",
       });
     }
 
-    // 1. Tạo subscription mới
-    const sub = await Subscription.create({
-      userId: req.user._id,
-      packageSlug: normalizedSlug,
-      packageName: normalizedName,
-      period: period || "per month",
-      pricePerPeriod: Number(normalizedPrice.toFixed(2)),
-      startedAt: new Date(),
-      nextBillingDate: nextBillingDate ? new Date(nextBillingDate) : undefined,
-    });
+    // 3. Tính giá cuối cùng trên server
+    // Bắt đầu với giá gốc của gói
+    let finalPrice = pkg.basePrice;
 
-    // 2. Gửi email hóa đơn subscription (không làm fail flow nếu email bị lỗi)
-    try {
-      await sendSubscriptionReceiptEmail(
-        req.user.email,
-        req.user.fullName || req.user.username || "ProPlayHub user",
-        sub
-      );
-    } catch (emailError) {
-      console.error("Error sending subscription receipt email (handled):", emailError);
-      // Không throw tiếp, vì không muốn làm hỏng 201 Created chỉ vì lỗi email
+    // Áp dụng giảm giá của gói (nếu có)
+    if (typeof pkg.discountPercent === "number" && pkg.discountPercent > 0) {
+      finalPrice *= 1 - pkg.discountPercent / 100;
     }
 
-    // 3. Trả về subscription cho app hiển thị bill
+    // Xác thực và tính tổng giá các add-on được chọn
+    const purchasedAddons = [];
+    if (selectedAddonKeys.length > 0) {
+      for (const key of selectedAddonKeys) {
+        const addon = pkg.addons.find((a) => a.key === key);
+        if (!addon) {
+          return res.status(400).json({ message: `Invalid add-on key: ${key}` });
+        }
+        finalPrice += addon.price; // Cộng giá add-on vào tổng
+        purchasedAddons.push({ key: addon.key, name: addon.name, price: addon.price });
+      }
+    }
+
+    // Giả sử có giảm giá 15% khi mua qua app
+    finalPrice *= 0.85;
+
+    finalPrice = Number(finalPrice.toFixed(2));
+
+    // 4. Tạo bản ghi Subscription
+    const now = new Date();
+    const nextBillingDate = new Date(now);
+    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1); // Ví dụ: kỳ thanh toán sau 1 tháng
+
+    const sub = await Subscription.create({
+      userId: user._id,
+      packageId: pkg._id,
+      packageSlug: pkg.slug,
+      packageName: pkg.name,
+      period: pkg.period || "/month", // Sửa lỗi: Lấy period từ package
+      pricePerPeriod: finalPrice,
+      purchasedAddons: purchasedAddons, // Lưu các add-on đã mua
+      startedAt: now,
+      nextBillingDate: nextBillingDate,
+    });
+
+    // 5. Gửi email hóa đơn (chạy ngầm)
+    sendSubscriptionReceiptEmail(user.email, user.name, sub).catch((err) =>
+      console.error("Handled: Failed to send subscription receipt email:", err)
+    );
+
+    // 6. Trả về subscription cho app hiển thị bill
     return res.status(201).json(sub);
   } catch (err) {
     console.error("Create subscription error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error creating subscription" });
+    return res.status(500).json({ message: "Server error creating subscription" });
   }
 });
 
