@@ -2,6 +2,12 @@
 import { useAuthStore } from './authStore';
 import apiClient from '../api/axiosConfig';
 
+export type SelectedAddon = {
+  key: string;
+  name: string;
+  price: number;
+};
+
 export type CartItem = {
   _id: string;
   slug: string;
@@ -15,6 +21,7 @@ export type CartItem = {
   isSeasonalOffer: boolean;
   tags?: string[];
   finalPrice: number;
+  selectedAddons: SelectedAddon[];
 };
 
 export type AddToCartResult = {
@@ -114,7 +121,13 @@ export const useCartStore = create<CartState>((set, get) => ({
     try {
       const res = await apiClient.get('/cart');
       const data = Array.isArray(res.data) ? res.data : res.data?.items || [];
-      set({ items: data });
+      const normalizedItems: CartItem[] = Array.isArray(data)
+        ? data.map((item: CartItem) => ({
+            ...item,
+            selectedAddons: Array.isArray(item.selectedAddons) ? item.selectedAddons : [],
+          }))
+        : [];
+      set({ items: normalizedItems });
     } catch (error) {
       console.error('Failed to load cart from backend:', error);
       set({ items: [] });

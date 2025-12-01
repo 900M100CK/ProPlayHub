@@ -14,14 +14,21 @@ const HIDE_NAV_PATTERNS = [
   'register',
   'forgotpassword',
   'resetpassword',
+  'paymentmethods',
   'completeprofile',
   'changepassword',
+  'profile',
+  'profiledetails',
+  'achievementscreen',
   'cart',
   'checkout',
+  'privacypolicy',
   'customizepackage',
   'packagedetail',
   'livechat',
+  'settings',
   'orderconfirmation',
+  'upgradesubscription',
 ];
 
 const ROUTE_ORDER: Record<string, number> = {

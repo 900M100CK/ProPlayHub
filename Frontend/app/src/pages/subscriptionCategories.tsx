@@ -19,6 +19,8 @@ import ScreenHeader from '../components/ScreenHeader';
 import { colors, spacing, radius, shadow } from '../styles/theme';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { useCartStore } from '../stores/cartStore';
+import { useAuthStore } from '../stores/authStore';
+import apiClient from '../api/axiosConfig';
 
 type SubscriptionPackage = {
   _id: string;
@@ -79,9 +81,11 @@ const CATEGORY_ORDER: Record<CategoryKey, number> = {
 
 const SubscriptionCategoriesScreen = () => {
   const router = useRouter();
+  const { accessToken } = useAuthStore();
   const { loadCartFromStorage, getItemCount } = useCartStore();
 
   const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
+  const [purchasedSlugs, setPurchasedSlugs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');
@@ -96,6 +100,35 @@ const SubscriptionCategoriesScreen = () => {
       setCartCount(getItemCount());
     });
   }, [getItemCount, loadCartFromStorage]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSubscriptions = async () => {
+      if (!accessToken) {
+        setPurchasedSlugs(new Set());
+        return;
+      }
+      try {
+        const res = await apiClient.get('/subscriptions/me');
+        const data = Array.isArray(res.data) ? res.data : [];
+        const active = data
+          .filter((sub: any) => sub?.status === 'active' && sub?.packageSlug)
+          .map((sub: any) => String(sub.packageSlug));
+        if (!cancelled) {
+          setPurchasedSlugs(new Set(active));
+        }
+      } catch (err) {
+        console.error('Failed to load user subscriptions for catalog:', err);
+        if (!cancelled) {
+          setPurchasedSlugs(new Set());
+        }
+      }
+    };
+    fetchSubscriptions();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -123,9 +156,18 @@ const SubscriptionCategoriesScreen = () => {
   }, []);
 
   const filteredPackages = useMemo(() => {
-    if (activeCategory === 'all') return packages;
-    return packages.filter((pkg) => pkg.category?.toLowerCase() === activeCategory);
-  }, [activeCategory, packages]);
+    const scoped =
+      activeCategory === 'all'
+        ? packages
+        : packages.filter((pkg) => pkg.category?.toLowerCase() === activeCategory);
+    // Move owned packages to bottom
+    return scoped.slice().sort((a, b) => {
+      const aOwned = purchasedSlugs.has(a.slug) ? 1 : 0;
+      const bOwned = purchasedSlugs.has(b.slug) ? 1 : 0;
+      if (aOwned !== bOwned) return aOwned - bOwned;
+      return a.name.localeCompare(b.name);
+    });
+  }, [activeCategory, packages, purchasedSlugs]);
 
   const handleSubscribe = (pkg: SubscriptionPackage) => {
     router.push({
@@ -273,8 +315,8 @@ const SubscriptionCategoriesScreen = () => {
         {!loading && !error && filteredPackages.length === 0 && (
           <View style={styles.centered}>
             <Ionicons name='search' size={42} color={colors.textSecondary} />
-            <Text style={styles.emptyTitle}>Chưa có gói trong mục này</Text>
-            <Text style={styles.emptyText}>Hãy thử chọn danh mục khác.</Text>
+            <Text style={styles.emptyTitle}>No packages in this category</Text>
+            <Text style={styles.emptyText}>Try selecting another category.</Text>
           </View>
         )}
 
@@ -283,6 +325,7 @@ const SubscriptionCategoriesScreen = () => {
             filteredPackages.map((pkg) => {
             const percent = extractDiscountPercent(pkg.discountLabel, pkg.discountPercent);
             const topFeatures = pkg.features?.slice(0, 3) || [];
+            const isOwned = purchasedSlugs.has(pkg.slug);
 
             return (
               <View key={pkg.slug} style={styles.card}>
@@ -320,10 +363,16 @@ const SubscriptionCategoriesScreen = () => {
                     <Text style={styles.viewButtonText}>Xem chi tiết</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                      style={styles.subscribeButton}
-                      onPress={() => handleSubscribe(pkg)}
+                      style={[
+                        styles.subscribeButton,
+                        isOwned && styles.subscribeButtonDisabled,
+                      ]}
+                      onPress={isOwned ? undefined : () => handleSubscribe(pkg)}
+                      disabled={isOwned}
                   >
-                    <Text style={styles.subscribeButtonText}>Subscribe</Text>
+                    <Text style={styles.subscribeButtonText}>
+                      {isOwned ? 'Purchased' : 'Subscribe'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>

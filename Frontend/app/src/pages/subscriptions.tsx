@@ -50,10 +50,16 @@ const SubscriptionsScreen = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [subscriptionToCancel, setSubscriptionToCancel] = useState<Subscription | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [viewFilter, setViewFilter] = useState<'active' | 'cancelled'>('active');
+  const [filterSwitching, setFilterSwitching] = useState(false);
 
-  const loadSubscriptions = async () => {
+  const loadSubscriptions = async (useFullScreenSpinner = false) => {
     try {
-      setLoading(true);
+      if (useFullScreenSpinner) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       
       let token = accessToken;
       if (!token) {
@@ -90,8 +96,10 @@ const SubscriptionsScreen = () => {
         useAuthStore.setState({ accessToken: null, user: null });
       }
     } finally {
-      setLoading(false);
       setRefreshing(false);
+      if (useFullScreenSpinner) {
+        setLoading(false);
+      }
     }
   };
 
@@ -106,7 +114,7 @@ const SubscriptionsScreen = () => {
           user: JSON.parse(storedUser),
         });
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-        await loadSubscriptions();
+        await loadSubscriptions(true);
       } else {
         setLoading(false);
       }
@@ -118,7 +126,7 @@ const SubscriptionsScreen = () => {
 
   useEffect(() => {
     if (accessToken && user) {
-      loadSubscriptions();
+      loadSubscriptions(true);
     } else {
       // Try to load token from storage
       loadTokenAndSubscriptions();
@@ -128,9 +136,27 @@ const SubscriptionsScreen = () => {
 
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadSubscriptions();
+    await loadSubscriptions(false);
   };
+
+  const filterSwitchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleFilterChange = (nextFilter: 'active' | 'cancelled') => {
+    if (nextFilter === viewFilter) return;
+    setFilterSwitching(true);
+    setViewFilter(nextFilter);
+    if (filterSwitchTimer.current) {
+      clearTimeout(filterSwitchTimer.current);
+    }
+    filterSwitchTimer.current = setTimeout(() => setFilterSwitching(false), 250);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (filterSwitchTimer.current) {
+        clearTimeout(filterSwitchTimer.current);
+      }
+    };
+  }, []);
 
   const handleCancelSubscription = (subscription: Subscription) => {
     setSubscriptionToCancel(subscription);
@@ -197,6 +223,115 @@ const SubscriptionsScreen = () => {
       closeCancelModal();
     }
   };
+
+  const activeSubscriptions = subscriptions.filter((sub) => sub.status === 'active');
+  const cancelledSubscriptions = subscriptions.filter(
+    (sub) => sub.status === 'cancelled' || sub.status === 'inactive'
+  );
+
+  const renderSubscriptionCard = (subscription: Subscription) => (
+    <View key={subscription._id} style={subscriptionStyles.subscriptionCard}>
+      {/* Status Badge */}
+      <View style={subscriptionStyles.cardHeader}>
+        <View
+          style={[
+            subscriptionStyles.statusBadge,
+            subscription.status === 'active' && subscriptionStyles.statusActive,
+            subscription.status === 'cancelled' && subscriptionStyles.statusCancelled,
+            subscription.status === 'inactive' && subscriptionStyles.statusInactive,
+          ]}
+        >
+          <Text style={subscriptionStyles.statusText}>
+            {subscription.status === 'active' && 'Active'}
+            {subscription.status === 'cancelled' && 'Cancelled'}
+            {subscription.status === 'inactive' && 'Inactive'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Package Info */}
+      <View style={subscriptionStyles.packageInfo}>
+        <Text style={subscriptionStyles.packageName}>
+          {subscription.packageName}
+        </Text>
+        <Text style={subscriptionStyles.packagePeriod}>
+          {subscription.period}
+        </Text>
+      </View>
+
+      {/* Details */}
+      <View style={subscriptionStyles.detailsContainer}>
+        <View style={subscriptionStyles.detailRow}>
+          <Ionicons name="cash-outline" size={18} color={colors.textSecondary} />
+          <Text style={subscriptionStyles.detailLabel}>Price:</Text>
+          <Text style={subscriptionStyles.detailValue}>
+            £{subscription.pricePerPeriod.toFixed(2)}
+          </Text>
+        </View>
+
+        <View style={subscriptionStyles.detailRow}>
+          <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+          <Text style={subscriptionStyles.detailLabel}>Started:</Text>
+          <Text style={subscriptionStyles.detailValue}>
+            {formatDate(subscription.startedAt)}
+          </Text>
+        </View>
+
+        {subscription.nextBillingDate && (
+          <View style={subscriptionStyles.detailRow}>
+            <Ionicons name="calendar-clear-outline" size={18} color={colors.textSecondary} />
+            <Text style={subscriptionStyles.detailLabel}>Next billing:</Text>
+            <Text style={subscriptionStyles.detailValue}>
+              {formatNextBillingDate(subscription.nextBillingDate)}
+            </Text>
+          </View>
+        )}
+
+        {subscription.cancelledAt && (
+          <View style={subscriptionStyles.detailRow}>
+            <Ionicons name="close-circle-outline" size={18} color={colors.danger} />
+            <Text style={subscriptionStyles.detailLabel}>Cancelled on:</Text>
+            <Text style={[subscriptionStyles.detailValue, { color: '#EF4444' }]}>
+              {formatDate(subscription.cancelledAt)}
+            </Text>
+          </View>
+        )}
+      </View>
+      
+      {/* Purchased Addons */}
+      {subscription.purchasedAddons && subscription.purchasedAddons.length > 0 && (
+        <View style={subscriptionStyles.addonsContainer}>
+          <Text style={subscriptionStyles.addonsTitle}>Purchased Add-ons:</Text>
+          {subscription.purchasedAddons.map((addon) => (
+            <View key={addon.key} style={subscriptionStyles.addonRow}>
+              <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+              <Text style={subscriptionStyles.addonName}>{addon.name}</Text>
+              <Text style={subscriptionStyles.addonPrice}>+£{addon.price.toFixed(2)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Actions */}
+      {subscription.status === 'active' && (
+        <View style={subscriptionStyles.actionsContainer}>
+          <TouchableOpacity
+            style={subscriptionStyles.viewPackageButton}
+            onPress={() => router.push(`./packageDetail?slug=${subscription.packageSlug}`)}
+          >
+            <Ionicons name="eye-outline" size={18} color={colors.primary} />
+            <Text style={subscriptionStyles.viewPackageButtonText}>View package</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={subscriptionStyles.cancelButton}
+            onPress={() => handleCancelSubscription(subscription)}
+          >
+            <Text style={subscriptionStyles.cancelButtonText}>Cancel Subscription</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -301,14 +436,188 @@ const SubscriptionsScreen = () => {
           </View>
         ) : (
           <>
-            <View style={subscriptionStyles.infoCard}>
-              <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
-              <Text style={subscriptionStyles.infoText}>
-                You have {subscriptions.length} active subscription{subscriptions.length === 1 ? '' : 's'}
-              </Text>
+            {refreshing && (
+              <View style={subscriptionStyles.inlineLoading}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={subscriptionStyles.inlineLoadingText}>Updating subscriptions...</Text>
+              </View>
+            )}
+            {filterSwitching && !refreshing && (
+              <View style={subscriptionStyles.inlineLoading}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={subscriptionStyles.inlineLoadingText}>Switching view...</Text>
+              </View>
+            )}
+            <View style={subscriptionStyles.filterRow}>
+              <TouchableOpacity
+                style={[
+                  subscriptionStyles.filterButton,
+                  viewFilter === 'active' && subscriptionStyles.filterButtonActive,
+                ]}
+                onPress={() => handleFilterChange('active')}
+              >
+                <Text
+                  style={[
+                    subscriptionStyles.filterButtonText,
+                    viewFilter === 'active' && subscriptionStyles.filterButtonTextActive,
+                  ]}
+                >
+                  Active ({activeSubscriptions.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  subscriptionStyles.filterButton,
+                  viewFilter === 'cancelled' && subscriptionStyles.filterButtonActive,
+                ]}
+                onPress={() => handleFilterChange('cancelled')}
+              >
+                <Text
+                  style={[
+                    subscriptionStyles.filterButtonText,
+                    viewFilter === 'cancelled' && subscriptionStyles.filterButtonTextActive,
+                  ]}
+                >
+                  Cancelled ({cancelledSubscriptions.length})
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {subscriptions.map((subscription) => (
+            {(() => {
+              const list = viewFilter === 'active' ? activeSubscriptions : cancelledSubscriptions;
+              if (!list.length) {
+                return (
+                  <View style={subscriptionStyles.emptyContainer}>
+                    <Ionicons
+                      name={viewFilter === 'active' ? 'pause-circle-outline' : 'checkmark-circle-outline'}
+                      size={48}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={subscriptionStyles.emptyTitle}>
+                      {viewFilter === 'active' ? 'No active subscriptions' : 'No cancelled subscriptions'}
+                    </Text>
+                    <Text style={subscriptionStyles.emptyText}>
+                      {viewFilter === 'active'
+                        ? 'Choose a package to start your subscription.'
+                        : 'Your cancelled or inactive subscriptions will appear here.'}
+                    </Text>
+                    {viewFilter === 'active' && (
+                      <TouchableOpacity
+                        style={subscriptionStyles.browseButton}
+                        onPress={() => router.push('./home')}
+                      >
+                        <Text style={subscriptionStyles.browseButtonText}>Browse packages</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              }
+              return list.map((subscription) => (
+                <View key={subscription._id} style={subscriptionStyles.subscriptionCard}>
+                  {/* Status Badge */}
+                  <View style={subscriptionStyles.cardHeader}>
+                    <View
+                      style={[
+                        subscriptionStyles.statusBadge,
+                        subscription.status === 'active' && subscriptionStyles.statusActive,
+                        subscription.status === 'cancelled' && subscriptionStyles.statusCancelled,
+                        subscription.status === 'inactive' && subscriptionStyles.statusInactive,
+                      ]}
+                    >
+                      <Text style={subscriptionStyles.statusText}>
+                        {subscription.status === 'active' && 'Active'}
+                        {subscription.status === 'cancelled' && 'Cancelled'}
+                        {subscription.status === 'inactive' && 'Inactive'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Package Info */}
+                  <View style={subscriptionStyles.packageInfo}>
+                    <Text style={subscriptionStyles.packageName}>
+                      {subscription.packageName}
+                    </Text>
+                    <Text style={subscriptionStyles.packagePeriod}>
+                      {subscription.period}
+                    </Text>
+                  </View>
+
+                  {/* Purchased Addons */}
+                    {subscription.purchasedAddons && subscription.purchasedAddons.length > 0 && (
+                      <View style={subscriptionStyles.addonsContainer}>
+                        <Text style={subscriptionStyles.addonsTitle}>Purchased Add-ons:</Text>
+                        {subscription.purchasedAddons.map((addon) => (
+                          <View key={addon.key} style={subscriptionStyles.addonRow}>
+                            <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                            <Text style={subscriptionStyles.addonName}>{addon.name}</Text>
+                            <Text style={subscriptionStyles.addonPrice}>+£{addon.price.toFixed(2)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                  {/* Details */}
+                  <View style={subscriptionStyles.detailsContainer}>
+                    <View style={subscriptionStyles.detailRow}>
+                      <Ionicons name="cash-outline" size={18} color={colors.textSecondary} />
+                      <Text style={subscriptionStyles.detailLabel}>Price:</Text>
+                      <Text style={subscriptionStyles.detailValue}>
+                        £{subscription.pricePerPeriod.toFixed(2)}
+                      </Text>
+                    </View>
+
+                    <View style={subscriptionStyles.detailRow}>
+                      <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+                      <Text style={subscriptionStyles.detailLabel}>Started:</Text>
+                      <Text style={subscriptionStyles.detailValue}>
+                        {formatDate(subscription.startedAt)}
+                      </Text>
+                    </View>
+
+                    {subscription.nextBillingDate && (
+                      <View style={subscriptionStyles.detailRow}>
+                        <Ionicons name="calendar-clear-outline" size={18} color={colors.textSecondary} />
+                        <Text style={subscriptionStyles.detailLabel}>Next billing:</Text>
+                        <Text style={subscriptionStyles.detailValue}>
+                          {formatNextBillingDate(subscription.nextBillingDate)}
+                        </Text>
+                      </View>
+                    )}
+
+                    {subscription.cancelledAt && (
+                      <View style={subscriptionStyles.detailRow}>
+                        <Ionicons name="close-circle-outline" size={18} color={colors.danger} />
+                        <Text style={subscriptionStyles.detailLabel}>Cancelled on:</Text>
+                        <Text style={[subscriptionStyles.detailValue, { color: '#EF4444' }]}>
+                          {formatDate(subscription.cancelledAt)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  {/* Actions */}
+                  {subscription.status === 'active' && (
+                    <View style={subscriptionStyles.actionsContainer}>
+                      <TouchableOpacity
+                        style={subscriptionStyles.viewPackageButton}
+                        onPress={() => router.push(`./packageDetail?slug=${subscription.packageSlug}`)}
+                      >
+                        <Ionicons name="eye-outline" size={18} color={colors.primary} />
+                        <Text style={subscriptionStyles.viewPackageButtonText}>View package</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={subscriptionStyles.cancelButton}
+                        onPress={() => handleCancelSubscription(subscription)}
+                      >
+                        <Text style={subscriptionStyles.cancelButtonText}>Cancel Subscription</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              ));
+            })()}
+
+            {false && subscriptions.map((subscription) => (
               <View key={subscription._id} style={subscriptionStyles.subscriptionCard}>
                 {/* Status Badge */}
                 <View style={subscriptionStyles.cardHeader}>
@@ -378,18 +687,18 @@ const SubscriptionsScreen = () => {
                 </View>
                 
                 {/* Purchased Addons */}
-                {subscription.purchasedAddons && subscription.purchasedAddons.length > 0 && (
-                  <View style={subscriptionStyles.addonsContainer}>
-                    <Text style={subscriptionStyles.addonsTitle}>Purchased Add-ons:</Text>
-                    {subscription.purchasedAddons.map((addon) => (
-                      <View key={addon.key} style={subscriptionStyles.addonRow}>
-                        <Ionicons name="add-circle-outline" size={16} color={colors.textSecondary} />
-                        <Text style={subscriptionStyles.addonName}>{addon.name}</Text>
-                        <Text style={subscriptionStyles.addonPrice}>+£{addon.price.toFixed(2)}</Text>
+                    {subscription.purchasedAddons && subscription.purchasedAddons.length > 0 && (
+                      <View style={subscriptionStyles.addonsContainer}>
+                        <Text style={subscriptionStyles.addonsTitle}>Purchased Add-ons:</Text>
+                        {subscription.purchasedAddons.map((addon) => (
+                          <View key={addon.key} style={subscriptionStyles.addonRow}>
+                            <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                            <Text style={subscriptionStyles.addonName}>{addon.name}</Text>
+                            <Text style={subscriptionStyles.addonPrice}>+£{addon.price.toFixed(2)}</Text>
+                          </View>
+                        ))}
                       </View>
-                    ))}
-                  </View>
-                )}
+                    )}
 
                 {/* Actions */}
                 {subscription.status === 'active' && (
@@ -474,6 +783,19 @@ const subscriptionStyles = StyleSheet.create({
     marginTop: spacing.md,
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  inlineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+  },
+  inlineLoadingText: {
+    color: colors.textSecondary,
+    fontSize: 13,
   },
   scrollContent: {
     paddingBottom: spacing.xl,
@@ -560,7 +882,7 @@ const subscriptionStyles = StyleSheet.create({
     backgroundColor: '#a9f0cb',
   },
   statusCancelled: {
-    backgroundColor: '#7F1D1D',
+    backgroundColor: '#FCA5A5',
   },
   statusInactive: {
     backgroundColor: colors.border,
@@ -618,6 +940,38 @@ const subscriptionStyles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.xs,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  filterButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  filterButtonTextActive: {
+    color: colors.primary,
+  },
+  sectionHeading: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   addonRow: {
     flexDirection: 'row',

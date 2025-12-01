@@ -304,7 +304,7 @@ export const completeProfile = async (req, res) => {
     const { displayName, age, location, address, gamingPlatformPreferences } = req.body;
     const userId = req.user._id; // từ middleware auth
 
-    // Validate
+    // // Validate
     if (!Array.isArray(gamingPlatformPreferences) || gamingPlatformPreferences.length === 0) {
       return res.status(400).json({ message: "Please select at least one gaming platform." });
     }
@@ -379,7 +379,7 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
-// PUT /api/auth/profile - Update profile
+// // PUT /api/auth/profile - Update profile
 export const updateProfile = async (req, res) => {
   try {
     const { displayName, age, location, address, gamingPlatformPreferences, name } = req.body;

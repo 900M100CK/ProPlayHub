@@ -140,8 +140,10 @@ const HomeScreen = () => {
 
         // Chuẩn bị params cho API recommended
         const recommendedParams: { preferences?: string } = {};
-        if (user?.gamingPlatformPreferences && user.gamingPlatformPreferences.length > 0) {
-          recommendedParams.preferences = user.gamingPlatformPreferences.join(',');
+        const normalizedPrefs =
+          user?.gamingPlatformPreferences?.map((p: string) => p.toLowerCase()) || [];
+        if (normalizedPrefs.length > 0) {
+          recommendedParams.preferences = normalizedPrefs.join(',');
         }
 
         // Gọi đồng thời 2 API: 1 cho tất cả (để lấy seasonal), 1 cho recommended
@@ -154,7 +156,16 @@ const HomeScreen = () => {
         ]);
 
         const allPackagesData = allPackagesResponse.data || [];
-        const recommendedData = recommendedResponse.data || [];
+        let recommendedData: SubscriptionPackage[] = recommendedResponse.data || [];
+        if (normalizedPrefs.length > 0) {
+          const filtered = recommendedData.filter((pkg) =>
+            normalizedPrefs.includes((pkg.category || "").toLowerCase())
+          );
+          // Nếu backend trả về ít dữ liệu, fallback sang full recommended thay vì rỗng
+          if (filtered.length > 0) {
+            recommendedData = filtered;
+          }
+        }
 
         // Lọc ra các gói seasonal từ danh sách tất cả
         const seasonal = allPackagesData.filter((p: SubscriptionPackage) => p.isSeasonalOffer);

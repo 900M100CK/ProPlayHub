@@ -1,10 +1,10 @@
 // src/libs/email.js
 import nodemailer from 'nodemailer';
-import dotenv from 'dotenv'; // Đảm bảo dotenv được gọi ở file chính của server
+import dotenv from 'dotenv';
 
 dotenv.config();
 
-// 1. Cấu hình transporter
+// Configure transporter
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT,
@@ -15,55 +15,51 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// 2. Hàm tạo nội dung email (HTML)
+// Verification email
 const createVerificationEmailHTML = (name, url) => {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-      <h2 style="color: #4f46e5;">Chào mừng ${name} đến với ProPlayHub!</h2>
-      <p>Cảm ơn bạn đã đăng ký. Vui lòng nhấn nút bên dưới để xác thực email của bạn:</p>
-      <a href="${url}" 
+      <h2 style="color: #4f46e5;">Welcome ${name} to ProPlayHub!</h2>
+      <p>Thank you for signing up. Please click the button below to verify your email:</p>
+      <a href="${url}"
          style="display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 16px 0;">
-        Xác thực ngay
+        Verify now
       </a>
-      <p>Nếu nút trên không hoạt động, bạn có thể sao chép và dán liên kết sau vào trình duyệt của mình:</p>
+      <p>If the button above does not work, you can copy and paste this link into your browser:</p>
       <p><a href="${url}">${url}</a></p>
       <hr/>
-      <p>Nếu bạn không đăng ký tài khoản này, vui lòng bỏ qua email này.</p>
-      <p style="color: #666; font-size: 12px;">Lưu ý: Liên kết này sẽ hết hạn sau 15 phút.</p>
-      <p>Trân trọng,<br/>Đội ngũ ProPlayHub</p>
+      <p style="color: #666; font-size: 12px;">Note: This link expires in 15 minutes.</p>
+      <p>Best regards,<br/>ProPlayHub Team</p>
     </div>
   `;
 };
 
-// Hàm tạo nội dung email (HTML) cho việc đặt lại mật khẩu bằng OTP
+// Password reset (OTP) email
 const createPasswordResetOTPEmailHTML = (name, otp) => {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-      <h2 style="color: #4f46e5;">Yêu cầu đặt lại mật khẩu ProPlayHub</h2>
-      <p>Chào ${name},</p>
-      <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Vui lòng sử dụng mã OTP dưới đây để hoàn tất quá trình:</p>
+      <h2 style="color: #4f46e5;">ProPlayHub password reset request</h2>
+      <p>Hello ${name},</p>
+      <p>We received a request to reset your password. Please use the OTP below to complete the process:</p>
       <div style="background: #f0f0f0; padding: 10px 20px; border-radius: 6px; text-align: center; margin: 16px 0;">
         <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px; margin: 0;">${otp}</p>
       </div>
-      <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+      <p>If you did not request a password reset, please ignore this email.</p>
       <hr/>
-      <p style="color: #666; font-size: 12px;">Lưu ý: Mã OTP này sẽ hết hạn sau 5 phút.</p>
-      <p>Trân trọng,<br/>Đội ngũ ProPlayHub</p>
+      <p style="color: #666; font-size: 12px;">Note: This OTP expires in 5 minutes.</p>
+      <p>Best regards,<br/>ProPlayHub Team</p>
     </div>
   `;
 };
 
-// 3. Hàm gửi email xác thực
+// Send verification email
 export const sendVerificationEmail = async (to, name, token) => {
-  // [KHUYẾN NGHỊ] Sử dụng Universal Link/App Link (HTTPS) để có trải nghiệm tốt nhất.
-  // Liên kết này sẽ mở app nếu đã cài, hoặc mở web nếu chưa cài.
-  // Bạn cần định nghĩa APP_DOMAIN trong file .env, ví dụ: APP_DOMAIN=https://app.proplayhub.com
-  const appDomain = process.env.APP_DOMAIN || 'https://your-app-domain.com'; // Thay thế bằng domain của bạn
+  const appDomain = process.env.APP_DOMAIN || 'https://your-app-domain.com';
   const verificationUrl = `${appDomain}/verify-email?token=${token}`;
   const mailOptions = {
     from: `"ProPlayHub" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-    to: to,
-    subject: 'Xác thực tài khoản ProPlayHub của bạn',
+    to,
+    subject: 'Verify your ProPlayHub account',
     html: createVerificationEmailHTML(name, verificationUrl),
   };
 
@@ -72,42 +68,39 @@ export const sendVerificationEmail = async (to, name, token) => {
     console.log(`Verification email sent successfully to ${to}`);
   } catch (error) {
     console.error('Error sending verification email:', error);
-    // Ném lỗi để controller có thể xử lý
     throw new Error('Could not send verification email.');
   }
 };
 
-// 4. Hàm tạo nội dung welcome email (HTML)
+// Welcome email
 const createWelcomeEmailHTML = (name, username) => {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-      <h2 style="color: #4f46e5;">Chào mừng ${name} đến với ProPlayHub! 🎮</h2>
-      <p>Xin chào ${name},</p>
-      <p>Cảm ơn bạn đã đăng ký tài khoản ProPlayHub. Chúng tôi rất vui mừng được chào đón bạn!</p>
+      <h2 style="color: #4f46e5;">Welcome ${name} to ProPlayHub!</h2>
+      <p>Hello ${name},</p>
+      <p>Thank you for registering a ProPlayHub account. We are excited to have you!</p>
       <div style="background: #f0f0f0; padding: 15px; border-radius: 6px; margin: 16px 0;">
-        <p><strong>Tài khoản của bạn:</strong></p>
+        <p><strong>Your account:</strong></p>
         <p>Username: <strong>${username}</strong></p>
       </div>
-      <p>Bây giờ bạn có thể:</p>
+      <p>You can now:</p>
       <ul>
-        <li>Khám phá các gói subscription game độc quyền</li>
-        <li>Tận hưởng các tính năng cao cấp</li>
-        <li>Nhận các ưu đãi đặc biệt</li>
+        <li>Explore exclusive game subscription packages</li>
+        <li>Enjoy premium features</li>
+        <li>Receive special offers</li>
       </ul>
-      <p>Hãy bắt đầu hành trình gaming của bạn ngay hôm nay!</p>
-      <hr/>
-      <p>Nếu bạn có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng tôi.</p>
-      <p>Trân trọng,<br/>Đội ngũ ProPlayHub</p>
+      <p>Start your gaming journey today!</p>
+      <p>If you have any questions, please contact us.</p>
+      <p>Best regards,<br/>ProPlayHub Team</p>
     </div>
   `;
 };
 
-// 5. Hàm gửi welcome email (không cần xác thực)
 export const sendWelcomeEmail = async (to, name, username) => {
   const mailOptions = {
     from: `"ProPlayHub" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-    to: to,
-    subject: 'Chào mừng đến với ProPlayHub! 🎮',
+    to,
+    subject: 'Welcome to ProPlayHub!',
     html: createWelcomeEmailHTML(name, username),
   };
 
@@ -116,17 +109,16 @@ export const sendWelcomeEmail = async (to, name, username) => {
     console.log(`Welcome email sent successfully to ${to}`);
   } catch (error) {
     console.error('Error sending welcome email:', error);
-    // Không ném lỗi để không làm fail đăng ký
-    // Chỉ log để biết có vấn đề với email service
+    // Do not throw to avoid failing signup due to email issues
   }
 };
 
-// 6. Hàm gửi email chứa mã OTP để đặt lại mật khẩu
+// Send OTP email for password reset
 export const sendPasswordResetOTP = async (to, name, otp) => {
   const mailOptions = {
     from: `"ProPlayHub" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-    to: to,
-    subject: 'Mã OTP đặt lại mật khẩu ProPlayHub của bạn',
+    to,
+    subject: 'Your ProPlayHub password reset OTP',
     html: createPasswordResetOTPEmailHTML(name, otp),
   };
 
@@ -135,14 +127,11 @@ export const sendPasswordResetOTP = async (to, name, otp) => {
     console.log(`Password reset OTP email sent successfully to ${to}`);
   } catch (error) {
     console.error('Error sending password reset OTP email:', error);
-    // Ném lỗi để controller có thể xử lý
     throw new Error('Could not send password reset OTP email.');
   }
 };
 
-// 7. Hóa đơn thanh toán Subscription
-
-// Tạo HTML cho email hóa đơn
+// Subscription receipt
 const createSubscriptionReceiptEmailHTML = (name, subscription) => {
   const startedAt = subscription.startedAt
     ? new Date(subscription.startedAt).toLocaleString('en-GB')
@@ -161,7 +150,7 @@ const createSubscriptionReceiptEmailHTML = (name, subscription) => {
       <div style="background: #f9fafb; padding: 12px 16px; border-radius: 6px; margin: 12px 0;">
         <p><strong>Package:</strong> ${subscription.packageName}</p>
         <p><strong>Package Code:</strong> ${subscription.packageSlug}</p>
-        <p><strong>Price:</strong> £${subscription.pricePerPeriod.toFixed(2)} ${subscription.period}</p>
+        <p><strong>Price:</strong> �${subscription.pricePerPeriod.toFixed(2)} ${subscription.period}</p>
         <p><strong>Status:</strong> ${subscription.status}</p>
         <p><strong>Started At:</strong> ${startedAt}</p>
         <p><strong>Next Billing Date:</strong> ${nextBillingDate}</p>
@@ -180,12 +169,11 @@ const createSubscriptionReceiptEmailHTML = (name, subscription) => {
   `;
 };
 
-// Send subscription receipt email
 export const sendSubscriptionReceiptEmail = async (to, name, subscription) => {
   const mailOptions = {
     from: `"ProPlayHub" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
     to,
-    subject: `Your ProPlayHub Subscription Receipt – ${subscription.packageName}`,
+    subject: `Your ProPlayHub Subscription Receipt � ${subscription.packageName}`,
     html: createSubscriptionReceiptEmailHTML(name, subscription),
   };
 
@@ -195,5 +183,53 @@ export const sendSubscriptionReceiptEmail = async (to, name, subscription) => {
   } catch (error) {
     console.error('Error sending subscription receipt email:', error);
     // Do not throw to avoid failing payment flow due to email issues
+  }
+};
+
+// Add-on purchase confirmation
+const createAddonPurchaseEmailHTML = (name, payload) => {
+  const { packageName, packageSlug, addons, chargeTotal } = payload;
+  const items = Array.isArray(addons)
+    ? addons
+        .map((addon) => {
+          const price = typeof addon.price === 'number' ? addon.price.toFixed(2) : '0.00';
+          return `<li>${addon.name} - $${price}</li>`;
+        })
+        .join('')
+    : '';
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 640px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+      <h2 style="color: #4f46e5;">Add-on purchase confirmed</h2>
+      <p>Hi ${name},</p>
+      <p>You just upgraded your subscription by adding these items:</p>
+
+      <div style="background: #f9fafb; padding: 12px 16px; border-radius: 6px; margin: 12px 0;">
+        <p><strong>Package:</strong> ${packageName} (${packageSlug})</p>
+        <p><strong>New add-ons:</strong></p>
+        <ul>${items}</ul>
+        <p><strong>Charged today:</strong> $${Number(chargeTotal || 0).toFixed(2)}</p>
+      </div>
+
+      <p>Your monthly billing will include these add-ons from now on.</p>
+      <p>If you have any questions, please contact ProPlayHub support.</p>
+      <p>Best regards,<br/>ProPlayHub Team</p>
+    </div>
+  `;
+};
+
+export const sendAddonPurchaseEmail = async (to, name, payload) => {
+  const mailOptions = {
+    from: `"ProPlayHub" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+    to,
+    subject: `Your add-ons are active for ${payload.packageName}`,
+    html: createAddonPurchaseEmailHTML(name, payload),
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Addon purchase email sent successfully to ${to}`);
+  } catch (error) {
+    console.error('Error sending add-on purchase email:', error);
   }
 };

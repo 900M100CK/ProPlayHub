@@ -81,6 +81,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: spacing.md,
+    paddingBottom: 80,
+    marginBottom: -50,
   },
   content: {
     flex: 1,

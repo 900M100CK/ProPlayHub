@@ -1,4 +1,4 @@
-﻿﻿// app/src/pages/packageDetail.tsx
+﻿// app/src/pages/packageDetail.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -29,8 +29,6 @@ interface Addon {
   price: number;
 }
 
-
-// Helper: lấy số % từ discountLabel
 const extractDiscountPercent = (
   label?: string,
   explicitPercent?: number | null
@@ -45,7 +43,7 @@ const extractDiscountPercent = (
 
 
 
-// Helper: tính giá sau giảm
+// Helper: tính giá sau gi?m
 const calculateDiscountedPrice = (
   basePrice: number,
   discountLabel?: string,
@@ -59,6 +57,23 @@ const calculateDiscountedPrice = (
 
 
 
+const FALLBACK_ADDON_PRICES: Record<string, number> = {
+  'Full Game Catalog': 14.99,
+  'PS Cloud Streaming': 9.99,
+  'Exclusive Game Trials': 7.99,
+  'Multiplayer Access': 4.99,
+  'Cloud Saves (100GB)': 3.99,
+};
+const FALLBACK_ADDON_DEFAULT_PRICE = 4.99;
+
+const buildFallbackAddons = (pkg: any): Addon[] => {
+  const features: string[] = Array.isArray(pkg?.features) ? pkg.features : [];
+  return features.map((feature, index) => ({
+    key: `${pkg?.slug || 'pkg'}-feature-${index}`,
+    name: feature,
+    price: FALLBACK_ADDON_PRICES[feature] ?? FALLBACK_ADDON_DEFAULT_PRICE,
+  }));
+};
 const PackageDetailScreen = () => {
   const router = useRouter();
   const { slug } = useLocalSearchParams<{ slug?: string }>();
@@ -66,16 +81,17 @@ const PackageDetailScreen = () => {
   const bottomGutter = spacing.xxl + Math.max(insets.bottom, spacing.lg);
 
   const [pkg, setPkg] = useState<any | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAddons, setSelectedAddons] = useState<Set<string>>(new Set());
+  const [purchasedAddons, setPurchasedAddons] = useState<Set<string>>(new Set());
   const [totalPrice, setTotalPrice] = useState(0);
   
   const { addToCart, isInCart, removeFromCart } = useCartStore();
   const { accessToken } = useAuthStore();
   const [itemInCart, setItemInCart] = useState(false);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
-  const [checkingSubscription, setCheckingSubscription] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(true);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -96,7 +112,7 @@ const PackageDetailScreen = () => {
         const data = await res.json();
         setPkg(data);
         
-        // Kiểm tra xem item đã có trong cart chưa
+        // Ki?m tra xem item dã có trong cart chua
         if (data) {
           const inCart = isInCart(data.slug);
           setItemInCart(inCart);
@@ -114,25 +130,23 @@ const PackageDetailScreen = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // Effect để tính toán lại tổng giá tiền khi gói hoặc các add-on thay đổi
+  // Effect d? tính toán l?i t?ng giá ti?n khi gói ho?c các add-on thay d?i
   useEffect(() => {
     if (!pkg) {
       setTotalPrice(0);
       return;
     }
 
-    // 1. Tính giá gói sau khi đã giảm giá
-    const packagePrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel, pkg.discountPercent);
+    const availableAddons: Addon[] = pkg.addons?.length ? pkg.addons : buildFallbackAddons(pkg);
+    const packagePrice = calculateDiscountedPrice(
+      pkg.basePrice,
+      pkg.discountLabel,
+      pkg.discountPercent
+    );
+    const addonsPrice = availableAddons.reduce((sum: number, addon: Addon) => {
+      return selectedAddons.has(addon.key) ? sum + addon.price : sum;
+    }, 0);
 
-    // 2. Tính tổng giá các add-on đã chọn
-    const addonsPrice = pkg.addons?.reduce((sum: number, addon: Addon) => {
-      if (selectedAddons.has(addon.key)) {
-        return sum + addon.price;
-      }
-      return sum;
-    }, 0) || 0;
-
-    // 3. Cập nhật tổng giá tiền
     setTotalPrice(Number((packagePrice + addonsPrice).toFixed(2)));
   }, [pkg, selectedAddons]);
 
@@ -146,7 +160,7 @@ const PackageDetailScreen = () => {
       try {
         setCheckingSubscription(true);
         
-        // Kiểm tra token trước khi gọi API
+        // Ki?m tra token tru?c khi g?i API
         let token = accessToken;
         if (!token) {
           try {
@@ -164,24 +178,33 @@ const PackageDetailScreen = () => {
           return;
         }
 
-        // Dùng apiClient để tự động thêm token và xử lý lỗi 401
+        // Dùng apiClient d? t? d?ng thêm token và x? lý l?i 401
         const response = await apiClient.get('/subscriptions/me');
         const data = response.data;
-        
-        const isSubscribed =
-          Array.isArray(data) &&
-          data.some(
-            (sub: any) => sub.packageSlug === pkg.slug && sub.status === 'active'
-          );
+        const activeSub = Array.isArray(data)
+          ? data.find((sub: any) => sub.packageSlug === pkg.slug && sub.status === 'active')
+          : null;
+        const isSubscribed = Boolean(activeSub);
 
         setHasActiveSubscription(isSubscribed);
+        if (isSubscribed) {
+          const purchasedKeys: string[] = Array.isArray(activeSub?.purchasedAddons)
+            ? activeSub.purchasedAddons.map((a: any) => a.key).filter(Boolean)
+            : [];
+          const purchasedSet = new Set(purchasedKeys);
+          setPurchasedAddons(purchasedSet);
+          setSelectedAddons(purchasedSet);
+        } else {
+          setPurchasedAddons(new Set());
+          setSelectedAddons(new Set());
+        }
 
         if (isSubscribed && isInCart(pkg.slug)) {
           await removeFromCart(pkg.slug);
           setItemInCart(false);
         }
       } catch (err: any) {
-        // Nếu lỗi 401, clear token và không log error (expected behavior khi chưa login hoặc token hết hạn)
+        // N?u l?i 401, clear token và không log error (expected behavior khi chua login ho?c token h?t h?n)
         if (err?.response?.status === 401) {
           try {
             await AsyncStorage.removeItem('accessToken');
@@ -190,10 +213,11 @@ const PackageDetailScreen = () => {
             // Ignore clear errors
           }
         } else {
-          // Chỉ log error nếu không phải 401
+          // Ch? log error n?u không ph?i 401
           console.error('Check subscription status error:', err);
         }
         setHasActiveSubscription(false);
+        setPurchasedAddons(new Set());
       } finally {
         setCheckingSubscription(false);
       }
@@ -202,7 +226,9 @@ const PackageDetailScreen = () => {
     checkSubscriptionStatus();
   }, [pkg?.slug, accessToken, isInCart, removeFromCart]);
 
-  if (loading) {
+  const isDataReady = !loading && !checkingSubscription;
+
+  if (!isDataReady) {
     return (
       <SafeAreaView style={detailStyles.container}>
         <StatusBar barStyle="light-content" />
@@ -278,8 +304,13 @@ const PackageDetailScreen = () => {
   const discountPercent = extractDiscountPercent(pkg.discountLabel, pkg.discountPercent);
   const packageOriginalPrice = pkg.basePrice;
   const packageFinalPrice = calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel, pkg.discountPercent);
+  const addonsToRender: Addon[] = pkg.addons?.length ? pkg.addons : buildFallbackAddons(pkg);
+  const remainingAddons = addonsToRender.filter((addon) => !purchasedAddons.has(addon.key));
+  const hasUpgradeableAddons = remainingAddons.length > 0;
+  const purchasedKeysArray = Array.from(purchasedAddons);
 
   const handleToggleAddon = (addonKey: string) => {
+    if (purchasedAddons.has(addonKey)) return; // keep purchased add-ons locked in selection
     const newSelection = new Set(selectedAddons);
     newSelection.has(addonKey) ? newSelection.delete(addonKey) : newSelection.add(addonKey);
     setSelectedAddons(newSelection);
@@ -298,6 +329,9 @@ const PackageDetailScreen = () => {
       return;
     }
 
+    const availableAddons: Addon[] = pkg.addons?.length ? pkg.addons : buildFallbackAddons(pkg);
+    const addonSelections = availableAddons.filter((addon: Addon) => selectedAddons.has(addon.key));
+
     const cartItem: CartItem = {
       _id: pkg._id,
       slug: pkg.slug,
@@ -310,7 +344,12 @@ const PackageDetailScreen = () => {
       features: pkg.features || [],
       isSeasonalOffer: pkg.isSeasonalOffer || false,
       tags: pkg.tags || [],
-      finalPrice: totalPrice, // Sử dụng tổng giá đã tính toán
+      finalPrice: totalPrice, // Use computed total (discounted base + addons)
+      selectedAddons: addonSelections.map((addon: Addon) => ({
+        key: addon.key,
+        name: addon.name,
+        price: addon.price,
+      })),
     };
 
     const result = await addToCart(cartItem);
@@ -401,11 +440,11 @@ const PackageDetailScreen = () => {
               <>
                 <Text style={detailStyles.originalPrice}>
                   £{packageOriginalPrice.toFixed(2)}
-                  <Text style={detailStyles.period}> {pkg.period}</Text>
+                  <Text style={detailStyles.period}> {"/month"}</Text>
                 </Text>
                 <Text style={detailStyles.finalPrice}>
                   £{totalPrice.toFixed(2)}
-                  <Text style={detailStyles.period}> {pkg.period}</Text>
+                  <Text style={detailStyles.period}> {"/month"}</Text>
                 </Text>
                 <Text style={detailStyles.discountNote}>
                   You save {discountPercent}% on this package.
@@ -414,73 +453,86 @@ const PackageDetailScreen = () => {
             ) : (
               <Text style={detailStyles.finalPrice}>
                 £{totalPrice.toFixed(2)}
-                <Text style={detailStyles.period}> {pkg.period}</Text>
+                <Text style={detailStyles.period}> {"/month"}</Text>
               </Text>
             )}
           </View>
 
-          {/* Features */}
-          <View style={detailStyles.featuresContainer}>
-            {pkg.features?.map((feature: string, index: number) => (
-              <View key={index} style={detailStyles.featureItem}>
-                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                <Text style={detailStyles.featureText}>{feature}</Text>
-              </View>
-            ))}
-          </View>
-
           {/* Add-ons Section */}
-          {pkg.addons && pkg.addons.length > 0 && (
-            <View style={detailStyles.addonsContainer}>
-              <Text style={detailStyles.addonsTitle}>Available Add-ons</Text>
-              {pkg.addons.map((addon: Addon) => {
-                const isSelected = selectedAddons.has(addon.key);
-                return (
-                  <TouchableOpacity
-                    key={addon.key}
-                    style={detailStyles.addonItem}
-                    onPress={() => handleToggleAddon(addon.key)}
-                  >
-                    <Ionicons
-                      name={isSelected ? 'checkbox' : 'square-outline'}
-                      size={22}
-                      color={isSelected ? colors.primary : colors.textSecondary}
-                    />
-                    <Text style={detailStyles.addonName}>{addon.name}</Text>
-                    <Text style={detailStyles.addonPrice}>+£{addon.price.toFixed(2)}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
+          {(() => {
+            if (!addonsToRender.length) return null;
+            const displayAddons = hasActiveSubscription
+              ? addonsToRender.filter((addon) => purchasedAddons.has(addon.key))
+              : addonsToRender;
+            if (!displayAddons.length) return null;
+            return (
+              <View style={detailStyles.addonsContainer}>
+                <Text style={detailStyles.addonsTitle}>
+                  {hasActiveSubscription ? 'Purchased Add-ons' : 'Available Add-ons'}
+                </Text>
+                {displayAddons.map((addon: Addon) => {
+                  const isSelected = selectedAddons.has(addon.key);
+                  const isPurchased = purchasedAddons.has(addon.key);
+                  return (
+                    <TouchableOpacity
+                      key={addon.key}
+                      style={detailStyles.addonItem}
+                      disabled={isPurchased || hasActiveSubscription}
+                      onPress={() => handleToggleAddon(addon.key)}
+                    >
+                      <Ionicons
+                        name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                        size={22}
+                        color={isPurchased ? "#10B981" : isSelected ? colors.primary : colors.textSecondary}
+                      />
+                      <Text style={detailStyles.addonName}>{addon.name}</Text>
+                      <Text style={detailStyles.addonPrice}>+${addon.price.toFixed(2)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            );
+          })()}
 
           {/* Footer: nút Add to Cart và Subscribe */}
           <View style={detailStyles.packageFooter}>
-            {hasActiveSubscription && (
-              <View style={detailStyles.subscribedInfoBox}>
-                <Ionicons name="checkmark-circle" size={20} color="#0F766E" />
-                <Text style={detailStyles.subscribedInfoText}>Already subscribed</Text>
-              </View>
-            )}
-            <View style={detailStyles.buttonRow}>
-              {!hasActiveSubscription && (itemInCart ? (
+            <View style={[detailStyles.buttonRow, hasActiveSubscription && detailStyles.singleButtonRow]}>
+              {!hasActiveSubscription && (
+                itemInCart ? (
+                  <TouchableOpacity
+                    style={[detailStyles.cartButton, detailStyles.removeButton]}
+                    onPress={handleRemoveFromCart}
+                  >
+                    <Ionicons name="cart" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                    <Text style={detailStyles.cartButtonText}>Remove from cart</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[detailStyles.cartButton, detailStyles.addButton]}
+                    onPress={handleAddToCart}
+                  >
+                    <Ionicons name="cart-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                    <Text style={detailStyles.cartButtonText}>Add to Cart</Text>
+                  </TouchableOpacity>
+                )
+              )}
+              {hasActiveSubscription && hasUpgradeableAddons && (
                 <TouchableOpacity
-                  style={[detailStyles.cartButton, detailStyles.removeButton]}
-                  onPress={handleRemoveFromCart}
+                  style={[detailStyles.cartButton, detailStyles.upgradeButton]}
+                  onPress={() =>
+                    router.push({
+                      pathname: './upgradeSubscription',
+                      params: {
+                        currentSlug: pkg.slug,
+                        purchased: JSON.stringify(purchasedKeysArray),
+                      },
+                    })
+                  }
                 >
-                  <Ionicons name="cart" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={detailStyles.cartButtonText}>Xóa khỏi giỏ</Text>
+                  <Ionicons name="arrow-up-circle" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={detailStyles.cartButtonText}>Upgrade</Text>
                 </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[detailStyles.cartButton, detailStyles.addButton]}
-                  onPress={handleAddToCart}
-                >
-                  <Ionicons name="cart-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={detailStyles.cartButtonText}>Add to Cart</Text>
-                </TouchableOpacity>
-              ))}
-              
+              )}
               <TouchableOpacity
                 style={[
                   detailStyles.subscribeButton,
@@ -619,7 +671,7 @@ const detailStyles = StyleSheet.create({
   },
   featuresContainer: {
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 8,
   },
   featureItem: {
     flexDirection: 'row',
@@ -633,8 +685,8 @@ const detailStyles = StyleSheet.create({
   addonsContainer: {
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
-    marginTop: 20,
-    paddingTop: 20,
+    marginTop: 8,
+    paddingTop: 12,
     marginBottom: 12,
   },
   addonsTitle: {
@@ -682,6 +734,9 @@ const detailStyles = StyleSheet.create({
     gap: 12,
     justifyContent: 'space-between',
   },
+  singleButtonRow: {
+    justifyContent: 'flex-end',
+  },
   cartButton: {
     flex: 1,
     flexDirection: 'row',
@@ -693,6 +748,9 @@ const detailStyles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: '#10B981',
+  },
+  upgradeButton: {
+    backgroundColor: colors.primaryDark,
   },
   removeButton: {
     backgroundColor: '#EF4444',
@@ -718,6 +776,9 @@ const detailStyles = StyleSheet.create({
   },
   subscribeButtonTextDisabled: {
     color: '#9CA3AF',
+  },
+  cartButtonDisabled: {
+    backgroundColor: '#9CA3AF',
   },
   infoSection: {
     backgroundColor: '#FFFFFF',
@@ -782,3 +843,11 @@ const detailStyles = StyleSheet.create({
 });
 
 export default PackageDetailScreen;
+
+
+
+
+
+
+
+

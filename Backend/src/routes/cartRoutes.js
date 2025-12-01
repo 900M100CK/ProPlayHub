@@ -4,6 +4,24 @@ import auth from "../middlewares/auth.js";
 
 const router = express.Router();
 
+const sanitizeAddons = (rawAddons) => {
+  if (!Array.isArray(rawAddons)) return [];
+  return rawAddons
+    .map((addon) => {
+      if (!addon) return null;
+      const key = String(addon.key || "").trim();
+      const name = String(addon.name || "").trim();
+      const price = Number(addon.price);
+      if (!key || !name || Number.isNaN(price) || price < 0) return null;
+      return {
+        key,
+        name,
+        price: Number(price.toFixed(2)),
+      };
+    })
+    .filter(Boolean);
+};
+
 // Get current user's cart
 router.get("/", auth, async (req, res) => {
   try {
@@ -22,6 +40,14 @@ router.post("/", auth, async (req, res) => {
     if (!item || !item.slug) {
       return res.status(400).json({ message: "Invalid cart item." });
     }
+    const normalizedItem = {
+      ...item,
+      basePrice: Number(item.basePrice) || 0,
+      finalPrice: Number.isFinite(Number(item.finalPrice))
+        ? Number(item.finalPrice)
+        : Number(item.basePrice) || 0,
+      selectedAddons: sanitizeAddons(item.selectedAddons),
+    };
     let cart = await Cart.findOne({ userId: req.user._id });
     if (!cart) {
       cart = new Cart({ userId: req.user._id, items: [] });
@@ -30,7 +56,7 @@ router.post("/", auth, async (req, res) => {
     if (exists) {
       return res.status(409).json({ message: "Item already in cart." });
     }
-    cart.items.push(item);
+    cart.items.push(normalizedItem);
     await cart.save();
     res.json({ items: cart.items });
   } catch (err) {

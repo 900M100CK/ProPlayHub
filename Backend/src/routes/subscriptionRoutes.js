@@ -1,101 +1,130 @@
-// routes/subscriptionRoutes.js
-import express from "express";
+﻿import express from "express";
+import mongoose from "mongoose";
 import auth from "../middlewares/auth.js";
 import SubscriptionPackage from "../models/SubscriptionPackage.js";
 import Subscription from "../models/userSubscription.js";
-import { sendSubscriptionReceiptEmail } from "../libs/email.js";
+import { sendSubscriptionReceiptEmail, sendAddonPurchaseEmail } from "../libs/email.js";
 
 const router = express.Router();
 
+const toNumberSafe = (val) => {
+  const num = typeof val === "string" ? Number(val.trim()) : Number(val);
+  return Number.isFinite(num) ? num : null;
+};
+
+const extractDiscountBasisPoints = (pkg) => {
+  const percentFromValue = (val) => {
+    const num = toNumberSafe(val);
+    return num !== null && num > 0 ? num : 0;
+  };
+
+  const explicit = percentFromValue(pkg?.discountPercent);
+  if (explicit > 0) return Math.round(explicit * 100); // percent -> basis points
+
+  const label = pkg?.discountLabel;
+  if (typeof label === "string") {
+    const match = label.match(/(\d+(?:\.\d+)?)\s*%/);
+    if (match) {
+      const parsed = percentFromValue(match[1]);
+      if (parsed > 0) return Math.round(parsed * 100);
+    }
+  }
+
+  return 0;
+};
+
+const toCents = (value) => {
+  const num = toNumberSafe(value);
+  if (num === null) return 0;
+  return Math.round(Number(num.toFixed(4)) * 100);
+};
+const centsToAmount = (cents) => Number((cents / 100).toFixed(2));
+
 /**
  * POST /api/subscriptions
- * Tạo subscription mới khi user thanh toán ở Checkout.
- * Backend sẽ tự tính toán giá cuối cùng để đảm bảo an toàn.
- * Body mong đợi:
+ * Create a subscription after checkout. Body:
  * {
- *   "packageSlug": "premium-pc",
- *   "selectedAddons": ["priority-support", "extra-storage"] // (optional) Mảng các 'key' của add-on
+ *   packageSlug: string,
+ *   selectedAddons: [ string | { key, name, price } ]
  * }
- * Lưu ý: Route này nên chỉ được gọi SAU KHI thanh toán thành công (VISACheck OK).
  */
 router.post("/", auth, async (req, res) => {
   try {
     const { packageSlug } = req.body;
     const user = req.user;
-    // Lấy mảng các key của add-on từ body, đảm bảo nó là một mảng
-    const selectedAddonKeys = Array.isArray(req.body.selectedAddons) ? req.body.selectedAddons : [];
+    const selectedAddonsRaw = Array.isArray(req.body.selectedAddons) ? req.body.selectedAddons : [];
 
     if (!packageSlug) return res.status(400).json({ message: "packageSlug is required." });
 
-    // 1. Lấy thông tin gói từ DB
     const pkg = await SubscriptionPackage.findOne({ slug: packageSlug });
-    if (!pkg) {
-      return res.status(404).json({ message: "Package not found." });
-    }
+    if (!pkg) return res.status(404).json({ message: "Package not found." });
 
-    // 2. Kiểm tra xem user đã có gói active này chưa
     const existingActiveSub = await Subscription.findOne({
       userId: user._id,
       packageSlug: pkg.slug,
       status: "active",
     });
-
     if (existingActiveSub) {
-      return res.status(409).json({
-        message: "You already have an active subscription for this package.",
-      });
+      return res.status(409).json({ message: "You already have an active subscription for this package." });
     }
 
-    // 3. Tính giá cuối cùng trên server
-    // Bắt đầu với giá gốc của gói
-    let finalPrice = pkg.basePrice;
-
-    // Áp dụng giảm giá của gói (nếu có)
-    if (typeof pkg.discountPercent === "number" && pkg.discountPercent > 0) {
-      finalPrice *= 1 - pkg.discountPercent / 100;
+    // Base price and discount
+    let finalPriceCents = toCents(pkg.basePrice);
+    const discountBasisPoints = extractDiscountBasisPoints(pkg);
+    if (discountBasisPoints > 0) {
+      finalPriceCents = Math.round((finalPriceCents * (10000 - discountBasisPoints)) / 10000);
     }
 
-    // Xác thực và tính tổng giá các add-on được chọn
     const purchasedAddons = [];
-    if (selectedAddonKeys.length > 0) {
-      for (const key of selectedAddonKeys) {
-        const addon = pkg.addons.find((a) => a.key === key);
-        if (!addon) {
-          return res.status(400).json({ message: `Invalid add-on key: ${key}` });
+    if (selectedAddonsRaw.length > 0) {
+      for (const raw of selectedAddonsRaw) {
+        const key = typeof raw === "string" ? raw : raw?.key;
+        if (!key) continue;
+
+        const pkgAddon = Array.isArray(pkg.addons) ? pkg.addons.find((a) => a.key === key) : null;
+        if (pkgAddon) {
+          const addonCents = toCents(pkgAddon.price);
+          const addonPrice = centsToAmount(addonCents);
+          finalPriceCents += addonCents;
+          purchasedAddons.push({ key: pkgAddon.key, name: pkgAddon.name, price: addonPrice });
+          continue;
         }
-        finalPrice += addon.price; // Cộng giá add-on vào tổng
-        purchasedAddons.push({ key: addon.key, name: addon.name, price: addon.price });
+
+        const payloadName = typeof raw === "object" && raw?.name ? String(raw.name) : key;
+        const payloadPriceRaw =
+          typeof raw === "object" && typeof raw?.price === "number" && raw.price >= 0
+            ? Number(raw.price)
+            : 0;
+        const addonCents = toCents(payloadPriceRaw);
+        const payloadPrice = centsToAmount(addonCents);
+        finalPriceCents += addonCents;
+        purchasedAddons.push({ key, name: payloadName, price: payloadPrice });
       }
     }
 
-    // Giả sử có giảm giá 15% khi mua qua app
-    finalPrice *= 0.85;
+    const finalPrice = centsToAmount(finalPriceCents);
 
-    finalPrice = Number(finalPrice.toFixed(2));
-
-    // 4. Tạo bản ghi Subscription
     const now = new Date();
     const nextBillingDate = new Date(now);
-    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1); // Ví dụ: kỳ thanh toán sau 1 tháng
+    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
 
     const sub = await Subscription.create({
       userId: user._id,
       packageId: pkg._id,
       packageSlug: pkg.slug,
       packageName: pkg.name,
-      period: pkg.period || "/month", // Sửa lỗi: Lấy period từ package
+      period: pkg.period || "/month",
       pricePerPeriod: finalPrice,
-      purchasedAddons: purchasedAddons, // Lưu các add-on đã mua
+      purchasedAddons,
       startedAt: now,
-      nextBillingDate: nextBillingDate,
+      nextBillingDate,
+      status: "active",
     });
 
-    // 5. Gửi email hóa đơn (chạy ngầm)
     sendSubscriptionReceiptEmail(user.email, user.name, sub).catch((err) =>
       console.error("Handled: Failed to send subscription receipt email:", err)
     );
 
-    // 6. Trả về subscription cho app hiển thị bill
     return res.status(201).json(sub);
   } catch (err) {
     console.error("Create subscription error:", err);
@@ -104,17 +133,85 @@ router.post("/", auth, async (req, res) => {
 });
 
 /**
+ * POST /api/subscriptions/upgrade-addons
+ * Add additional add-ons to an active subscription (charges add-ons only)
+ * Body: { packageSlug: string, selectedAddons: [{ key, name, price }] }
+ */
+router.post("/upgrade-addons", auth, async (req, res) => {
+  try {
+    const { packageSlug } = req.body;
+    const selectedAddonsRaw = Array.isArray(req.body.selectedAddons) ? req.body.selectedAddons : [];
+    if (!packageSlug) return res.status(400).json({ message: "packageSlug is required." });
+    if (!selectedAddonsRaw.length) return res.status(400).json({ message: "No add-ons provided." });
+
+    const userId = req.user._id;
+    const pkg = await SubscriptionPackage.findOne({ slug: packageSlug });
+    if (!pkg) return res.status(404).json({ message: "Package not found." });
+
+    const sub = await Subscription.findOne({ userId, packageSlug: pkg.slug, status: "active" });
+    if (!sub) return res.status(404).json({ message: "Active subscription not found for this package." });
+
+    const existingKeys = new Set((sub.purchasedAddons || []).map((a) => a.key));
+    let chargeCents = 0;
+    const addonsToAppend = [];
+
+    for (const raw of selectedAddonsRaw) {
+      const key = typeof raw === "string" ? raw : raw?.key;
+      if (!key || existingKeys.has(key)) continue;
+
+      const pkgAddon = Array.isArray(pkg.addons) ? pkg.addons.find((a) => a.key === key) : null;
+      if (pkgAddon) {
+        const addonCents = toCents(pkgAddon.price);
+        chargeCents += addonCents;
+        addonsToAppend.push({ key: pkgAddon.key, name: pkgAddon.name, price: centsToAmount(addonCents) });
+        existingKeys.add(key);
+        continue;
+      }
+
+      const payloadName = typeof raw === "object" && raw?.name ? String(raw.name) : key;
+      const rawPrice =
+        typeof raw === "object" && typeof raw?.price === "number" && raw.price >= 0 ? Number(raw.price) : 0;
+      const addonCents = toCents(rawPrice);
+      chargeCents += addonCents;
+      addonsToAppend.push({ key, name: payloadName, price: centsToAmount(addonCents) });
+      existingKeys.add(key);
+    }
+
+    if (!addonsToAppend.length) {
+      return res.status(400).json({ message: "No new add-ons to upgrade." });
+    }
+
+    const chargeTotal = centsToAmount(chargeCents);
+    sub.purchasedAddons = [...(sub.purchasedAddons || []), ...addonsToAppend];
+    sub.pricePerPeriod = Number((Number(sub.pricePerPeriod || 0) + chargeTotal).toFixed(2));
+    await sub.save();
+
+    sendAddonPurchaseEmail(req.user.email, req.user.name || req.user.username || "ProPlayHub user", {
+      packageName: pkg.name,
+      packageSlug: pkg.slug,
+      addons: addonsToAppend,
+      chargeTotal,
+    }).catch((err) => console.error("Handled: Failed to send add-on purchase email:", err));
+
+    return res.status(200).json({
+      message: "Add-ons upgraded successfully",
+      chargeTotal,
+      addedAddons: addonsToAppend,
+      subscription: sub,
+    });
+  } catch (err) {
+    console.error("Upgrade add-ons error:", err);
+    return res.status(500).json({ message: "Server error upgrading add-ons" });
+  }
+});
+
+/**
  * GET /api/subscriptions/me
- * Return all subscriptions that belong to the authenticated user.
  */
 router.get("/me", auth, async (req, res) => {
   try {
     const userId = req.user._id;
-
-    const subs = await Subscription.find({ userId })
-      .sort({ createdAt: -1 })
-      .lean();
-
+    const subs = await Subscription.find({ userId }).sort({ createdAt: -1 }).lean();
     return res.json(subs);
   } catch (err) {
     console.error("Fetch my subscriptions error:", err);
@@ -124,23 +221,35 @@ router.get("/me", auth, async (req, res) => {
 
 /**
  * DELETE /api/subscriptions/:id
- * Soft-cancel a subscription that belongs to the authenticated user.
  */
 router.delete("/:id", auth, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user._id;
 
-    const sub = await Subscription.findOne({ _id: id, userId });
-    if (!sub) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid subscription id." });
+    }
+
+    const updated = await Subscription.findOneAndUpdate(
+      { _id: id, userId },
+      {
+        $set: {
+          status: "cancelled",
+          cancelledAt: new Date(),
+        },
+      },
+      {
+        new: true,
+        runValidators: false,
+      }
+    );
+
+    if (!updated) {
       return res.status(404).json({ message: "Subscription not found" });
     }
 
-    sub.status = "cancelled";
-    sub.cancelledAt = new Date();
-    await sub.save();
-
-    return res.json({ message: "Subscription cancelled", subscription: sub });
+    return res.json({ message: "Subscription cancelled", subscription: updated });
   } catch (err) {
     console.error("Cancel subscription error:", err);
     return res.status(500).json({ message: "Server error cancelling subscription" });

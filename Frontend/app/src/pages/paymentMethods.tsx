@@ -383,6 +383,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bodyBackground,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
+    paddingBottom: 80,
+    marginBottom: -50,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,

@@ -9,67 +9,39 @@ const DiscountCodeSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
     },
+    description: { type: String },
     discountPercent: {
       type: Number,
-      required: true,
       min: 0,
       max: 100,
-    },
-    description: {
-      type: String,
-      trim: true,
-    },
-    expiryDate: {
-      type: Date,
       required: true,
     },
-    usageLimit: {
-      type: Number,
-      default: null, // null = unlimited
-    },
-    usedCount: {
-      type: Number,
-      default: 0,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-    // Optional: áp dụng cho package cụ thể hoặc category
+    expiresAt: { type: Date },
+    usageLimit: { type: Number, default: null }, // null = unlimited
+    usedCount: { type: Number, default: 0 },
+
+    // Optional: apply to specific packages or categories
     applicablePackages: {
       type: [String], // array of package slugs
-      default: [], // empty = áp dụng cho tất cả
+      default: [], // empty = applies to all
     },
     applicableCategories: {
       type: [String], // array of categories: ["PC", "PlayStation", ...]
-      default: [], // empty = áp dụng cho tất cả
+      default: [], // empty = applies to all
     },
+
+    isActive: { type: Boolean, default: true },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Index để tìm kiếm nhanh
-DiscountCodeSchema.index({ code: 1 });
-DiscountCodeSchema.index({ expiryDate: 1 });
-DiscountCodeSchema.index({ isActive: 1 });
-
-// Method để check code có hợp lệ không
+// Method to check if code is valid (active, not expired, under usage limit)
 DiscountCodeSchema.methods.isValid = function () {
-  if (!this.isActive) return false;
-  if (new Date() > this.expiryDate) return false;
-  if (this.usageLimit !== null && this.usedCount >= this.usageLimit) return false;
-  return true;
-};
-
-// Method để tăng usedCount
-DiscountCodeSchema.methods.incrementUsage = async function () {
-  this.usedCount += 1;
-  await this.save();
+  const now = new Date();
+  const withinUsageLimit = this.usageLimit === null || this.usedCount < this.usageLimit;
+  const notExpired = !this.expiresAt || this.expiresAt > now;
+  return this.isActive && withinUsageLimit && notExpired;
 };
 
 const DiscountCode = mongoose.model("DiscountCode", DiscountCodeSchema);
-
 export default DiscountCode;
-

@@ -32,7 +32,7 @@ const SubscriptionPackageSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      required: true, // vd: "Platform-Specific Package", "Game Streaming Package"
+      required: true, // e.g. "Platform-Specific Package", "Game Streaming Package"
     },
     basePrice: {
       type: Number,

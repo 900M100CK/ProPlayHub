@@ -1,5 +1,5 @@
 ﻿// app/src/pages/cart.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,20 +9,29 @@ import {
   StatusBar,
   ActivityIndicator,
   Pressable,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useCartStore } from '../stores/cartStore';
-import { useAuthStore } from '../stores/authStore';
-import { useToast } from '../components/ToastProvider';
-import ConfirmationModal from '../components/ConfirmationModal';
-import { colors, spacing, radius, shadow } from '../styles/theme';
-import ScreenHeader from '../components/ScreenHeader';
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useCartStore } from "../stores/cartStore";
+import { useAuthStore } from "../stores/authStore";
+import { useToast } from "../components/ToastProvider";
+import ConfirmationModal from "../components/ConfirmationModal";
+import { colors, spacing, radius, shadow } from "../styles/theme";
+import ScreenHeader from "../components/ScreenHeader";
 
 const CartScreen = () => {
   const router = useRouter();
-  const { items, removeFromCart, clearCart, getTotalPrice, loadCartFromStorage } = useCartStore();
+  const {
+    items,
+    removeFromCart,
+    clearCart,
+    getTotalPrice,
+    loadCartFromStorage,
+  } = useCartStore();
   const { accessToken, user } = useAuthStore();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
@@ -37,10 +46,10 @@ const CartScreen = () => {
     onConfirm?: () => Promise<void> | void;
   }>({
     visible: false,
-    title: '',
-    message: '',
-    confirmLabel: 'Confirm',
-    cancelLabel: 'Cancel',
+    title: "",
+    message: "",
+    confirmLabel: "Confirm",
+    cancelLabel: "Cancel",
     onConfirm: undefined,
   });
   const [confirming, setConfirming] = useState(false);
@@ -64,8 +73,8 @@ const CartScreen = () => {
       visible: true,
       title: config.title,
       message: config.message,
-      confirmLabel: config.confirmLabel ?? 'Confirm',
-      cancelLabel: config.cancelLabel ?? 'Cancel',
+      confirmLabel: config.confirmLabel ?? "Confirm",
+      cancelLabel: config.cancelLabel ?? "Cancel",
       onConfirm: config.onConfirm,
     });
   };
@@ -96,20 +105,24 @@ const CartScreen = () => {
         <StatusBar barStyle="light-content" />
         <ScreenHeader title="Cart" />
         <View style={cartStyles.body}>
-            <View style={cartStyles.emptyContainer}>
-              <Ionicons name="lock-closed-outline" size={64} color={colors.textSecondary} />
-              <Text style={cartStyles.emptyTitle}>Sign-in required</Text>
-              <Text style={cartStyles.emptyText}>
-                Please sign in to view your cart.
-              </Text>
-              <TouchableOpacity
-                style={cartStyles.loginButton}
-                onPress={() => router.push('./login')}
-              >
-                <Text style={cartStyles.loginButtonText}>Sign in</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={cartStyles.emptyContainer}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={64}
+              color={colors.textSecondary}
+            />
+            <Text style={cartStyles.emptyTitle}>Sign-in required</Text>
+            <Text style={cartStyles.emptyText}>
+              Please sign in to view your cart.
+            </Text>
+            <TouchableOpacity
+              style={cartStyles.loginButton}
+              onPress={() => router.push("./login")}
+            >
+              <Text style={cartStyles.loginButtonText}>Sign in</Text>
+            </TouchableOpacity>
           </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -118,10 +131,10 @@ const CartScreen = () => {
     return (
       <SafeAreaView style={cartStyles.container}>
         <View style={cartStyles.body}>
-            <View style={cartStyles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
+          <View style={cartStyles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -130,14 +143,14 @@ const CartScreen = () => {
 
   const handleRemoveItem = (slug: string, name: string) => {
     openConfirmModal({
-      title: 'Remove item',
+      title: "Remove item",
       message: `Are you sure you want to remove "${name}" from your cart?`,
-      confirmLabel: 'Remove',
+      confirmLabel: "Remove",
       onConfirm: async () => {
         await removeFromCart(slug);
         showToast({
-          type: 'info',
-          title: 'Removed from cart',
+          type: "info",
+          title: "Removed from cart",
           message: `"${name}" has been removed.`,
         });
       },
@@ -146,17 +159,17 @@ const CartScreen = () => {
 
   const handleClearCart = () => {
     if (items.length === 0) return;
-    
+
     openConfirmModal({
-      title: 'Clear cart',
-      message: 'Are you sure you want to remove every item from your cart?',
-      confirmLabel: 'Clear all',
+      title: "Clear cart",
+      message: "Are you sure you want to remove every item from your cart?",
+      confirmLabel: "Clear all",
       onConfirm: async () => {
         await clearCart();
         showToast({
-          type: 'info',
-          title: 'Cart cleared',
-          message: 'All items have been removed from your cart.',
+          type: "info",
+          title: "Cart cleared",
+          message: "All items have been removed from your cart.",
         });
       },
     });
@@ -165,15 +178,15 @@ const CartScreen = () => {
   const handleCheckout = () => {
     if (items.length === 0) {
       showToast({
-        type: 'info',
-        title: 'Cart is empty',
-        message: 'Add at least one item before heading to checkout.',
+        type: "info",
+        title: "Cart is empty",
+        message: "Add at least one item before heading to checkout.",
       });
       return;
     }
 
     // Navigate to checkout; that screen will load everything from the cart
-    router.push('./checkout');
+    router.push("./checkout");
   };
 
   return (
@@ -183,8 +196,15 @@ const CartScreen = () => {
         title="Cart"
         rightSlot={
           items.length > 0 ? (
-            <TouchableOpacity onPress={handleClearCart} style={cartStyles.headerIconButton}>
-              <Ionicons name="trash-outline" size={22} color={colors.headerText} />
+            <TouchableOpacity
+              onPress={handleClearCart}
+              style={cartStyles.headerIconButton}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={22}
+                color={colors.headerText}
+              />
             </TouchableOpacity>
           ) : undefined
         }
@@ -192,81 +212,98 @@ const CartScreen = () => {
 
       <View style={cartStyles.body}>
         {items.length === 0 ? (
-            <View style={cartStyles.emptyContainer}>
-            <Ionicons name="cart-outline" size={80} color={colors.textSecondary} />
+          <View style={cartStyles.emptyContainer}>
+            <Ionicons
+              name="cart-outline"
+              size={80}
+              color={colors.textSecondary}
+            />
             <Text style={cartStyles.emptyTitle}>Cart is empty</Text>
             <Text style={cartStyles.emptyText}>
               There are no products in your cart yet.
             </Text>
             <TouchableOpacity
               style={cartStyles.shopButton}
-              onPress={() => router.push('./home')}
+              onPress={() => router.push("./home")}
             >
               <Text style={cartStyles.shopButtonText}>Continue shopping</Text>
             </TouchableOpacity>
-            </View>
+          </View>
         ) : (
-        <>
+          <>
             <ScrollView
               style={cartStyles.content}
               contentContainerStyle={{ paddingBottom: bottomGutter }}
               showsVerticalScrollIndicator={false}
             >
               {items.map((item) => (
-              <View key={item.slug} style={cartStyles.itemCard}>
-                <View style={cartStyles.itemInfo}>
-                  <Text style={cartStyles.itemName}>{item.name}</Text>
-                  <Text style={cartStyles.itemType}>{item.type}</Text>
-                  <Text style={cartStyles.itemCategory}>{item.category}</Text>
-                  
-                  <View style={cartStyles.itemPriceRow}>
-                    {item.discountLabel && (
-                      <View style={cartStyles.discountBadge}>
-                        <Text style={cartStyles.discountText}>{item.discountLabel}</Text>
-                      </View>
-                    )}
-                    <View style={cartStyles.priceContainer}>
-                      {item.basePrice !== item.finalPrice && (
-                        <Text style={cartStyles.originalPrice}>
-                          £{item.basePrice.toFixed(2)}
-                        </Text>
+                <View key={item.slug} style={cartStyles.itemCard}>
+                  <View style={cartStyles.itemInfo}>
+                    <Text style={cartStyles.itemName}>{item.name}</Text>
+                    <Text style={cartStyles.itemType}>{item.type}</Text>
+                    <Text style={cartStyles.itemCategory}>{item.category}</Text>
+
+                    <View style={cartStyles.itemPriceRow}>
+                      {item.discountLabel && (
+                        <View style={cartStyles.discountBadge}>
+                          <Text style={cartStyles.discountText}>
+                            {item.discountLabel}
+                          </Text>
+                        </View>
                       )}
-                      <Text style={cartStyles.finalPrice}>
-                        £{item.finalPrice.toFixed(2)}
-                        <Text style={cartStyles.period}> {item.period}</Text>
-                      </Text>
+                      <View style={cartStyles.priceContainer}>
+                        {item.basePrice !== item.finalPrice && (
+                          <Text style={cartStyles.originalPrice}>
+                            £{item.basePrice.toFixed(2)}
+                          </Text>
+                        )}
+                        <Text style={cartStyles.finalPrice}>
+                          £{item.finalPrice.toFixed(2)}
+                          <Text style={cartStyles.period}> {item.period}</Text>
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                <TouchableOpacity
-                  style={cartStyles.removeButton}
-                  onPress={() => handleRemoveItem(item.slug, item.name)}
-                >
-                  <Ionicons name="close-circle" size={24} color={colors.danger} />
-                </TouchableOpacity>
-              </View>
-            ))}
+                  <TouchableOpacity
+                    style={cartStyles.removeButton}
+                    onPress={() => handleRemoveItem(item.slug, item.name)}
+                  >
+                    <Ionicons
+                      name="close-circle"
+                      size={24}
+                      color={colors.danger}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ))}
             </ScrollView>
 
-          {/* Footer showing totals and the checkout button */}
-          <View style={[cartStyles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-            <View style={cartStyles.totalRow}>
-              <Text style={cartStyles.totalLabel}>Total:</Text>
-              <Text style={cartStyles.totalPrice}>£{totalPrice.toFixed(2)}</Text>
-            </View>
-            <Pressable
-              style={({ pressed }) => [
-                cartStyles.checkoutButton,
-                { opacity: pressed ? 0.85 : 1 },
+            {/* Footer showing totals and the checkout button */}
+            <View
+              style={[
+                cartStyles.footer,
+                { paddingBottom: Math.max(insets.bottom, spacing.md) },
               ]}
-              onPress={handleCheckout}
             >
-              <Text style={cartStyles.checkoutButtonText}>Checkout</Text>
-            </Pressable>
-          </View>
-        </>
-      )}
+              <View style={cartStyles.totalRow}>
+                <Text style={cartStyles.totalLabel}>Total:</Text>
+                <Text style={cartStyles.totalPrice}>
+                  £{totalPrice.toFixed(2)}
+                </Text>
+              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  cartStyles.checkoutButton,
+                  { opacity: pressed ? 0.85 : 1 },
+                ]}
+                onPress={handleCheckout}
+              >
+                <Text style={cartStyles.checkoutButtonText}>Checkout</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
         <ConfirmationModal
           visible={confirmConfig.visible}
           title={confirmConfig.title}
@@ -300,9 +337,9 @@ const cartStyles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
   },
   content: {
     flex: 1,
@@ -311,13 +348,13 @@ const cartStyles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: spacing.xl,
   },
   cardFull: {
@@ -325,7 +362,7 @@ const cartStyles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
@@ -333,7 +370,7 @@ const cartStyles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: spacing.lg,
   },
   loginButton: {
@@ -345,7 +382,7 @@ const cartStyles = StyleSheet.create({
   loginButtonText: {
     color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   shopButton: {
     backgroundColor: colors.primary,
@@ -356,16 +393,16 @@ const cartStyles = StyleSheet.create({
   shopButtonText: {
     color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   itemCard: {
     backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     ...shadow.card,
   },
   itemInfo: {
@@ -374,7 +411,7 @@ const cartStyles = StyleSheet.create({
   },
   itemName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
@@ -389,39 +426,39 @@ const cartStyles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   itemPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   discountBadge: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: "#D1FAE5",
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radius.sm,
   },
   discountText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#059669',
+    fontWeight: "600",
+    color: "#059669",
   },
   priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   originalPrice: {
     fontSize: 14,
     color: colors.textSecondary,
-    textDecorationLine: 'line-through',
+    textDecorationLine: "line-through",
   },
   finalPrice: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   period: {
     fontSize: 14,
-    fontWeight: '400',
+    fontWeight: "400",
     color: colors.textSecondary,
   },
   removeButton: {
@@ -429,49 +466,41 @@ const cartStyles = StyleSheet.create({
   },
   footer: {
     marginBottom: 5,
-    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
+    paddingVertical: 24,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    alignItems: 'center',
-    marginHorizontal: spacing.lg,
-    borderRadius: 20,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 24,
   },
   totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.md,
-    width: '100%',
+    width: "100%",
   },
   totalLabel: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
   },
   totalPrice: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   checkoutButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: "#7C3AED",
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: "rgba(255, 255, 255, 0.2)",
     elevation: 12,
-    shadowColor: '#4C1D95',
+    shadowColor: "#4C1D95",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
@@ -479,9 +508,8 @@ const cartStyles = StyleSheet.create({
   checkoutButtonText: {
     color: colors.surface,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });
 
 export default CartScreen;
-

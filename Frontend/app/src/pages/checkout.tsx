@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -14,7 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import apiClient from '../api/axiosConfig';
 import ScreenHeader from '../components/ScreenHeader';
 import { useCartStore } from '../stores/cartStore';
-import type { CartItem } from '../stores/cartStore';
+import type { CartItem, SelectedAddon } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
 import { useToast } from '../components/ToastProvider';
 import { colors, spacing, radius, shadow } from '../styles/theme';
@@ -74,6 +74,7 @@ type ApiPackage = {
   tags?: string[];
 };
 type Addon = { key: string; name: string; price: number };
+type CheckoutAddonOption = Addon & { isFallback?: boolean };
 
 const packageToCartItem = (pkg: ApiPackage): CartItem => ({
   _id: pkg._id,
@@ -88,7 +89,17 @@ const packageToCartItem = (pkg: ApiPackage): CartItem => ({
   isSeasonalOffer: Boolean(pkg.isSeasonalOffer),
   tags: pkg.tags,
   finalPrice: calculateDiscountedPrice(pkg.basePrice, pkg.discountLabel, pkg.discountPercent),
+  selectedAddons: [],
 });
+
+const FALLBACK_FEATURE_PRICES: Record<string, number> = {
+  'Full Game Catalog': 14.99,
+  'PS Cloud Streaming': 9.99,
+  'Exclusive Game Trials': 7.99,
+  'Multiplayer Access': 4.99,
+  'Cloud Saves (100GB)': 3.99,
+};
+const FALLBACK_FEATURE_DEFAULT_PRICE = 4.99;
 
 const getMethodIcon = (method: PaymentMethod | null) => {
   if (!method) return 'card-outline' as const;
@@ -107,16 +118,48 @@ const CheckoutScreen = () => {
   const clearCart = useCartStore((state) => state.clearCart);
   const removeFromCart = useCartStore((state) => state.removeFromCart);
   const isInCart = useCartStore((state) => state.isInCart);
-  const params = useLocalSearchParams<{ slug?: string | string[]; selectedAddons?: string }>();
+  const params = useLocalSearchParams<{ slug?: string | string[]; selectedAddons?: string; upgrade?: string }>();
   const slugParam = Array.isArray(params.slug) ? params.slug[0] : params.slug;
-  const selectedAddonsParam = params.selectedAddons ? JSON.parse(params.selectedAddons) : [];
+  const isUpgradeFlow = params.upgrade === '1';
+  const selectedAddonsParam = useMemo(() => {
+    if (!params.selectedAddons) {
+      return [];
+    }
+    try {
+      return JSON.parse(params.selectedAddons);
+    } catch (err) {
+      console.warn('Invalid selectedAddons param:', err);
+      return [];
+    }
+  }, [params.selectedAddons]);
   const isCartCheckout = !slugParam;
+  const selectedAddonKeys = useMemo(() => {
+    if (!Array.isArray(selectedAddonsParam)) return [];
+    return selectedAddonsParam
+      .map((addon: any) => (typeof addon === 'string' ? addon : addon?.key))
+      .filter(Boolean);
+  }, [selectedAddonsParam]);
 
   const [checkoutItems, setCheckoutItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [addonSelections, setAddonSelections] = useState<
+    Record<string, { available: CheckoutAddonOption[]; selected: string[] }>
+  >({});
+  const [basePackagePrices, setBasePackagePrices] = useState<Record<string, number>>({});
+  const fetchedAddonSlugsRef = useRef<Set<string>>(new Set());
+
+  const buildFallbackAddons = (item: CartItem): CheckoutAddonOption[] => {
+    if (!item.features?.length) return [];
+    return item.features.map((feature, index) => ({
+      key: `${item.slug}-feature-${index}`,
+      name: feature,
+      price: FALLBACK_FEATURE_PRICES[feature] ?? FALLBACK_FEATURE_DEFAULT_PRICE,
+      isFallback: true,
+    }));
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -146,27 +189,53 @@ const CheckoutScreen = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`${API_BASE_URL}/api/packages/${slugParam}`); // Lấy thông tin gói từ API
+        const res = await fetch(`${API_BASE_URL}/api/packages/${slugParam}`);
         const data = (await res.json()) as ApiPackage & { message?: string; addons?: Addon[] };
         if (!res.ok) {
           throw new Error(data?.message || 'Package not found.');
         }
         if (isMounted) {
-          // Tính toán lại giá cuối cùng bao gồm add-ons
-          let finalPrice = calculateDiscountedPrice(data.basePrice, data.discountLabel, data.discountPercent);
-          const addonsPrice = (data.addons || []).reduce((sum, addon) => {
-            if (selectedAddonsParam.includes(addon.key)) {
-              return sum + addon.price;
-            }
-            return sum;
-          }, 0);
+          const apiAddons: CheckoutAddonOption[] = Array.isArray(data.addons)
+            ? data.addons.map((addon) => ({ ...addon }))
+            : [];
+          const availableAddons: CheckoutAddonOption[] = apiAddons.length
+            ? apiAddons
+            : buildFallbackAddons(packageToCartItem(data));
+          const selectedAddonDetails = availableAddons.filter((addon) =>
+            selectedAddonKeys.includes(addon.key)
+          );
 
-          finalPrice += addonsPrice; // Cộng giá add-on vào
+          const discountedBasePrice = isUpgradeFlow
+            ? 0
+            : calculateDiscountedPrice(data.basePrice, data.discountLabel, data.discountPercent);
+          const addonsPrice = selectedAddonDetails.reduce(
+            (sum: number, addon: Addon) => sum + addon.price,
+            0
+          );
+          const finalPrice = Number((discountedBasePrice + addonsPrice).toFixed(2));
 
           const cartItem = packageToCartItem(data);
-          cartItem.finalPrice = Number(finalPrice.toFixed(2)); // Ghi đè giá cuối cùng
+          cartItem.finalPrice = finalPrice;
+          const selectedAddons: SelectedAddon[] = selectedAddonDetails.map((addon: Addon) => ({
+            key: addon.key,
+            name: addon.name,
+            price: addon.price,
+          }));
+
+          cartItem.selectedAddons = selectedAddons;
 
           setCheckoutItems([cartItem]);
+          setBasePackagePrices((prev) => ({
+            ...prev,
+            [data.slug]: Number(discountedBasePrice.toFixed(2)),
+          }));
+          setAddonSelections((prev) => ({
+            ...prev,
+            [data.slug]: {
+              available: availableAddons,
+              selected: selectedAddons.map((addon) => addon.key),
+            },
+          }));
         }
       } catch (err) {
         console.error('Checkout load error:', err);
@@ -184,7 +253,7 @@ const CheckoutScreen = () => {
     return () => {
       isMounted = false;
     };
-  }, [slugParam, selectedAddonsParam]); // Thêm selectedAddonsParam vào dependency array
+  }, [slugParam, selectedAddonsParam]);
 
   useEffect(() => {
     if (slugParam) return;
@@ -217,16 +286,202 @@ const CheckoutScreen = () => {
 
   useEffect(() => {
     if (slugParam) return;
+    if (!items || !items.length) {
+      setCheckoutItems([]);
+      return;
+    }
     setCheckoutItems(items);
+    const baseUpdates: Record<string, number> = {};
+    items.forEach((item) => {
+      const selected = Array.isArray(item.selectedAddons) ? item.selectedAddons : [];
+      const addonsSum = selected.reduce((sum, addon) => sum + addon.price, 0);
+      baseUpdates[item.slug] = Number((item.finalPrice - addonsSum).toFixed(2));
+    });
+
+    setBasePackagePrices((prev) => ({ ...prev, ...baseUpdates }));
+    setAddonSelections((prev) => {
+      const next = { ...prev };
+      items.forEach((item) => {
+        const selectedKeys = (Array.isArray(item.selectedAddons) ? item.selectedAddons : []).map(
+          (addon) => addon.key
+        );
+        const existing = next[item.slug];
+        const available =
+          existing?.available?.length ? existing.available : buildFallbackAddons(item);
+        next[item.slug] = {
+          available,
+          selected: selectedKeys,
+        };
+      });
+      return next;
+    });
   }, [items, slugParam]);
 
-  const subtotal = useMemo(
-    () => checkoutItems.reduce((sum, item) => sum + item.finalPrice, 0),
-    [checkoutItems]
-  );
-  const total = subtotal;
+  useEffect(() => {
+    const activeSlugs = new Set(checkoutItems.map((item) => item.slug));
+    fetchedAddonSlugsRef.current.forEach((slug) => {
+      if (!activeSlugs.has(slug)) {
+        fetchedAddonSlugsRef.current.delete(slug);
+      }
+    });
+
+    const slugsToFetch = checkoutItems
+      .map((item) => item.slug)
+      .filter((slug, index, arr) => arr.indexOf(slug) === index)
+      .filter((slug) => {
+        if (fetchedAddonSlugsRef.current.has(slug)) return false;
+        const entry = addonSelections[slug];
+        if (!entry) return true;
+        if (!entry.available?.length) return true;
+        const hasOnlyFallback = entry.available.every((addon) => addon.isFallback);
+        return hasOnlyFallback;
+      });
+    if (!slugsToFetch.length) return;
+
+    let cancelled = false;
+    const loadAddons = async () => {
+      try {
+        const results = await Promise.all(
+          slugsToFetch.map(async (slug) => {
+            try {
+              const res = await fetch(`${API_BASE_URL}/api/packages/${slug}`);
+              if (!res.ok) throw new Error(`Failed to load ${slug}`);
+              const data = await res.json();
+              const addons: CheckoutAddonOption[] = Array.isArray(data.addons)
+                ? data.addons.map((addon: CheckoutAddonOption) => ({ ...addon }))
+                : [];
+              return { slug, addons };
+            } catch (error) {
+              console.error(`Failed to load add-ons for ${slug}:`, error);
+              return { slug, addons: [] };
+            }
+          })
+        );
+        if (cancelled) return;
+        const selectionMap: Record<string, string[]> = {};
+        const addonMap: Record<string, CheckoutAddonOption[]> = {};
+        results.forEach(({ slug }) => fetchedAddonSlugsRef.current.add(slug));
+        setAddonSelections((prev) => {
+          const next = { ...prev };
+          results.forEach(({ slug, addons }) => {
+            const existing = next[slug];
+            const existingSelection = existing?.selected || [];
+            const existingAvailable = existing?.available || [];
+            const hasFetchedAddons = addons.length > 0;
+            const availableAddons = hasFetchedAddons ? addons : existingAvailable;
+            const filteredSelection = hasFetchedAddons
+              ? existingSelection.filter((key) => availableAddons.some((addon) => addon.key === key))
+              : existingSelection;
+            selectionMap[slug] = filteredSelection;
+            addonMap[slug] = availableAddons;
+            next[slug] = {
+              available: availableAddons,
+              selected: filteredSelection,
+            };
+          });
+          return next;
+        });
+        setCheckoutItems((prev) =>
+          prev.map((item) => {
+            const addons = addonMap[item.slug];
+            if (!addons) return item;
+            const selectedKeys = selectionMap[item.slug] || [];
+            const selectedAddons = addons
+              .filter((addon) => selectedKeys.includes(addon.key))
+              .map(({ key, name, price }) => ({ key, name, price }));
+            const basePrice = basePackagePrices[item.slug] ?? (() => {
+              const previousAddons = Array.isArray(item.selectedAddons)
+                ? item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0)
+                : 0;
+              return Number((item.finalPrice - previousAddons).toFixed(2));
+            })();
+            const addonsTotal = selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
+            return {
+              ...item,
+              selectedAddons,
+              finalPrice: Number((basePrice + addonsTotal).toFixed(2)),
+            };
+          })
+        );
+      } catch (error) {
+        console.error('Failed to fetch add-on definitions:', error);
+      }
+    };
+
+    loadAddons();
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutItems, addonSelections, basePackagePrices]);
+  const baseSubtotal = useMemo(() => {
+    if (isUpgradeFlow) return 0;
+    return checkoutItems.reduce((sum, item) => {
+      const addonSum = Array.isArray(item.selectedAddons)
+        ? item.selectedAddons.reduce((s, addon) => s + addon.price, 0)
+        : 0;
+      const cachedBase = basePackagePrices[item.slug];
+      const basePrice =
+        typeof cachedBase === 'number' ? cachedBase : Number((item.finalPrice - addonSum).toFixed(2));
+      return sum + basePrice;
+    }, 0);
+  }, [checkoutItems, basePackagePrices, isUpgradeFlow]);
+
+  const addonsTotal = useMemo(() => {
+    if (!checkoutItems.length) return 0;
+    return checkoutItems.reduce((sum, item) => {
+      if (!Array.isArray(item.selectedAddons)) return sum;
+      const addonSum = item.selectedAddons.reduce(
+        (addonTotal: number, addon: SelectedAddon) => addonTotal + addon.price,
+        0
+      );
+      return sum + addonSum;
+    }, 0);
+  }, [checkoutItems]);
+  const total = useMemo(() => Number((baseSubtotal + addonsTotal).toFixed(2)), [baseSubtotal, addonsTotal]);
   const hasItems = checkoutItems.length > 0;
   const headerSubtitle = slugParam ? 'Confirm your subscription' : 'Review your cart';
+
+  const toggleAddonSelection = (slug: string, addonKey: string) => {
+    setAddonSelections((prev) => {
+      let entry = prev[slug];
+      if (!entry) {
+        const item = checkoutItems.find((pkg) => pkg.slug === slug);
+        const fallback = item ? buildFallbackAddons(item) : [];
+        if (!fallback.length) return prev;
+        entry = { available: fallback, selected: [] };
+      }
+      const isSelected = entry.selected.includes(addonKey);
+      const updatedSelected = isSelected
+        ? entry.selected.filter((key) => key !== addonKey)
+        : [...entry.selected, addonKey];
+
+      setCheckoutItems((prevItems) =>
+        prevItems.map((item) => {
+          if (item.slug !== slug) return item;
+          const selectedAddons = entry.available
+            .filter((addon) => updatedSelected.includes(addon.key))
+            .map(({ key, name, price }) => ({ key, name, price }));
+          const addonsTotalPrice = selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
+          const previousAddonsTotal = Array.isArray(item.selectedAddons)
+            ? item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0)
+            : 0;
+          const cachedBase = basePackagePrices[slug];
+          const basePrice =
+            typeof cachedBase === 'number' ? cachedBase : Number((item.finalPrice - previousAddonsTotal).toFixed(2));
+          return {
+            ...item,
+            selectedAddons,
+            finalPrice: Number((basePrice + addonsTotalPrice).toFixed(2)),
+          };
+        })
+      );
+
+      return {
+        ...prev,
+        [slug]: { ...entry, selected: updatedSelected },
+      };
+    });
+  };
 
   const handlePlaceOrder = async () => {
     if (!hasItems) {
@@ -264,14 +519,54 @@ const CheckoutScreen = () => {
       return;
     }
 
+    // Snapshot current items before any mutations (clear cart, etc.)
+    const summaryItem = checkoutItems[0];
+
+    const buildSelectedAddonsPayload = (item: CartItem) =>
+      Array.isArray(item.selectedAddons)
+        ? item.selectedAddons.map(({ key, name, price }) => ({ key, name, price }))
+        : [];
+
     setProcessing(true);
     try {
+      if (isUpgradeFlow) {
+        const item = summaryItem || checkoutItems[0];
+        const payloadAddons = buildSelectedAddonsPayload(item);
+        const res = await apiClient.post('/subscriptions/upgrade-addons', {
+          packageSlug: item.slug,
+          selectedAddons: payloadAddons,
+        });
+        const chargeTotal = Number(res?.data?.chargeTotal || 0);
+        const purchasedAddons =
+          Array.isArray(res?.data?.addedAddons) && res.data.addedAddons.length
+            ? res.data.addedAddons
+            : payloadAddons;
+
+        showToast({
+          type: 'success',
+          title: 'Upgrade successful',
+          message: 'Your add-ons are now active.',
+        });
+
+        router.replace({
+          pathname: './orderConfirmation',
+          params: {
+            packageName: item?.name || 'Your subscription',
+            price: chargeTotal.toFixed(2),
+            period: item?.period || '/month',
+            addons: JSON.stringify(purchasedAddons),
+            upgrade: '1',
+          },
+        });
+        return;
+      }
+
       for (const item of checkoutItems) {
         const payload = {
           packageSlug: item.slug,
-          selectedAddons: selectedAddonsParam, // Gửi mảng các key của add-on
+          selectedAddons: buildSelectedAddonsPayload(item),
         };
-        await apiClient.post('/subscriptions', payload); // Backend sẽ tự tính toán giá cuối cùng
+        await apiClient.post('/subscriptions', payload);
       }
 
       if (slugParam) {
@@ -288,12 +583,30 @@ const CheckoutScreen = () => {
         message: 'You are ready to play!',
       });
 
+      const firstItem = summaryItem || checkoutItems[0];
+      const cachedBase = firstItem ? basePackagePrices[firstItem.slug] : undefined;
+      const stateAddons = Array.isArray(firstItem?.selectedAddons) ? firstItem.selectedAddons : [];
+      const stateAddonTotal = stateAddons.reduce((sum, addon) => sum + addon.price, 0);
+      const basePrice =
+        firstItem && typeof cachedBase === 'number'
+          ? cachedBase
+          : Number(((firstItem?.finalPrice || 0) - stateAddonTotal).toFixed(2));
+      const summaryPrice = Number((basePrice + stateAddonTotal).toFixed(2));
+      const purchasedAddons =
+        stateAddons.length > 0
+          ? stateAddons.map((addon) => ({
+              name: addon.name,
+              price: addon.price,
+            }))
+          : [];
+
       router.replace({
         pathname: './orderConfirmation',
         params: {
-          packageName: checkoutItems[0]?.name || 'Your subscription',
-          price: checkoutItems[0]?.finalPrice.toFixed(2) || total.toFixed(2),
-          period: checkoutItems[0]?.period || '/month',
+          packageName: firstItem?.name || 'Your subscription',
+          price: summaryPrice.toFixed(2),
+          period: firstItem?.period || '/month',
+          addons: JSON.stringify(purchasedAddons),
         },
       });
     } catch (err: any) {
@@ -378,36 +691,90 @@ const CheckoutScreen = () => {
                     </TouchableOpacity>
                   )}
                 </View>
-                {checkoutItems.map((item) => (
-                  <View key={item.slug} style={styles.itemRow}>
-                    <View style={styles.itemHeader}>
-                      <Text style={styles.itemName}>{item.name}</Text>
-                      {item.discountLabel && (
-                        <View style={styles.discountBadge}>
-                          <Text style={styles.discountText}>{item.discountLabel}</Text>
-                        </View>
-                      )}
+                {checkoutItems.map((item) => {
+                  const addonEntry = addonSelections[item.slug];
+                  const availableAddons = addonEntry?.available || [];
+                  const selectedKeys = addonEntry?.selected || [];
+                  const selectedAddons = Array.isArray(item.selectedAddons)
+                    ? (item.selectedAddons as SelectedAddon[])
+                    : [];
+                  const showAddons = availableAddons.length > 0;
+
+                  return (
+                    <View key={item.slug} style={styles.itemRow}>
+                      <View style={styles.itemHeader}>
+                        <Text style={styles.itemName}>{item.name}</Text>
+                        {item.discountLabel && (
+                          <View style={styles.discountBadge}>
+                            <Text style={styles.discountText}>{item.discountLabel}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.itemType}>{item.type}</Text>
+                      {!isUpgradeFlow && (() => {
+                        const addonSum = Array.isArray(item.selectedAddons)
+                          ? item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0)
+                          : 0;
+                        const cachedBase = basePackagePrices[item.slug];
+                        const basePrice =
+                          typeof cachedBase === 'number'
+                            ? cachedBase
+                            : Number((item.finalPrice - addonSum).toFixed(2));
+                        return (
+                          <Text style={styles.itemPrice}>
+                            ${basePrice.toFixed(2)}
+                            <Text style={styles.itemPeriod}> {item.period}</Text>
+                          </Text>
+                        );
+                      })()}
+
+                      {showAddons ? (
+                        isUpgradeFlow ? (
+                          <View style={styles.addonsList}>
+                            <Text style={styles.addonsLabel}>Selected add-ons</Text>
+                            {selectedAddons.map((addon) => (
+                              <View key={addon.key} style={styles.addonRow}>
+                                <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                                <Text style={styles.addonName}>{addon.name}</Text>
+                                <Text style={styles.addonPrice}>+${addon.price.toFixed(2)}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        ) : (
+                          <View style={styles.addonsSelector}>
+                            <Text style={styles.addonsLabel}>Add-on options</Text>
+                            {availableAddons.map((addon) => {
+                              const selected = selectedKeys.includes(addon.key);
+                              return (
+                                <TouchableOpacity
+                                  key={addon.key}
+                                  style={styles.addonToggleRow}
+                                  onPress={() => toggleAddonSelection(item.slug, addon.key)}
+                                  activeOpacity={0.7}
+                                >
+                                  <View
+                                    style={[
+                                      styles.checkbox,
+                                      selected && styles.checkboxSelected,
+                                    ]}
+                                  >
+                                    {selected && (
+                                      <Ionicons name="checkmark" size={12} color="#fff" />
+                                    )}
+                                  </View>
+                                  <View style={styles.addonToggleTextGroup}>
+                                    <Text style={styles.addonName}>{addon.name}</Text>
+                                    <Text style={styles.addonTogglePrice}>+${addon.price.toFixed(2)}</Text>
+                                  </View>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        )
+                      ) : null}
                     </View>
-                    <Text style={styles.itemType}>{item.type}</Text>
-                    <Text style={styles.itemPrice}>
-                      ${item.finalPrice.toFixed(2)}
-                      <Text style={styles.itemPeriod}> {item.period}</Text>
-                    </Text>
-                    <View style={styles.featuresList}>
-                      {item.features.slice(0, 3).map((feature) => (
-                        <View key={feature} style={styles.featureRow}>
-                          <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-                          <Text style={styles.featureText}>{feature}</Text>
-                        </View>
-                      ))}
-                      {item.features.length > 3 && (
-                        <Text style={styles.moreFeaturesText}>
-                          +{item.features.length - 3} more benefits
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
 
               <View style={styles.card}>
@@ -459,10 +826,18 @@ const CheckoutScreen = () => {
 
               <View style={styles.card}>
                 <Text style={styles.sectionTitle}>Order summary</Text>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Subtotal</Text>
-                  <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
-                </View>
+                {!isUpgradeFlow && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Subtotal</Text>
+                    <Text style={styles.summaryValue}>${baseSubtotal.toFixed(2)}</Text>
+                  </View>
+                )}
+                {addonsTotal > 0 && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Add-ons</Text>
+                    <Text style={styles.summaryValue}>+${addonsTotal.toFixed(2)}</Text>
+                  </View>
+                )}
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Taxes & fees</Text>
                   <Text style={styles.summaryValue}>$0.00</Text>
@@ -604,23 +979,66 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: colors.textSecondary,
   },
-  featuresList: {
-    marginTop: spacing.sm,
+  addonsLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  addonsList: {
+    marginTop: spacing.md,
     gap: spacing.xs,
   },
-  featureRow: {
+  addonsSelector: {
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  addonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  featureText: {
-    color: colors.textSecondary,
+  addonName: {
+    flex: 1,
+    marginLeft: spacing.xs,
     fontSize: 13,
-  },
-  moreFeaturesText: {
-    fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 2,
+  },
+  addonPrice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  addonToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  addonToggleTextGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flex: 1,
+    alignItems: 'center',
+  },
+  addonTogglePrice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   discountBadge: {
     backgroundColor: '#FDE68A',
@@ -725,9 +1143,9 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    backgroundColor: colors.surface,
   },
   totalRow: {
     flexDirection: 'row',
@@ -750,14 +1168,23 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
+    backgroundColor: '#7C3AED',
+    borderRadius: 24,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: 12,
+    shadowColor: '#4C1D95',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
   },
   primaryButtonText: {
-    color: colors.headerText,
+    color: colors.surface,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -847,3 +1274,6 @@ const styles = StyleSheet.create({
 });
 
 export default CheckoutScreen;
+
+
+

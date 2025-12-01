@@ -259,6 +259,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    paddingBottom: 80,
+    marginBottom: -50,
   },
   content: {
     flex: 1,

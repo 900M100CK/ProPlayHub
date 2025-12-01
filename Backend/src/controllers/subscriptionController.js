@@ -1,7 +1,7 @@
 // src/controllers/subscriptionController.js
 import Subscription from '../models/userSubscription.js';
 import SubscriptionPackage from '../models/SubscriptionPackage.js';
-import User from '../models/user.js';
+import User from '../models/User.js';
 import { sendSubscriptionReceiptEmail } from '../libs/email.js';
 import { Expo } from 'expo-server-sdk';
 import {
@@ -10,60 +10,118 @@ import {
   getHighestAchievedTier,
 } from '../utils/achievementUtils.js';
 
-// Khởi tạo Expo SDK
+// Initialize Expo SDK
 const expo = new Expo();
+
+const toNumberSafe = (val) => {
+  const num = typeof val === 'string' ? Number(val.trim()) : Number(val);
+  return Number.isFinite(num) ? num : null;
+};
+
+const toCents = (value) => {
+  const num = toNumberSafe(value);
+  if (num === null) return 0;
+  // Keep 4 decimals before converting to cents to avoid binary drift (e.g., 21.47 -> 2147)
+  return Math.round(Number(num.toFixed(4)) * 100);
+};
+const centsToAmount = (cents) => Number((cents / 100).toFixed(2));
+
+const extractDiscountBasisPoints = (pkg) => {
+  const percentFromValue = (val) => {
+    const num = toNumberSafe(val);
+    return num !== null && num > 0 ? num : 0;
+  };
+
+  const explicit = percentFromValue(pkg?.discountPercent);
+  if (explicit > 0) return Math.round(explicit * 100); // convert percent to basis points
+
+  const label = pkg?.discountLabel;
+  if (typeof label === 'string') {
+    const match = label.match(/(\d+(?:\.\d+)?)\s*%/);
+    if (match) {
+      const parsed = percentFromValue(match[1]);
+      if (parsed > 0) return Math.round(parsed * 100);
+    }
+  }
+
+  return 0;
+};
 
 export const checkoutSubscription = async (req, res) => {
   try {
-    const user = req.user; // lấy từ auth middleware (bearer token)
+    const user = req.user; // populated by auth middleware
     const { packageSlug } = req.body;
+    const selectedAddonsRaw = Array.isArray(req.body.selectedAddons) ? req.body.selectedAddons : [];
 
-    // 1. Lấy thông tin gói
+    // 1. Load package info
     const pkg = await SubscriptionPackage.findOne({ slug: packageSlug });
     if (!pkg) {
       return res.status(404).json({ message: 'Package not found' });
     }
 
-    // === LOGIC THÀNH TÍCH: Lấy stats TRƯỚC khi mua ===
+    // Capture achievement stats before purchase
     const oldStats = await getAchievementStatsForUser(user._id);
 
-    // 2. Tính giá cuối cùng (ví dụ: app order -15% + discount gói)
-    let finalPrice = pkg.basePrice;
+    // 2. Calculate final price (discounts + add-ons) with cent-precise math
+    let finalPriceCents = toCents(pkg.basePrice);
 
-    // giảm giá gói, nếu có
-    if (typeof pkg.discountPercent === 'number') {
-      finalPrice = finalPrice * (1 - pkg.discountPercent / 100);
+    const discountBasisPoints = extractDiscountBasisPoints(pkg); // percent * 100
+    if (discountBasisPoints > 0) {
+      finalPriceCents = Math.round((finalPriceCents * (10000 - discountBasisPoints)) / 10000);
     }
-    // giảm 15% nếu order qua app
-    finalPrice = finalPrice * 0.85;
 
-    finalPrice = Number(finalPrice.toFixed(2));
+    const purchasedAddons = [];
+    if (selectedAddonsRaw.length) {
+      for (const raw of selectedAddonsRaw) {
+        const key = typeof raw === 'string' ? raw : raw?.key;
+        if (!key) continue;
 
-    // 3. Gọi VISACheck / ngân hàng (giả lập cho coursework)
-    // TODO: gọi API thực tế, ở đây giả sử thanh toán ok:
+        const pkgAddon = Array.isArray(pkg.addons) ? pkg.addons.find((a) => a.key === key) : null;
+        if (pkgAddon) {
+          const addonCents = toCents(pkgAddon.price);
+          const addonPrice = centsToAmount(addonCents);
+          purchasedAddons.push({ key: pkgAddon.key, name: pkgAddon.name, price: addonPrice });
+          finalPriceCents += addonCents;
+          continue;
+        }
+
+        const payloadName = typeof raw === 'object' && raw?.name ? String(raw.name) : key;
+        const payloadPriceRaw =
+          typeof raw === 'object' && typeof raw?.price === 'number' && raw.price >= 0 ? Number(raw.price) : 0;
+        const addonCents = toCents(payloadPriceRaw);
+        const addonPrice = centsToAmount(addonCents);
+        purchasedAddons.push({ key, name: payloadName, price: addonPrice });
+        finalPriceCents += addonCents;
+      }
+    }
+
+    const finalPrice = centsToAmount(finalPriceCents);
+
+    // 3. Mock payment approval
     const paymentApproved = true;
     if (!paymentApproved) {
       return res.status(402).json({ message: 'Payment not approved' });
     }
 
-    // 4. Tạo bản ghi Subscription
+    // 4. Create subscription record
     const now = new Date();
     const nextBilling = new Date(now);
-    nextBilling.setMonth(nextBilling.getMonth() + 1); // ví dụ tính kỳ sau 1 tháng
+    nextBilling.setMonth(nextBilling.getMonth() + 1);
 
     const subscription = await Subscription.create({
       userId: user._id,
+      packageId: pkg._id,
       packageSlug: pkg.slug,
       packageName: pkg.name,
       period: pkg.period || 'per month',
       pricePerPeriod: finalPrice,
+      purchasedAddons,
       status: 'active',
       startedAt: now,
       nextBillingDate: nextBilling,
     });
 
-    // === LOGIC THÀNH TÍCH: So sánh và gửi thông báo ===
-    // Chạy ngầm để không làm chậm response trả về cho người dùng
+    // Process achievements and push notifications asynchronously
     (async () => {
       try {
         const newStats = await getAchievementStatsForUser(user._id);
@@ -71,7 +129,7 @@ export const checkoutSubscription = async (req, res) => {
         const userWithToken = await User.findById(user._id).select('+pushToken');
 
         if (!userWithToken?.pushToken || !Expo.isExpoPushToken(userWithToken.pushToken)) {
-          return; // Không có token hợp lệ, không làm gì cả
+          return;
         }
 
         const notificationsToSend = [];
@@ -80,14 +138,13 @@ export const checkoutSubscription = async (req, res) => {
           const oldTier = getHighestAchievedTier(definition, oldStats);
           const newTier = getHighestAchievedTier(definition, newStats);
 
-          // Nếu cấp độ mới cao hơn cấp độ cũ (hoặc từ null -> có cấp độ)
           if (newTier && (!oldTier || newTier.threshold > oldTier.threshold)) {
             notificationsToSend.push({
               to: userWithToken.pushToken,
               sound: 'default',
-              title: '🏆 New Achievement Unlocked!',
-              body: `You've reached ${definition.title} (${newTier.level})!`,
-              data: { screen: 'achievements' }, // Dữ liệu để điều hướng khi người dùng nhấn vào
+              title: 'New Achievement Unlocked!',
+              body: `You\'ve reached ${definition.title} (${newTier.level})!`,
+              data: { screen: 'achievements' },
             });
           }
         });
@@ -100,14 +157,14 @@ export const checkoutSubscription = async (req, res) => {
       }
     })();
 
-    // 5. Gửi email hóa đơn (không throw lỗi ra ngoài)
+    // 5. Send receipt email (do not block response)
     sendSubscriptionReceiptEmail(
       user.email,
       user.fullName || user.username || 'ProPlayHub user',
       subscription
     ).catch((err) => console.error('Subscription receipt email error:', err));
 
-    // 6. Trả về dữ liệu cho mobile app hiển thị bill
+    // 6. Return data for mobile app to display
     return res.status(200).json({
       success: true,
       message: 'Subscription created and payment processed',

@@ -448,6 +448,8 @@ const profileStyles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 12,
+    paddingBottom: 80,
+    marginBottom: -50,
   },
   headerIconButton: {
     width: 42,

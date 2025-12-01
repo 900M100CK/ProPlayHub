@@ -166,6 +166,51 @@
         cursor: pointer;
       }
 
+      .addons-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .addon-row {
+        display: grid;
+        grid-template-columns: 1fr 2fr 120px auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        background: var(--panel-2);
+      }
+
+      .addon-row input {
+        width: 100%;
+      }
+
+      .btn-secondary {
+        margin-top: 8px;
+        padding: 8px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--primary);
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .btn-secondary:hover {
+        border-color: var(--primary);
+      }
+
+      .remove-addon-btn {
+        border: none;
+        background: var(--danger);
+        color: #fff;
+        border-radius: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+      }
+
       .btn-primary {
         padding: 10px 16px;
         border-radius: 12px;
@@ -226,7 +271,7 @@
 
     </style>
     <style> /* Modal Styles */
-      .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+      .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.6); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; }
       .modal-overlay.active { display: flex; }
       .modal-content {
         background: var(--panel);
@@ -397,8 +442,10 @@
                 <input type="text" id="package-tags" name="tags" placeholder="popular,exclusive" />
               </div>
               <div class="form-group full-width">
-                <label for="package-addons">Add-ons (JSON format)</label>
-                <textarea id="package-addons" name="addons" rows="4" placeholder='[{"key":"p-support","name":"Priority Support","price":5.99}]'></textarea>
+                <label>Add-ons</label>
+                <div id="package-addons-list" class="addons-list"></div>
+                <button type="button" class="btn-secondary" id="add-package-addon-btn">Add add-on</button>
+                <input type="hidden" id="package-addons-json" name="addons" />
               </div>
             </div>
             <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
@@ -594,8 +641,10 @@
               <input type="text" id="edit-package-tags" name="tags" />
             </div>
             <div class="form-group full-width">
-              <label for="edit-package-addons">Add-ons (JSON format)</label>
-              <textarea id="edit-package-addons" name="addons" rows="4"></textarea>
+              <label>Add-ons</label>
+              <div id="edit-package-addons-list" class="addons-list"></div>
+              <button type="button" class="btn-secondary" id="add-edit-addon-btn">Add add-on</button>
+              <input type="hidden" id="edit-package-addons-json" name="addons" />
             </div>
           </div>
           <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
@@ -699,6 +748,78 @@
         let packageSearchTimeout;
         let cachedPackages = [];
 
+        const addonSections = {
+          create: {
+            list: document.getElementById("package-addons-list"),
+            addButton: document.getElementById("add-package-addon-btn"),
+            hiddenInput: document.getElementById("package-addons-json"),
+          },
+          edit: {
+            list: document.getElementById("edit-package-addons-list"),
+            addButton: document.getElementById("add-edit-addon-btn"),
+            hiddenInput: document.getElementById("edit-package-addons-json"),
+          },
+        };
+
+        const addAddonRow = (listEl, data = {}) => {
+          if (!listEl) return;
+          const row = document.createElement("div");
+          row.className = "addon-row";
+          row.innerHTML = `
+            <input type="text" class="addon-key" placeholder="Key (example: priority-support)" value="${data.key || ""}" />
+            <input type="text" class="addon-name" placeholder="Display name" value="${data.name || ""}" />
+            <input type="number" class="addon-price" placeholder="Price" step="0.01" min="0" value="${typeof data.price === "number" ? data.price : ""}" />
+            <button type="button" class="remove-addon-btn">Remove</button>
+          `;
+          row.querySelector(".remove-addon-btn").addEventListener("click", () => {
+            row.remove();
+            if (!listEl.querySelector(".addon-row")) {
+              addAddonRow(listEl);
+            }
+          });
+          listEl.appendChild(row);
+        };
+
+        const renderAddonList = (listEl, addons = []) => {
+          if (!listEl) return;
+          listEl.innerHTML = "";
+          const source = Array.isArray(addons) && addons.length ? addons : [{}];
+          source.forEach((addon) => addAddonRow(listEl, addon));
+        };
+
+        const collectAddons = (listEl) => {
+          if (!listEl) return [];
+          const rows = Array.from(listEl.querySelectorAll(".addon-row"));
+          return rows
+            .map((row) => {
+              const key = row.querySelector(".addon-key")?.value.trim() || "";
+              const name = row.querySelector(".addon-name")?.value.trim() || "";
+              const priceValue = parseFloat(row.querySelector(".addon-price")?.value);
+              if (!key || !name) return null;
+              return {
+                key,
+                name,
+                price: Number.isFinite(priceValue) ? Number(priceValue.toFixed(2)) : 0,
+              };
+            })
+            .filter(Boolean);
+        };
+
+        const syncAddonsField = (listEl, hiddenInput) => {
+          if (!hiddenInput) return;
+          const addons = collectAddons(listEl);
+          hiddenInput.value = addons.length ? JSON.stringify(addons) : "";
+        };
+
+        const setupAddonSection = (section) => {
+          if (!section?.list) return;
+          renderAddonList(section.list);
+          section.addButton?.addEventListener("click", () => addAddonRow(section.list));
+        };
+
+        setupAddonSection(addonSections.create);
+        setupAddonSection(addonSections.edit);
+
         const buildPackagePayload = (formData) => ({
           name: formData.get("name")?.trim() || "",
           slug: formData.get("slug")?.trim() || "",
@@ -716,7 +837,7 @@
               const addonsJson = formData.get("addons")?.trim();
               return addonsJson ? JSON.parse(addonsJson) : [];
             } catch (e) {
-              return []; // Trả về mảng rỗng nếu JSON không hợp lệ
+              return []; // Return empty array if JSON is invalid
             }
           })(),
         });
@@ -724,6 +845,7 @@
         if (addPackageForm) {
           addPackageForm.addEventListener("submit", (e) => {
             e.preventDefault();
+            syncAddonsField(addonSections.create.list, addonSections.create.hiddenInput);
             const formData = new FormData(e.target);
             const payload = buildPackagePayload(formData);
 
@@ -743,6 +865,10 @@
               .then(() => {
                 alert("Package created successfully.");
                 addPackageForm.reset();
+                renderAddonList(addonSections.create.list);
+                if (addonSections.create.hiddenInput) {
+                  addonSections.create.hiddenInput.value = "";
+                }
                 loadPackages();
               })
               .catch((error) => {
@@ -847,9 +973,10 @@
             pkg.discountPercent ?? "";
           document.getElementById("edit-package-features").value = listToString(pkg.features);
           document.getElementById("edit-package-tags").value = listToString(pkg.tags);
-          document.getElementById("edit-package-addons").value = pkg.addons
-            ? JSON.stringify(pkg.addons, null, 2)
-            : "";
+          if (addonSections.edit.list) {
+            renderAddonList(addonSections.edit.list, Array.isArray(pkg.addons) ? pkg.addons : []);
+            syncAddonsField(addonSections.edit.list, addonSections.edit.hiddenInput);
+          }
           document.getElementById("edit-package-seasonal").checked = !!pkg.isSeasonalOffer;
           packageModal.classList.add("active");
         }
@@ -896,6 +1023,7 @@
 
         editPackageForm?.addEventListener("submit", (event) => {
           event.preventDefault();
+          syncAddonsField(addonSections.edit.list, addonSections.edit.hiddenInput);
           const formData = new FormData(editPackageForm);
           const payload = buildPackagePayload(formData);
           const packageId = formData.get("packageId");

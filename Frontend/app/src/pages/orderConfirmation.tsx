@@ -12,10 +12,12 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 
 const OrderConfirmationScreen = () => {
   const router = useRouter();
-  const { packageName, price, period } = useLocalSearchParams<{
+  const { packageName, price, period, addons, upgrade } = useLocalSearchParams<{
     packageName?: string;
     price?: string;
     period?: string;
+    addons?: string;
+    upgrade?: string;
   }>();
 
   // Tạo ID đơn hàng giả cho đẹp UI
@@ -27,6 +29,16 @@ const OrderConfirmationScreen = () => {
   const pkgName = packageName || "Your Subscription";
   const pkgPrice = price || "0.00";
   const pkgPeriod = period || "/month";
+  const isUpgrade = upgrade === "1";
+  const purchasedAddons = useMemo(() => {
+    if (!addons) return [];
+    try {
+      const parsed = JSON.parse(addons);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [addons]);
 
   const handleBackHome = () => {
     // Đổi path này cho đúng màn hình Home của bạn nếu khác
@@ -44,9 +56,9 @@ const OrderConfirmationScreen = () => {
           </View>
 
           {/* Title + subtitle */}
-          <Text style={styles.title}>Order Confirmed!</Text>
+          <Text style={styles.title}>{isUpgrade ? "Upgrade confirmed!" : "Order Confirmed!"}</Text>
           <Text style={styles.subtitle}>
-            Your subscription has been activated
+            {isUpgrade ? "Your add-ons are now active" : "Your subscription has been activated"}
           </Text>
 
           {/* Order box */}
@@ -56,7 +68,26 @@ const OrderConfirmationScreen = () => {
             </View>
 
             <Text style={styles.orderName}>{pkgName}</Text>
-            <Text style={styles.orderPrice}>£{pkgPrice}{pkgPeriod}</Text>
+            <Text style={styles.orderPrice}>
+              ${pkgPrice}
+              {!isUpgrade && pkgPeriod}
+              {isUpgrade ? " (add-ons)" : ""}
+            </Text>
+
+            {purchasedAddons.length > 0 && (
+              <View style={styles.addonsSection}>
+                <Text style={styles.addonsTitle}>Add-ons included</Text>
+                {purchasedAddons.map((addon, idx) => (
+                  <View key={`${addon.name}-${idx}`} style={styles.addonRow}>
+                    <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                    <Text style={styles.addonName}>{addon.name}</Text>
+                    {typeof addon.price === "number" && (
+                      <Text style={styles.addonPrice}>+${addon.price.toFixed(2)}</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* Info text */}
@@ -185,6 +216,30 @@ const styles = StyleSheet.create({
     color: "#111827",
     fontSize: 15,
     fontWeight: "500",
+  },
+  addonsSection: {
+    marginTop: 12,
+    gap: 8,
+  },
+  addonsTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  addonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  addonName: {
+    flex: 1,
+    fontSize: 13,
+    color: "#4B5563",
+  },
+  addonPrice: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#111827",
   },
 });
 
