@@ -245,13 +245,13 @@ const PaymentMethodsScreen = () => {
         >
           <Ionicons name={showAddForm ? 'close' : 'add'} size={18} color="#FFFFFF" />
           <Text style={styles.addButtonText}>
-            {showAddForm ? 'Close add form' : 'Add new payment method'}
+            {showAddForm ? 'Close Add Form' : 'Add New Payment Method'}
           </Text>
         </TouchableOpacity>
 
         {showAddForm && (
           <View style={styles.addFormCard}>
-            <Text style={styles.sectionTitle}>New payment method</Text>
+            <Text style={styles.sectionTitle}>New Payment Method</Text>
             <View style={styles.typeRow}>
               {(['card', 'paypal', 'bank'] as PaymentMethod['type'][]).map((type) => (
                 <TouchableOpacity
@@ -317,12 +317,12 @@ const PaymentMethodsScreen = () => {
             )}
 
             <TouchableOpacity style={styles.saveButton} onPress={handleAddMethod}>
-              <Text style={styles.saveButtonText}>Add method</Text>
+              <Text style={styles.saveButtonText}>Add Method</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Choose a default method</Text>
+        <Text style={styles.sectionTitle}>Choose A Default Method</Text>
 
         {methods.map((method) => {
           const isSelected = method.id === selectedId;
@@ -363,7 +363,7 @@ const PaymentMethodsScreen = () => {
           {saving ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.saveButtonText}>Save default method</Text>
+            <Text style={styles.saveButtonText}>Save Default Method</Text>
           )}
         </TouchableOpacity>
       </ScrollView>

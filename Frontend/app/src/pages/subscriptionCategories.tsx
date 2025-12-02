@@ -248,7 +248,7 @@ const SubscriptionCategoriesScreen = () => {
       <StatusBar barStyle='light-content' />
       <ScreenHeader
         title='Browse Packages'
-        subtitle='Subscription catalog'
+        subtitle='Subscription Catalog'
         rightSlot={
           <TouchableOpacity style={styles.cartButton} onPress={() => router.push('./cart')}>
             <Ionicons name='cart-outline' size={20} color={colors.headerText} />
@@ -360,7 +360,7 @@ const SubscriptionCategoriesScreen = () => {
                     onPress={() => router.push(`./packageDetail?slug=${pkg.slug}`)}
                   >
                     <Ionicons name='eye-outline' size={18} color={colors.primary} />
-                    <Text style={styles.viewButtonText}>Xem chi tiết</Text>
+                    <Text style={styles.viewButtonText}>View Details</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                       style={[
