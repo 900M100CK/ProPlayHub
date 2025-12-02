@@ -43,5 +43,14 @@ DiscountCodeSchema.methods.isValid = function () {
   return this.isActive && withinUsageLimit && notExpired;
 };
 
+// Atomic helper to increment usage count
+DiscountCodeSchema.methods.incrementUsage = function () {
+  return this.constructor.findByIdAndUpdate(
+    this._id,
+    { $inc: { usedCount: 1 } },
+    { new: true }
+  );
+};
+
 const DiscountCode = mongoose.model("DiscountCode", DiscountCodeSchema);
 export default DiscountCode;

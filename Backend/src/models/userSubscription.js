@@ -1,4 +1,3 @@
-// models/Subscription.js
 import mongoose from "mongoose";
 
 const SubscriptionSchema = new mongoose.Schema(
@@ -9,52 +8,39 @@ const SubscriptionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-
-    // ID của gói gốc để tham chiếu ổn định
     packageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "SubscriptionPackage",
       required: true,
     },
-
-    // Thông tin gói tại thời điểm đăng ký (denormalized cho đơn giản)
     packageSlug: { type: String, required: true },
     packageName: { type: String, required: true },
-    period: { type: String, default: "per month" }, // ví dụ: "per month"
+    period: { type: String, default: "per month" },
     pricePerPeriod: { type: Number, required: true },
-
-    // Lưu lại các add-on đã mua tại thời điểm đăng ký
     purchasedAddons: [
       {
         _id: false,
         key: { type: String, required: true },
         name: { type: String, required: true },
-        price: { type: Number, required: true }, // Giá tại thời điểm mua
+        price: { type: Number, required: true },
       },
     ],
-
+    appliedDiscount: {
+      _id: false,
+      code: { type: String },
+      percent: { type: Number },
+      amount: { type: Number },
+    },
     status: {
       type: String,
       enum: ["active", "inactive", "cancelled"],
       default: "active",
     },
-
-    startedAt: {
-      type: Date,
-      default: Date.now,
-    },
-
-    nextBillingDate: {
-      type: Date,
-    },
-
-    cancelledAt: {
-      type: Date,
-    },
+    startedAt: { type: Date, default: Date.now },
+    nextBillingDate: { type: Date },
+    cancelledAt: { type: Date },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 const Subscription = mongoose.model("Subscription", SubscriptionSchema);

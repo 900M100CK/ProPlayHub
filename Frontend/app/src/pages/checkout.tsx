@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -149,6 +150,10 @@ const CheckoutScreen = () => {
     Record<string, { available: CheckoutAddonOption[]; selected: string[] }>
   >({});
   const [basePackagePrices, setBasePackagePrices] = useState<Record<string, number>>({});
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; percent: number; description?: string } | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
   const fetchedAddonSlugsRef = useRef<Set<string>>(new Set());
 
   const buildFallbackAddons = (item: CartItem): CheckoutAddonOption[] => {
@@ -413,6 +418,14 @@ const CheckoutScreen = () => {
       cancelled = true;
     };
   }, [checkoutItems, addonSelections, basePackagePrices]);
+
+  useEffect(() => {
+    if (!checkoutItems.length) {
+      setAppliedPromo(null);
+      setPromoCodeInput('');
+      setPromoError(null);
+    }
+  }, [checkoutItems.length]);
   const baseSubtotal = useMemo(() => {
     if (isUpgradeFlow) return 0;
     return checkoutItems.reduce((sum, item) => {
@@ -437,7 +450,21 @@ const CheckoutScreen = () => {
       return sum + addonSum;
     }, 0);
   }, [checkoutItems]);
-  const total = useMemo(() => Number((baseSubtotal + addonsTotal).toFixed(2)), [baseSubtotal, addonsTotal]);
+  const subtotalBeforePromo = useMemo(
+    () => Number((baseSubtotal + addonsTotal).toFixed(2)),
+    [baseSubtotal, addonsTotal]
+  );
+  const promoDiscountAmount = useMemo(() => {
+    if (!appliedPromo) return 0;
+    const percent = typeof appliedPromo.percent === 'number' ? appliedPromo.percent : 0;
+    if (!percent || percent <= 0) return 0;
+    const discounted = (subtotalBeforePromo * percent) / 100;
+    return Number(discounted.toFixed(2));
+  }, [appliedPromo, subtotalBeforePromo]);
+  const total = useMemo(
+    () => Number(Math.max(0, subtotalBeforePromo - promoDiscountAmount).toFixed(2)),
+    [subtotalBeforePromo, promoDiscountAmount]
+  );
   const hasItems = checkoutItems.length > 0;
   const headerSubtitle = slugParam ? 'Confirm your subscription' : 'Review your cart';
 
@@ -481,6 +508,67 @@ const CheckoutScreen = () => {
         [slug]: { ...entry, selected: updatedSelected },
       };
     });
+  };
+
+  const handleApplyPromo = async () => {
+    const code = promoCodeInput.trim();
+    if (!code) {
+      setPromoError('Enter a promo code to apply.');
+      return;
+    }
+    if (!checkoutItems.length) {
+      setPromoError('Add a package before applying a code.');
+      return;
+    }
+
+    setPromoLoading(true);
+    setPromoError(null);
+    try {
+      const anchor = checkoutItems[0];
+      const res = await fetch(`${API_BASE_URL}/api/discounts/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          packageSlug: anchor?.slug,
+          category: anchor?.category,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.message || 'Unable to apply this code.');
+      }
+      const percent = Number(data?.discountPercent);
+      if (!percent || percent <= 0) {
+        throw new Error('This code is not offering a discount right now.');
+      }
+      setAppliedPromo({
+        code: (data?.code || code).toUpperCase(),
+        percent,
+        description: data?.description,
+      });
+      showToast({
+        type: 'success',
+        title: 'Code applied',
+        message: `${percent}% off has been applied to your order.`,
+      });
+    } catch (err: any) {
+      const message = err?.message || 'Unable to apply this code.';
+      setPromoError(message);
+      showToast({
+        type: 'error',
+        title: 'Promo code failed',
+        message,
+      });
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoCodeInput('');
+    setPromoError(null);
   };
 
   const handlePlaceOrder = async () => {
@@ -565,6 +653,7 @@ const CheckoutScreen = () => {
         const payload = {
           packageSlug: item.slug,
           selectedAddons: buildSelectedAddonsPayload(item),
+          discountCode: appliedPromo?.code,
         };
         await apiClient.post('/subscriptions', payload);
       }
@@ -584,14 +673,8 @@ const CheckoutScreen = () => {
       });
 
       const firstItem = summaryItem || checkoutItems[0];
-      const cachedBase = firstItem ? basePackagePrices[firstItem.slug] : undefined;
       const stateAddons = Array.isArray(firstItem?.selectedAddons) ? firstItem.selectedAddons : [];
-      const stateAddonTotal = stateAddons.reduce((sum, addon) => sum + addon.price, 0);
-      const basePrice =
-        firstItem && typeof cachedBase === 'number'
-          ? cachedBase
-          : Number(((firstItem?.finalPrice || 0) - stateAddonTotal).toFixed(2));
-      const summaryPrice = Number((basePrice + stateAddonTotal).toFixed(2));
+      const summaryPrice = total;
       const purchasedAddons =
         stateAddons.length > 0
           ? stateAddons.map((addon) => ({
@@ -779,6 +862,62 @@ const CheckoutScreen = () => {
 
               <View style={styles.card}>
                 <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Promo code</Text>
+                  {appliedPromo && (
+                    <TouchableOpacity onPress={handleRemovePromo}>
+                      <Text style={styles.linkText}>Remove</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {appliedPromo ? (
+                  <View style={styles.appliedPromoRow}>
+                    <View style={styles.appliedCodePill}>
+                      <Ionicons name="pricetag" size={16} color={colors.primary} />
+                      <Text style={styles.appliedCode}>{appliedPromo.code}</Text>
+                    </View>
+                    <Text style={styles.appliedPercent}>{appliedPromo.percent}% OFF</Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.promoInputRow}>
+                      <Ionicons name="pricetag-outline" size={18} color={colors.textSecondary} />
+                      <TextInput
+                        style={styles.promoInput}
+                        placeholder="Enter promo code"
+                        placeholderTextColor={colors.muted}
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                        value={promoCodeInput}
+                        onChangeText={(text) => {
+                          setPromoCodeInput(text);
+                          if (promoError) setPromoError(null);
+                        }}
+                        editable={!promoLoading}
+                      />
+                    </View>
+                    {promoError ? <Text style={styles.errorText}>{promoError}</Text> : null}
+                    <TouchableOpacity
+                      style={[
+                        styles.applyButton,
+                        (promoLoading || !promoCodeInput.trim()) && styles.buttonDisabled,
+                      ]}
+                      onPress={handleApplyPromo}
+                      disabled={promoLoading || !promoCodeInput.trim()}
+                      activeOpacity={0.9}
+                    >
+                      {promoLoading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.applyButtonText}>Apply code</Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+
+              <View style={styles.card}>
+                <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>Payment method</Text>
                   <TouchableOpacity onPress={() => router.push('./paymentMethods')}>
                     <Text style={styles.linkText}>Change</Text>
@@ -836,6 +975,14 @@ const CheckoutScreen = () => {
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>Add-ons</Text>
                     <Text style={styles.summaryValue}>+${addonsTotal.toFixed(2)}</Text>
+                  </View>
+                )}
+                {promoDiscountAmount > 0 && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Promo discount</Text>
+                    <Text style={[styles.summaryValue, styles.summaryDiscountValue]}>
+                      -${promoDiscountAmount.toFixed(2)}
+                    </Text>
                   </View>
                 )}
                 <View style={styles.summaryRow}>
@@ -1051,6 +1198,63 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#92400E',
   },
+  promoInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.card,
+  },
+  promoInput: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    color: colors.textPrimary,
+    paddingVertical: spacing.xs,
+  },
+  applyButton: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyButtonText: {
+    color: colors.surface,
+    fontWeight: '700',
+  },
+  appliedPromoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  appliedCodePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: '#F3E8FF',
+  },
+  appliedCode: {
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  appliedPercent: {
+    fontWeight: '700',
+    color: colors.success,
+  },
+  errorText: {
+    color: colors.danger,
+    marginTop: spacing.xs,
+    fontSize: 12,
+  },
   paymentRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1109,6 +1313,9 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  summaryDiscountValue: {
+    color: colors.danger,
   },
   summaryDivider: {
     height: 1,
@@ -1274,6 +1481,3 @@ const styles = StyleSheet.create({
 });
 
 export default CheckoutScreen;
-
-
-

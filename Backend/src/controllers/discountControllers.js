@@ -27,7 +27,7 @@ export const validateDiscountCode = async (req, res) => {
       if (!discountCode.isActive) {
         return res.status(400).json({ message: "Discount code is inactive" });
       }
-      if (new Date() > discountCode.expiryDate) {
+      if (discountCode.expiresAt && new Date() > discountCode.expiresAt) {
         return res.status(400).json({ message: "Discount code has expired" });
       }
       if (discountCode.usageLimit !== null && discountCode.usedCount >= discountCode.usageLimit) {

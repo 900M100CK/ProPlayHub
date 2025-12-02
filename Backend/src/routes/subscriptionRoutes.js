@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import auth from "../middlewares/auth.js";
 import SubscriptionPackage from "../models/SubscriptionPackage.js";
 import Subscription from "../models/userSubscription.js";
+import DiscountCode from "../models/DiscountCode.js";
 import { sendSubscriptionReceiptEmail, sendAddonPurchaseEmail } from "../libs/email.js";
 
 const router = express.Router();
@@ -40,6 +41,53 @@ const toCents = (value) => {
 };
 const centsToAmount = (cents) => Number((cents / 100).toFixed(2));
 
+const percentToBasisPoints = (value) => {
+  const num = toNumberSafe(value);
+  return num !== null && num > 0 ? Math.round(num * 100) : 0;
+};
+
+const httpError = (status, message) => {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+};
+
+const loadValidDiscountCode = async (rawCode, pkg) => {
+  if (!rawCode || typeof rawCode !== "string") return null;
+  const normalized = rawCode.trim().toUpperCase();
+  if (!normalized) return null;
+
+  const discountCode = await DiscountCode.findOne({ code: normalized });
+  if (!discountCode) {
+    throw httpError(404, "Discount code not found.");
+  }
+
+  if (!discountCode.isValid()) {
+    if (!discountCode.isActive) throw httpError(400, "Discount code is inactive.");
+    if (discountCode.expiresAt && new Date() > discountCode.expiresAt) {
+      throw httpError(400, "Discount code has expired.");
+    }
+    if (discountCode.usageLimit !== null && discountCode.usedCount >= discountCode.usageLimit) {
+      throw httpError(400, "Discount code usage limit reached.");
+    }
+    throw httpError(400, "Discount code is not valid.");
+  }
+
+  if (Array.isArray(discountCode.applicablePackages) && discountCode.applicablePackages.length) {
+    if (!discountCode.applicablePackages.includes(pkg.slug)) {
+      throw httpError(400, "Discount code does not apply to this package.");
+    }
+  }
+
+  if (Array.isArray(discountCode.applicableCategories) && discountCode.applicableCategories.length) {
+    if (!discountCode.applicableCategories.includes(pkg.category)) {
+      throw httpError(400, "Discount code does not apply to this category.");
+    }
+  }
+
+  return discountCode;
+};
+
 /**
  * POST /api/subscriptions
  * Create a subscription after checkout. Body:
@@ -50,7 +98,7 @@ const centsToAmount = (cents) => Number((cents / 100).toFixed(2));
  */
 router.post("/", auth, async (req, res) => {
   try {
-    const { packageSlug } = req.body;
+    const { packageSlug, discountCode: discountCodeRaw } = req.body;
     const user = req.user;
     const selectedAddonsRaw = Array.isArray(req.body.selectedAddons) ? req.body.selectedAddons : [];
 
@@ -102,6 +150,24 @@ router.post("/", auth, async (req, res) => {
       }
     }
 
+    let appliedDiscount = null;
+    let discountCodeDoc = null;
+
+    if (discountCodeRaw) {
+      discountCodeDoc = await loadValidDiscountCode(discountCodeRaw, pkg);
+      const promoBasisPoints = percentToBasisPoints(discountCodeDoc?.discountPercent);
+      if (promoBasisPoints > 0) {
+        const adjusted = Math.round((finalPriceCents * (10000 - promoBasisPoints)) / 10000);
+        const savingsCents = Math.max(0, finalPriceCents - adjusted);
+        finalPriceCents = Math.max(0, adjusted);
+        appliedDiscount = {
+          code: discountCodeDoc.code,
+          percent: discountCodeDoc.discountPercent,
+          amount: centsToAmount(savingsCents),
+        };
+      }
+    }
+
     const finalPrice = centsToAmount(finalPriceCents);
 
     const now = new Date();
@@ -116,10 +182,15 @@ router.post("/", auth, async (req, res) => {
       period: pkg.period || "/month",
       pricePerPeriod: finalPrice,
       purchasedAddons,
+      appliedDiscount,
       startedAt: now,
       nextBillingDate,
       status: "active",
     });
+
+    if (discountCodeDoc) {
+      await discountCodeDoc.incrementUsage();
+    }
 
     sendSubscriptionReceiptEmail(user.email, user.name, sub).catch((err) =>
       console.error("Handled: Failed to send subscription receipt email:", err)
@@ -128,6 +199,9 @@ router.post("/", auth, async (req, res) => {
     return res.status(201).json(sub);
   } catch (err) {
     console.error("Create subscription error:", err);
+    if (err?.status) {
+      return res.status(err.status).json({ message: err.message });
+    }
     return res.status(500).json({ message: "Server error creating subscription" });
   }
 });

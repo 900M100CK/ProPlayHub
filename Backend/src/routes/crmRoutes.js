@@ -81,7 +81,7 @@ router.delete("/packages/:id", isAdmin, async (req, res) => {
 // GET all discounts
 router.get("/discounts", async (req, res) => {
   try {
-    const discounts = await Discount.find({}).sort({ expiryDate: -1 });
+    const discounts = await Discount.find({}).sort({ expiresAt: -1 });
     res.json(discounts);
   } catch (err) {
     console.error("GET /api/crm/discounts error:", err);
@@ -97,7 +97,7 @@ router.post("/discounts", isAdmin, async (req, res) => {
     const newDiscount = new Discount({
       code: discountCode,
       discountPercent: discountValue,
-      expiryDate: discountExpiry,
+      expiresAt: discountExpiry,
     });
     await newDiscount.save();
     res.status(201).json(newDiscount);
