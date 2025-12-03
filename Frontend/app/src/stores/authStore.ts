@@ -30,8 +30,13 @@ const ForgotPasswordSchema = z.object({
 
 // Schema for completing profile
 const CompleteProfileSchema = z.object({
-  age: z.string().min(1, { message: 'Age is required.' }).transform(val => parseInt(val, 10)),
-  location: z.string().min(1, { message: 'Location is required.' }),
+  displayName: z.string().trim().min(3, { message: 'Display Name must be at least 3 characters.' }),
+  // Age is optional, but if provided, it must be a valid number.
+  age: z.preprocess(
+    (val) => (val === '' ? 0 : Number(val)), // Convert empty string to 0, otherwise to number
+    z.number().int().min(0, 'Age cannot be negative.').optional()
+  ),
+  location: z.string().trim().min(1, { message: 'Location is required.' }),
   address: z.string().optional(),
   gamingPlatformPreferences: z.array(z.string()).min(1, { message: 'Please select at least one platform.' }),
 });
@@ -462,7 +467,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    try {
+    try { 
       const response = await apiClient.put('/auth/complete-profile', validationResult.data);
 
       const updatedUser = response.data.user;

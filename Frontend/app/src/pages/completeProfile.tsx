@@ -15,30 +15,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../stores/authStore';
 import { Ionicons } from '@expo/vector-icons';
 
-type ProfileFormState = {
-  age: string;
-  location: string;
-  address: string;
-  gamingPlatformPreferences: string[];
-};
-
-type CompleteProfilePayload = {
-  age: number;
-  location: string;
-  gamingPlatformPreferences: string[];
-  address?: string;
-};
-
 const CompleteProfileScreen = () => {
-  const { completeProfile, isLoading, errorMessage } = useAuthStore();
+  const { user, completeProfile, isLoading, errorMessage } = useAuthStore();
 
-  const [formData, setFormData] = useState<ProfileFormState>({
+  const [formData, setFormData] = useState({
+    displayName: user?.username || '',
     age: '',
     location: '',
     address: '',
-    gamingPlatformPreferences: [],
+    gamingPlatformPreferences: [] as string[],
   });
 
+  // Explicitly type the field to prevent errors
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -54,18 +42,10 @@ const CompleteProfileScreen = () => {
   };
 
   const handleSave = () => {
-    const numericAge = Number(formData.age);
-    const payload: CompleteProfilePayload = {
-      age: Number.isFinite(numericAge) ? numericAge : 0,
-      location: formData.location.trim(),
-      gamingPlatformPreferences: formData.gamingPlatformPreferences,
-    };
-
-    if (formData.address.trim()) {
-      payload.address = formData.address.trim();
-    }
-
-    completeProfile(payload);
+    // The `completeProfile` function in the store will handle the final validation
+    // and transformation via Zod.
+    // Gửi dữ liệu thô, Zod trong store sẽ xử lý việc chuyển đổi và validation.
+    completeProfile(formData);
   };
 
   return (
@@ -87,6 +67,16 @@ const CompleteProfileScreen = () => {
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           )}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Display Name</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.displayName}
+              onChangeText={(val) => handleInputChange('displayName', val)}
+              placeholder="How you'll appear to others"
+            />
+          </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Age</Text>
