@@ -66,7 +66,7 @@ const DEFAULT_METHODS: PaymentMethod[] = [
   {
     id: 'pm_bank',
     type: 'bank',
-    name: 'Bank transfer',
+    name: 'Bank Transfer',
     detail: 'Checking **88',
   },
 ];
@@ -441,10 +441,10 @@ const PaymentMethodsScreen = () => {
       </ScrollView>
       <ConfirmationModal
         visible={confirmVisible}
-        title="Delete payment method"
+        title="Delete Payment Method"
         message={
           methods.find((m) => m.id === pendingDeleteId)
-            ? `Are you sure you want to delete ${
+            ? `Are you sure to delete this ${
                 methods.find((m) => m.id === pendingDeleteId)?.name
               }?`
             : 'Are you sure you want to delete this payment method?'
