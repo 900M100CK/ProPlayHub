@@ -15,28 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../stores/authStore';
 import { Ionicons } from '@expo/vector-icons';
 
-type ProfileFormState = {
-  age: string;
-  location: string;
-  address: string;
-  gamingPlatformPreferences: string[];
-};
-
-type CompleteProfilePayload = {
-  age: number;
-  location: string;
-  gamingPlatformPreferences: string[];
-  address?: string;
-};
-
 const CompleteProfileScreen = () => {
   const { completeProfile, isLoading, errorMessage } = useAuthStore();
 
-  const [formData, setFormData] = useState<ProfileFormState>({
+  const [formData, setFormData] = useState({
     age: '',
     location: '',
     address: '',
-    gamingPlatformPreferences: [],
+    gamingPlatformPreferences: [] as string[],
   });
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
@@ -54,18 +40,7 @@ const CompleteProfileScreen = () => {
   };
 
   const handleSave = () => {
-    const numericAge = Number(formData.age);
-    const payload: CompleteProfilePayload = {
-      age: Number.isFinite(numericAge) ? numericAge : 0,
-      location: formData.location.trim(),
-      gamingPlatformPreferences: formData.gamingPlatformPreferences,
-    };
-
-    if (formData.address.trim()) {
-      payload.address = formData.address.trim();
-    }
-
-    completeProfile(payload);
+    completeProfile(formData);
   };
 
   return (

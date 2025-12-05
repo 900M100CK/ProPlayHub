@@ -311,7 +311,7 @@ export const completeProfile = async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { displayName, age, location, address, gamingPlatformPreferences },
+      { age, location, address, gamingPlatformPreferences },
       { new: true, runValidators: true }
     ).select('-password');
 

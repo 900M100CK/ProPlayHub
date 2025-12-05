@@ -76,7 +76,8 @@ type AuthState = {
   sendPasswordResetEmail: () => Promise<boolean>; // Forgot-password action
   resetPasswordWithOTP: (email: string, otp: string, newPassword: string) => Promise<void>;
   restoreSession: () => Promise<void>; // New action to restore session
-  completeProfile: (data: z.infer<typeof CompleteProfileSchema>) => Promise<void>;
+  // Accept the raw form input shape before Zod transforms (age arrives as a string from inputs)
+  completeProfile: (data: z.input<typeof CompleteProfileSchema>) => Promise<void>;
   resetAuthForms: () => void;
 };
 
@@ -451,7 +452,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  completeProfile: async (data) => {
+  completeProfile: async (data: z.input<typeof CompleteProfileSchema>) => {
     set({ isLoading: true, errorMessage: null, successMessage: null });
 
     const validationResult = CompleteProfileSchema.safeParse(data);
