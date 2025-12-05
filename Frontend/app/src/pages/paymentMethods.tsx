@@ -16,6 +16,7 @@ import ScreenHeader from '../components/ScreenHeader';
 import { colors, spacing, radius, shadow } from '../styles/theme';
 import { useToast } from '../components/ToastProvider';
 import { useAuthStore } from '../stores/authStore';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const PAYMENT_METHODS_LIST_STORAGE_KEY = 'paymentMethodsList';
 const PAYMENT_METHOD_STORAGE_KEY = 'selectedPaymentMethod';
@@ -84,6 +85,9 @@ const PaymentMethodsScreen = () => {
   const [newDetail, setNewDetail] = useState('');
   const [newBrand, setNewBrand] = useState('');
   const [newLast4, setNewLast4] = useState('');
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadSaved = async () => {
@@ -213,6 +217,65 @@ const PaymentMethodsScreen = () => {
     if (method.type === 'paypal') return 'logo-paypal';
     if (method.type === 'bank') return 'business-outline';
     return 'card-outline';
+  };
+
+  const deleteMethod = async (id: string) => {
+    if (methods.length <= 1) {
+      showToast({
+        type: 'error',
+        title: 'Cannot delete',
+        message: 'At least one payment method is required.',
+      });
+      return;
+    }
+
+    const updated = methods.filter((m) => m.id !== id);
+    const newSelected = updated.find((m) => m.id === selectedId) ?? updated[0];
+
+    setMethods(updated);
+    setSelectedId(newSelected.id);
+
+    try {
+      const selectedKey = keyForUser(user?._id, PAYMENT_METHOD_STORAGE_KEY);
+      await AsyncStorage.setItem(selectedKey, JSON.stringify(newSelected));
+      showToast({
+        type: 'success',
+        title: 'Payment method deleted',
+        message: 'Your default method has been updated.',
+      });
+    } catch (err) {
+      console.error('Failed to update selection after delete:', err);
+      showToast({
+        type: 'error',
+        title: 'Could not update',
+        message: 'Please try again.',
+      });
+    }
+  };
+
+  const confirmDeleteMethod = (id: string) => {
+    if (methods.length <= 1) {
+      showToast({
+        type: 'error',
+        title: 'Cannot delete',
+        message: 'At least one payment method is required.',
+      });
+      return;
+    }
+    setPendingDeleteId(id);
+    setConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    try {
+      setConfirming(true);
+      await deleteMethod(pendingDeleteId);
+    } finally {
+      setConfirming(false);
+      setConfirmVisible(false);
+      setPendingDeleteId(null);
+    }
   };
 
   if (loading) {
@@ -346,11 +409,20 @@ const PaymentMethodsScreen = () => {
                   <Text style={styles.methodDetail}>{method.detail}</Text>
                 </View>
               </View>
-              {isSelected ? (
-                <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-              ) : (
-                <Ionicons name="ellipse-outline" size={20} color={colors.muted} />
-              )}
+              <View style={styles.rightActions}>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => confirmDeleteMethod(method.id)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                </TouchableOpacity>
+                {isSelected ? (
+                  <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                ) : (
+                  <Ionicons name="ellipse-outline" size={20} color={colors.muted} />
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -367,6 +439,26 @@ const PaymentMethodsScreen = () => {
           )}
         </TouchableOpacity>
       </ScrollView>
+      <ConfirmationModal
+        visible={confirmVisible}
+        title="Delete payment method"
+        message={
+          methods.find((m) => m.id === pendingDeleteId)
+            ? `Are you sure you want to delete ${
+                methods.find((m) => m.id === pendingDeleteId)?.name
+              }?`
+            : 'Are you sure you want to delete this payment method?'
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        loading={confirming}
+        onCancel={() => {
+          if (confirming) return;
+          setConfirmVisible(false);
+          setPendingDeleteId(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </SafeAreaView>
   );
 };
@@ -476,6 +568,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     flex: 1,
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  deleteButton: {
+    padding: spacing.xs,
   },
   iconBubble: {
     width: 44,
