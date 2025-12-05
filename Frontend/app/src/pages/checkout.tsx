@@ -557,7 +557,7 @@ const CheckoutScreen = () => {
       setPromoError(message);
       showToast({
         type: 'error',
-        title: 'Promo code failed',
+        title: 'Promo Code failed',
         message,
       });
     } finally {
@@ -597,7 +597,7 @@ const CheckoutScreen = () => {
     if (!paymentMethod) {
       showToast({
         type: 'info',
-        title: 'Choose payment method',
+        title: 'Choose Payment Methods',
         message: 'Select a payment method before confirming.',
         action: {
           label: 'Select method',
@@ -862,7 +862,7 @@ const CheckoutScreen = () => {
 
               <View style={styles.card}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Promo code</Text>
+                  <Text style={styles.sectionTitle}>Promo Code</Text>
                   {appliedPromo && (
                     <TouchableOpacity onPress={handleRemovePromo}>
                       <Text style={styles.linkText}>Remove</Text>
@@ -918,7 +918,7 @@ const CheckoutScreen = () => {
 
               <View style={styles.card}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Payment method</Text>
+                  <Text style={styles.sectionTitle}>Payment Methods</Text>
                   <TouchableOpacity onPress={() => router.push('./paymentMethods')}>
                     <Text style={styles.linkText}>Change</Text>
                   </TouchableOpacity>
@@ -979,7 +979,7 @@ const CheckoutScreen = () => {
                 )}
                 {promoDiscountAmount > 0 && (
                   <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Promo discount</Text>
+                    <Text style={styles.summaryLabel}>Promo Discount</Text>
                     <Text style={[styles.summaryValue, styles.summaryDiscountValue]}>
                       -${promoDiscountAmount.toFixed(2)}
                     </Text>
@@ -1021,7 +1021,7 @@ const CheckoutScreen = () => {
                 {processing ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.primaryButtonText}>Confirm and subscribe</Text>
+                  <Text style={styles.primaryButtonText}>Confirm and Subscribe</Text>
                 )}
               </TouchableOpacity>
             </View>

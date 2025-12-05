@@ -7,7 +7,7 @@ export default function RootLayout() {
     <ToastProvider>
       <Stack
         screenOptions={{
-          headerShown: false, // vì bạn đã custom header trong home/packageDetail rồi
+          headerShown: false, 
         }}
       />
     </ToastProvider>

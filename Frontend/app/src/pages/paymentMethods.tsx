@@ -206,8 +206,8 @@ const PaymentMethodsScreen = () => {
 
     showToast({
       type: 'success',
-      title: 'Added payment method',
-      message: `${newMethod.name} saved as default.`,
+      title: 'Added Payment Method',
+      message: `${newMethod.name} Saved as Default.`,
     });
     resetForm();
     setShowAddForm(false);
@@ -240,7 +240,7 @@ const PaymentMethodsScreen = () => {
       await AsyncStorage.setItem(selectedKey, JSON.stringify(newSelected));
       showToast({
         type: 'success',
-        title: 'Payment method deleted',
+        title: 'Payment Method deleted',
         message: 'Your default method has been updated.',
       });
     } catch (err) {
