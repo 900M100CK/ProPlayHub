@@ -5,6 +5,7 @@
   "hints": {
     "typescript-config/is-valid": "off",
     "typescript-config/consistent-casing": "off",
-    "no-inline-styles": "off"
+    "no-inline-styles": "off",
+    "compat-api/css": "off"
   }
 }

@@ -7,6 +7,29 @@ import Subscription from "../models/userSubscription.js"; // 👈 Thêm model Su
 
 const router = express.Router();
 
+// --- Helpers ---
+const slugifyValue = (value = "") =>
+  value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+// Make sure slug is unique; append -1, -2... when needed.
+const ensureUniqueSlug = async (baseSlug, excludeId = null) => {
+  let candidateSlug = baseSlug;
+  let counter = 1;
+  const baseQuery = excludeId ? { _id: { $ne: excludeId } } : {};
+
+  while (await Package.exists({ slug: candidateSlug, ...baseQuery })) {
+    candidateSlug = `${baseSlug}-${counter}`;
+    counter += 1;
+  }
+
+  return candidateSlug;
+};
+
 // Middleware to check for admin privileges (placeholder)
 // In a real application, you'd have a proper auth middleware that checks user roles.
 const isAdmin = (req, res, next) => {
@@ -21,11 +44,22 @@ const isAdmin = (req, res, next) => {
 // POST a new package
 router.post("/packages", isAdmin, async (req, res) => {
   try {
-    const newPackage = new Package(req.body);
+    const baseSlug = slugifyValue(req.body.slug || req.body.name);
+    if (!baseSlug) {
+      return res.status(400).json({ message: "Slug or name is required to create a package." });
+    }
+    const finalSlug = await ensureUniqueSlug(baseSlug);
+
+    const newPackage = new Package({ ...req.body, slug: finalSlug });
     await newPackage.save();
     res.status(201).json(newPackage);
   } catch (err) {
     console.error("POST /api/crm/packages error:", err);
+
+    if (err?.code === 11000 && err?.keyPattern?.slug) {
+      return res.status(409).json({ message: "Package slug already exists. Please choose another slug or name." });
+    }
+
     res.status(400).json({ message: err.message || "Failed to create package." });
   }
 });
@@ -34,13 +68,28 @@ router.post("/packages", isAdmin, async (req, res) => {
 router.put("/packages/:id", isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedPackage = await Package.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
+    const updatePayload = { ...req.body };
+
+    if (req.body.slug || req.body.name) {
+      const baseSlug = slugifyValue(req.body.slug || req.body.name);
+      if (!baseSlug) {
+        return res.status(400).json({ message: "Slug or name is required to update package slug." });
+      }
+      updatePayload.slug = await ensureUniqueSlug(baseSlug, id);
+    }
+
+    const updatedPackage = await Package.findByIdAndUpdate(id, updatePayload, { new: true, runValidators: true });
     if (!updatedPackage) {
       return res.status(404).json({ message: "Package not found." });
     }
     res.json(updatedPackage);
   } catch (err) {
     console.error(`PUT /api/crm/packages/${req.params.id} error:`, err);
+
+    if (err?.code === 11000 && err?.keyPattern?.slug) {
+      return res.status(409).json({ message: "Package slug already exists. Please choose another slug or name." });
+    }
+
     res.status(400).json({ message: err.message || "Failed to update package." });
   }
 });

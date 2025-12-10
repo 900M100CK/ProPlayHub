@@ -17,133 +17,344 @@
         --border: #e5e7eb;
         --danger: #ef4444;
         --success: #16a34a;
+        --shadow-sm: 0 2px 8px rgba(17, 24, 39, 0.04);
+        --shadow-md: 0 4px 16px rgba(17, 24, 39, 0.06);
+        --shadow-lg: 0 12px 32px rgba(17, 24, 39, 0.08);
+        --shadow-xl: 0 20px 50px rgba(17, 24, 39, 0.12);
       }
 
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
       body {
         margin: 0;
         font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-        background: radial-gradient(circle at 12% 18%, rgba(168, 85, 247, 0.08), transparent 28%),
-          radial-gradient(circle at 86% 8%, rgba(249, 115, 22, 0.07), transparent 24%),
+        background: radial-gradient(
+            circle at 12% 18%,
+            rgba(168, 85, 247, 0.08),
+            transparent 28%
+          ),
+          radial-gradient(
+            circle at 86% 8%,
+            rgba(249, 115, 22, 0.07),
+            transparent 24%
+          ),
+          radial-gradient(
+            circle at 50% 100%,
+            rgba(168, 85, 247, 0.03),
+            transparent 50%
+          ),
           var(--bg);
+        background-attachment: fixed;
         color: var(--text);
+        line-height: 1.6;
+        overflow-x: hidden;
       }
 
       header {
-        padding: 14px 18px;
-        border-bottom: 1px solid var(--border);
-        background: linear-gradient(135deg, var(--primary), var(--primary-2));
+        padding: 16px 24px;
+        border-bottom: 1px solid rgba(168, 85, 247, 0.1);
+        background: linear-gradient(
+          135deg,
+          var(--primary) 0%,
+          var(--primary-2) 100%
+        );
         color: #fff;
-        box-shadow: 0 8px 24px rgba(168, 85, 247, 0.18);
+        box-shadow: 0 8px 32px rgba(168, 85, 247, 0.2),
+          0 2px 8px rgba(168, 85, 247, 0.1);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        backdrop-filter: blur(10px);
+        /* Reduced motion for smoother feel */
+        animation: none;
       }
 
       header h1 {
         margin: 0;
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 800;
-        letter-spacing: 0.4px;
+        letter-spacing: 0.5px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      header h1 span {
+        display: inline-flex;
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #60a5fa, #a855f7);
+        box-shadow: 0 0 0 8px rgba(96, 165, 250, 0.15),
+          0 4px 12px rgba(96, 165, 250, 0.3);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.1);
+          opacity: 0.8;
+        }
       }
 
       main {
-        padding: clamp(16px, 4vw, 32px);
-        max-width: 1200px;
+        padding: clamp(20px, 5vw, 40px);
+        max-width: 1280px;
         margin: 0 auto;
+        animation: none;
       }
 
       .tabs {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
-        border-bottom: 1px solid var(--border);
-        margin-bottom: 20px;
+        gap: 6px;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 28px;
+        padding: 0 4px;
+        position: relative;
       }
 
       .tab-btn {
-        padding: 10px 16px;
+        padding: 12px 20px;
         border: none;
         background: transparent;
         cursor: pointer;
         font-size: 14px;
         font-weight: 600;
         color: var(--muted);
-        border-bottom: 2px solid transparent;
-        transition: all 0.2s ease;
+        border-bottom: 3px solid transparent;
+        transition: color 0.15s ease, border-color 0.15s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .tab-btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(168, 85, 247, 0.08),
+          rgba(139, 92, 246, 0.08)
+        );
+        opacity: 0;
+        transition: opacity 0.25s ease;
+      }
+
+      .tab-btn:hover::before {
+        opacity: 1;
+      }
+
+      .tab-btn:hover {
+        color: var(--primary);
       }
 
       .tab-btn.active {
         color: var(--primary);
         border-bottom-color: var(--primary);
+        background: linear-gradient(
+          180deg,
+          rgba(168, 85, 247, 0.05),
+          transparent
+        );
       }
 
-      .tab-content { display: none; }
-      .tab-content.active { display: block; }
+      .tab-btn.active::after {
+        content: "";
+        position: absolute;
+        bottom: -3px;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary), var(--primary-2));
+        border-radius: 3px 3px 0 0;
+        box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+      }
+
+      .tab-content {
+        display: none;
+        animation: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
 
       .card {
         background: var(--panel);
-        border-radius: 14px;
+        border-radius: 16px;
         border: 1px solid var(--border);
-        padding: 24px;
-        box-shadow: 0 12px 32px rgba(17, 24, 39, 0.06);
-        margin-bottom: 20px;
+        padding: 28px;
+        box-shadow: var(--shadow-lg);
+        margin-bottom: 24px;
+        transition: all 0.18s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary), var(--accent));
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-lg);
+        border-color: rgba(168, 85, 247, 0.2);
+      }
+
+      .card:hover::before {
+        opacity: 1;
       }
 
       .card h2 {
         margin-top: 0;
-        font-size: 20px;
+        font-size: 22px;
+        font-weight: 700;
         color: var(--text);
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 12px;
-        margin-bottom: 20px;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 14px;
+        margin-bottom: 24px;
+        background: linear-gradient(135deg, var(--text), var(--primary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
       }
 
       .filter-bar {
         display: flex;
         flex-wrap: wrap;
-        gap: 16px;
-        margin-bottom: 20px;
+        gap: 12px;
+        margin-bottom: 24px;
         align-items: center;
+        padding: 16px;
+        background: linear-gradient(
+          135deg,
+          rgba(168, 85, 247, 0.03),
+          rgba(249, 115, 22, 0.02)
+        );
+        border-radius: 12px;
+        border: 1px solid rgba(168, 85, 247, 0.1);
       }
 
       .filter-bar input[type="search"],
       .filter-bar select {
-        padding: 8px 12px;
+        padding: 10px 14px;
         border-radius: 10px;
         border: 1px solid var(--border);
         background: #ffffff;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease,
+          transform 0.18s ease;
+        font-size: 14px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .filter-bar input[type="search"]:focus,
+      .filter-bar select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.12), var(--shadow-md);
+        transform: translateY(-1px);
+      }
+
+      /* Global select styling so dropdowns stay consistent */
+      select {
+        font: inherit;
+        border-radius: 10px;
+        border: 1.5px solid var(--border);
+        background-color: #ffffff;
+        color: var(--text);
+        padding: 10px 14px;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease,
+          transform 0.18s ease;
+        appearance: none;
+        background-image: linear-gradient(
+            45deg,
+            transparent 50%,
+            var(--primary) 50%
+          ),
+          linear-gradient(135deg, var(--primary) 50%, transparent 50%);
+        background-position: calc(100% - 18px) center,
+          calc(100% - 12px) center;
+        background-size: 6px 6px, 6px 6px;
+        background-repeat: no-repeat;
+        padding-right: 40px;
+        cursor: pointer;
+      }
+
+      select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.12);
+        transform: translateY(-1px);
+      }
+
+      select:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
       }
 
       .form-group {
-        margin-bottom: 16px;
+        margin-bottom: 18px;
       }
 
       .form-group label {
         display: block;
-        font-size: 13px;
+        font-size: 11px;
         font-weight: 600;
         color: var(--muted);
-        margin-bottom: 6px;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
       }
 
       .form-group input,
       .form-group textarea,
       .form-group select {
         width: 100%;
-        padding: 10px 12px;
+        padding: 11px 14px;
         border-radius: 10px;
-        border: 1px solid var(--border);
+        border: 1.5px solid var(--border);
         background: #ffffff;
         color: var(--text);
         font-size: 14px;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease,
+          transform 0.18s ease;
+        font-family: inherit;
       }
+
+      .form-group input:hover,
+      .form-group textarea:hover,
+      .form-group select:hover {
+        border-color: rgba(168, 85, 247, 0.3);
+      }
+
       .form-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 18px;
       }
+
       .form-group.full-width {
         grid-column: 1 / -1;
       }
@@ -153,175 +364,443 @@
       .form-group select:focus {
         outline: none;
         border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.16);
+        box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.12);
+        transform: translateY(-1px);
       }
+
       .form-group select {
         appearance: none;
-        background-image: linear-gradient(45deg, transparent 50%, var(--primary) 50%),
+        background-image: linear-gradient(
+            45deg,
+            transparent 50%,
+            var(--primary) 50%
+          ),
           linear-gradient(135deg, var(--primary) 50%, transparent 50%);
         background-position: calc(100% - 18px) center, calc(100% - 12px) center;
         background-size: 6px 6px, 6px 6px;
         background-repeat: no-repeat;
-        padding-right: 36px;
-        cursor: pointer;
-      }
-
-      .addons-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .addon-row {
-        display: grid;
-        grid-template-columns: 1fr 2fr 120px auto;
-        gap: 10px;
-        align-items: center;
-        padding: 10px;
-        border: 1px dashed var(--border);
-        border-radius: 10px;
-        background: var(--panel-2);
-      }
-
-      .addon-row input {
-        width: 100%;
-      }
-
-      .btn-secondary {
-        margin-top: 8px;
-        padding: 8px 14px;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        background: #fff;
-        color: var(--primary);
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      .btn-secondary:hover {
-        border-color: var(--primary);
-      }
-
-      .remove-addon-btn {
-        border: none;
-        background: var(--danger);
-        color: #fff;
-        border-radius: 8px;
-        padding: 8px 10px;
+        padding-right: 40px;
         cursor: pointer;
       }
 
       .btn-primary {
-        padding: 10px 16px;
+        padding: 12px 24px;
         border-radius: 12px;
         border: none;
         background: linear-gradient(135deg, var(--primary), var(--primary-2));
         color: #f9fafb;
         font-weight: 700;
         cursor: pointer;
-        letter-spacing: 0.2px;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        letter-spacing: 0.3px;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease,
+          transform 0.18s ease;
+        font-size: 15px;
+        box-shadow: 0 4px 16px rgba(168, 85, 247, 0.25);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .btn-primary::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.2),
+          transparent
+        );
+        transition: left 0.5s ease;
+      }
+
+      .btn-primary:hover::before {
+        left: 100%;
       }
 
       .btn-primary:hover:enabled {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(168, 85, 247, 0.3);
+      }
+
+      .btn-primary:active:enabled {
         transform: translateY(-1px);
-        box-shadow: 0 10px 30px rgba(168, 85, 247, 0.18);
       }
 
       .customer-table {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
         font-size: 14px;
       }
 
       .customer-table th,
       .customer-table td {
-        padding: 12px 15px;
+        padding: 14px 16px;
         text-align: left;
         border-bottom: 1px solid var(--border);
       }
 
       .customer-table th {
-        background: var(--panel-2);
-        font-weight: 600;
-        color: var(--muted);
+        background: linear-gradient(
+          135deg,
+          var(--panel-2),
+          rgba(168, 85, 247, 0.03)
+        );
+        font-weight: 700;
+        color: var(--text);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .customer-table th:first-child {
+        border-radius: 12px 0 0 0;
+      }
+
+      .customer-table th:last-child {
+        border-radius: 0 12px 0 0;
+      }
+
+      .customer-table tbody tr {
+        transition: all 0.2s ease;
+        background: #fff;
       }
 
       .customer-table tbody tr:hover {
-        background: rgba(168, 85, 247, 0.05);
+        background: linear-gradient(
+          90deg,
+          rgba(168, 85, 247, 0.04),
+          rgba(249, 115, 22, 0.02)
+        );
+        transform: scale(1.01);
+        box-shadow: 0 2px 8px rgba(168, 85, 247, 0.08);
       }
 
       .btn-danger-outline {
-        padding: 4px 8px;
-        font-size: 12px;
+        padding: 6px 12px;
+        font-size: 13px;
         border-radius: 8px;
-        border: 1px solid var(--danger);
+        border: 1.5px solid var(--danger);
         background: transparent;
         color: var(--danger);
         cursor: pointer;
-        transition: all 0.15s ease;
+        transition: color 0.15s ease, border-color 0.15s ease,
+          box-shadow 0.15s ease, transform 0.15s ease;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 88px;
       }
+
+      .btn-danger-outline:hover {
+        background: var(--danger);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+      }
+
+      .btn-edit-outline {
+        padding: 6px 12px;
+        font-size: 13px;
+        border-radius: 8px;
+        border: 1.5px solid var(--primary-2);
+        background: transparent;
+        color: var(--primary-2);
+        cursor: pointer;
+        transition: color 0.15s ease, border-color 0.15s ease,
+          box-shadow 0.15s ease, transform 0.15s ease;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 88px;
+      }
+
+      .btn-edit-outline:hover {
+        background: var(--primary-2);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+      }
+
+      .actions-cell {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: flex-start;
+      }
+
       .table-responsive {
         width: 100%;
         overflow-x: auto;
-        border-radius: 12px;
+        border-radius: 14px;
+        box-shadow: var(--shadow-md);
+        background: white;
       }
-      .table-responsive table { min-width: 600px; }
-      .btn-danger-outline:hover { background: rgba(239, 68, 68, 0.1); }
 
-    </style>
-    <style> /* Modal Styles */
-      .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.6); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; }
-      .modal-overlay.active { display: flex; }
+      .table-responsive table {
+        min-width: 600px;
+      }
+
+      .actions-cell {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        white-space: nowrap;
+      }
+
+      .customer-table td.actions-cell,
+      .customer-table th.actions-cell {
+        vertical-align: middle;
+      }
+
+      .btn-secondary {
+        padding: 10px 18px;
+        border-radius: 10px;
+        border: 1.5px solid var(--border);
+        background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.9),
+          rgba(248, 250, 252, 0.95)
+        );
+        color: var(--text);
+        font-weight: 700;
+        cursor: pointer;
+        letter-spacing: 0.2px;
+        transition: all 0.2s ease;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .btn-secondary:hover:enabled {
+        border-color: rgba(168, 85, 247, 0.35);
+        color: var(--primary);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+      }
+
+      .btn-secondary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.55);
+        backdrop-filter: blur(6px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+      }
+
+      .modal-overlay.active {
+        display: flex;
+        opacity: 1;
+      }
+
       .modal-content {
+        width: min(720px, 96vw);
         background: var(--panel);
-        padding: 28px;
-        border-radius: 16px;
-        width: min(90%, 520px);
-        max-height: 88vh;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-xl);
+        padding: 22px;
+        max-height: 90vh;
         overflow-y: auto;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+        transform: translateY(10px);
+        transition: transform 0.25s ease;
       }
-      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-      .modal-header h2 { margin: 0; font-size: 18px; }
-      .modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--muted); }
-      .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
-      .btn-secondary { padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); background: #fff; color: var(--text); font-weight: 600; cursor: pointer; }
-      .btn-edit-outline { padding: 4px 8px; font-size: 12px; border-radius: 8px; border: 1px solid var(--primary-2); background: transparent; color: var(--primary-2); cursor: pointer; transition: all 0.15s ease; margin-right: 6px; }
-      .btn-edit-outline:hover { background: rgba(139, 92, 246, 0.1); }
 
-      @media (max-width: 1024px) {
-        main { padding: 20px; }
-        .card { padding: 20px; }
+      .modal-overlay.active .modal-content {
+        transform: translateY(0);
+      }
+
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 12px;
+      }
+
+      .modal-header h2 {
+        margin: 0;
+        font-size: 20px;
+        background: linear-gradient(135deg, var(--text), var(--primary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .modal-close-btn {
+        border: none;
+        background: transparent;
+        font-size: 26px;
+        color: var(--muted);
+        cursor: pointer;
+        border-radius: 999px;
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        transition: all 0.2s ease;
+      }
+
+      .modal-close-btn:hover {
+        background: rgba(168, 85, 247, 0.12);
+        color: var(--primary);
+        transform: rotate(90deg);
+      }
+
+      .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+        margin-top: 8px;
+      }
+
+      .addons-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .addon-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+        padding: 12px;
+        border: 1.5px dashed rgba(168, 85, 247, 0.25);
+        border-radius: 12px;
+        background: var(--panel-2);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .addon-row input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #fff;
+        transition: all 0.2s ease;
+      }
+
+      .addon-row input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.12);
+      }
+
+      .remove-addon-btn {
+        border: 1.5px solid var(--danger);
+        color: var(--danger);
+        background: #fff;
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: color 0.15s ease, border-color 0.15s ease,
+          box-shadow 0.15s ease, transform 0.15s ease;
+      }
+
+      .remove-addon-btn:hover {
+        background: var(--danger);
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.25);
+      }
+
+      /* Scrollbar Styling */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: var(--panel-2);
+        border-radius: 10px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, var(--primary), var(--primary-2));
+        border-radius: 10px;
+        border: 2px solid var(--panel-2);
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, var(--primary-2), var(--primary));
+      }
+
+      /* Respect users who prefer less motion */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.001ms !important;
+          scroll-behavior: auto !important;
+        }
       }
 
       @media (max-width: 768px) {
-        header h1 { font-size: 16px; }
-        .tabs { gap: 8px; }
-        .filter-bar { flex-direction: column; align-items: stretch; }
+        header h1 {
+          font-size: 18px;
+        }
+        .tabs {
+          gap: 4px;
+        }
+        .tab-btn {
+          padding: 10px 14px;
+          font-size: 13px;
+        }
+        .filter-bar {
+          flex-direction: column;
+          align-items: stretch;
+          padding: 14px;
+        }
         .filter-bar input,
-        .filter-bar select { width: 100%; }
-        .table-responsive table { min-width: 500px; }
-        .modal-content { width: 92%; max-width: 520px; padding: 22px; max-height: 90vh; }
-      }
-
-      @media (max-width: 600px) {
-        header { text-align: left; }
-        .card h2 { font-size: 18px; }
-        .form-group { width: 100%; }
-        .tab-btn { flex: 1 1 auto; }
-        .table-responsive table { min-width: 420px; }
-        .modal-content { width: 96%; padding: 18px; max-height: 92vh; }
-        .modal-header { flex-direction: column; align-items: flex-start; gap: 8px; }
-        .modal-footer { width: 100%; flex-direction: column; }
-        .modal-footer button { width: 100%; }
+        .filter-bar select {
+          width: 100%;
+        }
+        .card h2 {
+          font-size: 20px;
+        }
       }
     </style>
   </head>
   <body>
     <header>
       <h1>
-        <span style="display:inline-flex;width:12px;height:12px;border-radius:999px;background:linear-gradient(135deg,#60a5fa,#a855f7);box-shadow:0 0 0 8px rgba(96,165,250,0.15);"></span>
+        <span
+          style="
+            display: inline-flex;
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #60a5fa, #a855f7);
+            box-shadow: 0 0 0 8px rgba(96, 165, 250, 0.15);
+          "
+        ></span>
         CRM Dashboard
       </h1>
     </header>
@@ -331,14 +810,21 @@
         <button class="tab-btn active" data-tab="customers">Customers</button>
         <button class="tab-btn" data-tab="events">Event Management</button>
         <button class="tab-btn" data-tab="packages">Packages</button>
-        <button class="tab-btn" data-tab="discounts">Discount Management</button>
+        <button class="tab-btn" data-tab="discounts">
+          Discount Management
+        </button>
       </div>
 
       <div id="customers-content" class="tab-content active">
         <div class="card">
           <h2>Customer List</h2>
           <div class="filter-bar">
-            <input type="search" id="customer-search" placeholder="Search by username or email..." style="flex-grow: 1;" />
+            <input
+              type="search"
+              id="customer-search"
+              placeholder="Search by username or email..."
+              style="flex-grow: 1"
+            />
           </div>
           <div class="table-responsive">
             <table class="customer-table">
@@ -368,11 +854,20 @@
             </div>
             <div class="form-group">
               <label for="event-date">Event Date</label>
-              <input type="datetime-local" id="event-date" name="eventDate" required />
+              <input
+                type="datetime-local"
+                id="event-date"
+                name="eventDate"
+                required
+              />
             </div>
             <div class="form-group">
               <label for="event-description">Description</label>
-              <textarea id="event-description" name="eventDescription" rows="4"></textarea>
+              <textarea
+                id="event-description"
+                name="eventDescription"
+                rows="4"
+              ></textarea>
             </div>
             <button type="submit" class="btn-primary">Add Event</button>
           </form>
@@ -419,45 +914,101 @@
               </div>
               <div class="form-group">
                 <label for="package-base-price">Base Price</label>
-                <input type="number" id="package-base-price" name="basePrice" min="0" step="0.01" required />
+                <input
+                  type="number"
+                  id="package-base-price"
+                  name="basePrice"
+                  min="0"
+                  step="0.01"
+                  required
+                />
               </div>
               <div class="form-group">
                 <label for="package-period">Billing Period</label>
-                <input type="text" id="package-period" name="period" placeholder="/month" />
+                <input
+                  type="text"
+                  id="package-period"
+                  name="period"
+                  placeholder="/month"
+                />
               </div>
               <div class="form-group">
                 <label for="package-discount-label">Discount Label</label>
-                <input type="text" id="package-discount-label" name="discountLabel" placeholder="e.g. 15% OFF" />
+                <input
+                  type="text"
+                  id="package-discount-label"
+                  name="discountLabel"
+                  placeholder="e.g. 15% OFF"
+                />
               </div>
               <div class="form-group">
                 <label for="package-discount-percent">Discount Percent</label>
-                <input type="number" id="package-discount-percent" name="discountPercent" min="0" max="100" step="1" />
+                <input
+                  type="number"
+                  id="package-discount-percent"
+                  name="discountPercent"
+                  min="0"
+                  max="100"
+                  step="1"
+                />
               </div>
               <div class="form-group full-width">
                 <label for="package-features">Features (comma separated)</label>
-                <textarea id="package-features" name="features" rows="3" placeholder="Cloud saves, Premium support"></textarea>
+                <textarea
+                  id="package-features"
+                  name="features"
+                  rows="3"
+                  placeholder="Cloud saves, Premium support"
+                ></textarea>
               </div>
               <div class="form-group full-width">
                 <label for="package-tags">Tags (comma separated)</label>
-                <input type="text" id="package-tags" name="tags" placeholder="popular,exclusive" />
+                <input
+                  type="text"
+                  id="package-tags"
+                  name="tags"
+                  placeholder="popular,exclusive"
+                />
               </div>
               <div class="form-group full-width">
                 <label>Add-ons</label>
                 <div id="package-addons-list" class="addons-list"></div>
-                <button type="button" class="btn-secondary" id="add-package-addon-btn">Add add-on</button>
+                <button
+                  type="button"
+                  class="btn-secondary"
+                  id="add-package-addon-btn"
+                >
+                  Add add-on
+                </button>
                 <input type="hidden" id="package-addons-json" name="addons" />
               </div>
             </div>
-            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
-              <input type="checkbox" id="package-seasonal" name="isSeasonalOffer" value="true" style="width:auto;" />
-              <label for="package-seasonal" style="margin-bottom: 0;">Seasonal Offer</label>
+            <div
+              class="form-group"
+              style="display: flex; align-items: center; gap: 10px"
+            >
+              <input
+                type="checkbox"
+                id="package-seasonal"
+                name="isSeasonalOffer"
+                value="true"
+                style="width: auto"
+              />
+              <label for="package-seasonal" style="margin-bottom: 0"
+                >Seasonal Offer</label
+              >
             </div>
             <button type="submit" class="btn-primary">Add Package</button>
           </form>
 
-          <h2 style="margin-top: 40px;">Existing Packages</h2>
+          <h2 style="margin-top: 40px">Existing Packages</h2>
           <div class="filter-bar">
-            <input type="search" id="package-search" placeholder="Search by name, slug, type..." style="flex-grow: 1;" />
+            <input
+              type="search"
+              id="package-search"
+              placeholder="Search by name, slug, type..."
+              style="flex-grow: 1"
+            />
             <select id="package-category-filter">
               <option value="all">All Categories</option>
               <option value="PC">PC</option>
@@ -478,7 +1029,7 @@
                   <th>Price</th>
                   <th>Discount</th>
                   <th>Seasonal</th>
-                  <th>Actions</th>
+                  <th class="actions-cell">Actions</th>
                 </tr>
               </thead>
               <tbody id="package-list-body">
@@ -495,22 +1046,44 @@
           <form id="add-discount-form">
             <div class="form-group">
               <label for="discount-code">Discount Code</label>
-              <input type="text" id="discount-code" name="discountCode" required />
+              <input
+                type="text"
+                id="discount-code"
+                name="discountCode"
+                required
+              />
             </div>
             <div class="form-group">
               <label for="discount-value">Value (%)</label>
-              <input type="number" id="discount-value" name="discountValue" min="1" max="100" required />
+              <input
+                type="number"
+                id="discount-value"
+                name="discountValue"
+                min="1"
+                max="100"
+                required
+              />
             </div>
             <div class="form-group">
               <label for="discount-expiry">Expiry Date</label>
-              <input type="date" id="discount-expiry" name="discountExpiry" required />
+              <input
+                type="date"
+                id="discount-expiry"
+                name="discountExpiry"
+                required
+              />
             </div>
             <button type="submit" class="btn-primary">Add Discount</button>
           </form>
 
-          <h2 style="margin-top: 40px;">Existing Discounts</h2>
+          <h2 style="margin-top: 40px">Existing Discounts</h2>
           <div class="filter-bar">
-            <input type="search" id="discount-search" placeholder="Search by code..." style="flex-grow: 1;" />
+            <input
+              type="search"
+              id="discount-search"
+              placeholder="Search by code..."
+              style="flex-grow: 1"
+            />
             <select id="discount-status-filter">
               <option value="all">All Statuses</option>
               <option value="active">Active</option>
@@ -534,7 +1107,6 @@
               </tbody>
             </table>
           </div>
-
         </div>
       </div>
     </main>
@@ -550,24 +1122,52 @@
           <input type="hidden" id="edit-discount-id" name="discountId" />
           <div class="form-group">
             <label for="edit-discount-code">Discount Code</label>
-            <input type="text" id="edit-discount-code" name="discountCode" required />
+            <input
+              type="text"
+              id="edit-discount-code"
+              name="discountCode"
+              required
+            />
           </div>
           <div class="form-group">
             <label for="edit-discount-percent">Value (%)</label>
-            <input type="number" id="edit-discount-percent" name="discountPercent" min="1" max="100" required />
+            <input
+              type="number"
+              id="edit-discount-percent"
+              name="discountPercent"
+              min="1"
+              max="100"
+              required
+            />
           </div>
           <div class="form-group">
             <label for="edit-discount-expiry">Expiry Date</label>
-            <input type="date" id="edit-discount-expiry" name="discountExpiry" required />
+            <input
+              type="date"
+              id="edit-discount-expiry"
+              name="discountExpiry"
+              required
+            />
           </div>
-          <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
-            <input type="checkbox" id="edit-discount-is-active" name="isActive" value="true" style="width: auto;" />
-            <label for="edit-discount-is-active" style="margin-bottom: 0;">
+          <div
+            class="form-group"
+            style="display: flex; align-items: center; gap: 10px"
+          >
+            <input
+              type="checkbox"
+              id="edit-discount-is-active"
+              name="isActive"
+              value="true"
+              style="width: auto"
+            />
+            <label for="edit-discount-is-active" style="margin-bottom: 0">
               Is Active
             </label>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn-secondary modal-close-btn">Cancel</button>
+            <button type="button" class="btn-secondary modal-close-btn">
+              Cancel
+            </button>
             <button type="submit" class="btn-primary">Save</button>
           </div>
         </form>
@@ -618,7 +1218,14 @@
             </div>
             <div class="form-group">
               <label for="edit-package-base-price">Base Price</label>
-              <input type="number" id="edit-package-base-price" name="basePrice" min="0" step="0.01" required />
+              <input
+                type="number"
+                id="edit-package-base-price"
+                name="basePrice"
+                min="0"
+                step="0.01"
+                required
+              />
             </div>
             <div class="form-group">
               <label for="edit-package-period">Billing Period</label>
@@ -626,15 +1233,34 @@
             </div>
             <div class="form-group">
               <label for="edit-package-discount-label">Discount Label</label>
-              <input type="text" id="edit-package-discount-label" name="discountLabel" />
+              <input
+                type="text"
+                id="edit-package-discount-label"
+                name="discountLabel"
+              />
             </div>
             <div class="form-group">
-              <label for="edit-package-discount-percent">Discount Percent</label>
-              <input type="number" id="edit-package-discount-percent" name="discountPercent" min="0" max="100" step="1" />
+              <label for="edit-package-discount-percent"
+                >Discount Percent</label
+              >
+              <input
+                type="number"
+                id="edit-package-discount-percent"
+                name="discountPercent"
+                min="0"
+                max="100"
+                step="1"
+              />
             </div>
             <div class="form-group full-width">
-              <label for="edit-package-features">Features (comma separated)</label>
-              <textarea id="edit-package-features" name="features" rows="3"></textarea>
+              <label for="edit-package-features"
+                >Features (comma separated)</label
+              >
+              <textarea
+                id="edit-package-features"
+                name="features"
+                rows="3"
+              ></textarea>
             </div>
             <div class="form-group full-width">
               <label for="edit-package-tags">Tags (comma separated)</label>
@@ -643,22 +1269,44 @@
             <div class="form-group full-width">
               <label>Add-ons</label>
               <div id="edit-package-addons-list" class="addons-list"></div>
-              <button type="button" class="btn-secondary" id="add-edit-addon-btn">Add add-on</button>
-              <input type="hidden" id="edit-package-addons-json" name="addons" />
+              <button
+                type="button"
+                class="btn-secondary"
+                id="add-edit-addon-btn"
+              >
+                Add add-on
+              </button>
+              <input
+                type="hidden"
+                id="edit-package-addons-json"
+                name="addons"
+              />
             </div>
           </div>
-          <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
-            <input type="checkbox" id="edit-package-seasonal" name="isSeasonalOffer" value="true" style="width:auto;" />
-            <label for="edit-package-seasonal" style="margin-bottom: 0;">Seasonal Offer</label>
+          <div
+            class="form-group"
+            style="display: flex; align-items: center; gap: 10px"
+          >
+            <input
+              type="checkbox"
+              id="edit-package-seasonal"
+              name="isSeasonalOffer"
+              value="true"
+              style="width: auto"
+            />
+            <label for="edit-package-seasonal" style="margin-bottom: 0"
+              >Seasonal Offer</label
+            >
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn-secondary package-close-btn">Cancel</button>
+            <button type="button" class="btn-secondary package-close-btn">
+              Cancel
+            </button>
             <button type="submit" class="btn-primary">Save Changes</button>
           </div>
         </form>
       </div>
     </div>
-
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
@@ -688,7 +1336,6 @@
             } else if (target === "packages") {
               loadPackages();
             }
-            
           });
         });
 
@@ -697,20 +1344,21 @@
 
         // Placeholder function to fetch and render customers
         async function loadCustomers() {
-          const searchTerm = document.getElementById('customer-search').value;
-          const url = new URL('/api/crm/customers', window.location.origin);
-          if (searchTerm) url.searchParams.set('search', searchTerm);
+          const searchTerm = document.getElementById("customer-search").value;
+          const url = new URL("/api/crm/customers", window.location.origin);
+          if (searchTerm) url.searchParams.set("search", searchTerm);
 
-          customerListBody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted);">Loading customers...</td></tr>';
+          customerListBody.innerHTML =
+            '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted);">Loading customers...</td></tr>';
           try {
             // Gọi API mà không cần header xác thực
             const response = await fetch(url);
 
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            
+            if (!response.ok)
+              throw new Error(`HTTP error! status: ${response.status}`);
+
             const customers = await response.json();
             renderCustomers(customers);
-
           } catch (error) {
             console.error("Failed to load customers:", error);
             customerListBody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--danger);">Failed to load customers. ${error.message}</td></tr>`;
@@ -719,12 +1367,18 @@
 
         // Thêm event listener cho ô tìm kiếm khách hàng
         let customerSearchTimeout;
-        document.getElementById('customer-search').addEventListener('input', () => { clearTimeout(customerSearchTimeout); customerSearchTimeout = setTimeout(loadCustomers, 300); });
+        document
+          .getElementById("customer-search")
+          .addEventListener("input", () => {
+            clearTimeout(customerSearchTimeout);
+            customerSearchTimeout = setTimeout(loadCustomers, 300);
+          });
 
         function renderCustomers(customers) {
           customerListBody.innerHTML = ""; // Clear existing list
           if (customers.length === 0) {
-            customerListBody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted);">No customers found.</td></tr>';
+            customerListBody.innerHTML =
+              '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted);">No customers found.</td></tr>';
             return;
           }
 
@@ -744,7 +1398,9 @@
         const addPackageForm = document.getElementById("add-package-form");
         const packageListBody = document.getElementById("package-list-body");
         const packageSearchInput = document.getElementById("package-search");
-        const packageCategoryFilter = document.getElementById("package-category-filter");
+        const packageCategoryFilter = document.getElementById(
+          "package-category-filter"
+        );
         let packageSearchTimeout;
         let cachedPackages = [];
 
@@ -766,17 +1422,25 @@
           const row = document.createElement("div");
           row.className = "addon-row";
           row.innerHTML = `
-            <input type="text" class="addon-key" placeholder="Key (example: priority-support)" value="${data.key || ""}" />
-            <input type="text" class="addon-name" placeholder="Display name" value="${data.name || ""}" />
-            <input type="number" class="addon-price" placeholder="Price" step="0.01" min="0" value="${typeof data.price === "number" ? data.price : ""}" />
+            <input type="text" class="addon-key" placeholder="Key (example: priority-support)" value="${
+              data.key || ""
+            }" />
+            <input type="text" class="addon-name" placeholder="Display name" value="${
+              data.name || ""
+            }" />
+            <input type="number" class="addon-price" placeholder="Price" step="0.01" min="0" value="${
+              typeof data.price === "number" ? data.price : ""
+            }" />
             <button type="button" class="remove-addon-btn">Remove</button>
           `;
-          row.querySelector(".remove-addon-btn").addEventListener("click", () => {
-            row.remove();
-            if (!listEl.querySelector(".addon-row")) {
-              addAddonRow(listEl);
-            }
-          });
+          row
+            .querySelector(".remove-addon-btn")
+            .addEventListener("click", () => {
+              row.remove();
+              if (!listEl.querySelector(".addon-row")) {
+                addAddonRow(listEl);
+              }
+            });
           listEl.appendChild(row);
         };
 
@@ -794,12 +1458,16 @@
             .map((row) => {
               const key = row.querySelector(".addon-key")?.value.trim() || "";
               const name = row.querySelector(".addon-name")?.value.trim() || "";
-              const priceValue = parseFloat(row.querySelector(".addon-price")?.value);
+              const priceValue = parseFloat(
+                row.querySelector(".addon-price")?.value
+              );
               if (!key || !name) return null;
               return {
                 key,
                 name,
-                price: Number.isFinite(priceValue) ? Number(priceValue.toFixed(2)) : 0,
+                price: Number.isFinite(priceValue)
+                  ? Number(priceValue.toFixed(2))
+                  : 0,
               };
             })
             .filter(Boolean);
@@ -814,7 +1482,9 @@
         const setupAddonSection = (section) => {
           if (!section?.list) return;
           renderAddonList(section.list);
-          section.addButton?.addEventListener("click", () => addAddonRow(section.list));
+          section.addButton?.addEventListener("click", () =>
+            addAddonRow(section.list)
+          );
         };
 
         setupAddonSection(addonSections.create);
@@ -845,7 +1515,10 @@
         if (addPackageForm) {
           addPackageForm.addEventListener("submit", (e) => {
             e.preventDefault();
-            syncAddonsField(addonSections.create.list, addonSections.create.hiddenInput);
+            syncAddonsField(
+              addonSections.create.list,
+              addonSections.create.hiddenInput
+            );
             const formData = new FormData(e.target);
             const payload = buildPackagePayload(formData);
 
@@ -884,13 +1557,15 @@
           const category = packageCategoryFilter?.value;
           const url = new URL("/api/packages", window.location.origin); // SỬA Ở ĐÂY
           if (searchTerm) url.searchParams.set("search", searchTerm);
-          if (category && category !== "all") url.searchParams.set("category", category);
+          if (category && category !== "all")
+            url.searchParams.set("category", category);
 
           packageListBody.innerHTML =
             '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted);">Loading packages...</td></tr>';
           try {
             const response = await fetch(url);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok)
+              throw new Error(`HTTP error! status: ${response.status}`);
             const packages = await response.json();
             cachedPackages = packages;
             renderPackages(packages);
@@ -925,7 +1600,9 @@
             row.innerHTML = `
               <td>
                 <strong>${pkg.name}</strong><br />
-                <span style="color:var(--muted);font-size:12px;">${pkg.period || ""}</span>
+                <span style="color:var(--muted);font-size:12px;">${
+                  pkg.period || ""
+                }</span>
               </td>
               <td>${pkg.slug}</td>
               <td>${pkg.type || "-"}</td>
@@ -933,9 +1610,13 @@
               <td>${formatPrice(pkg.basePrice)}</td>
               <td>${discount}</td>
               <td>${pkg.isSeasonalOffer ? "Yes" : "No"}</td>
-              <td>
-                <button class="btn-edit-outline" data-id="${pkg._id}">Edit</button>
-                <button class="btn-danger-outline" data-id="${pkg._id}">Delete</button>
+              <td class="actions-cell">
+                <button class="btn-edit-outline" data-id="${
+                  pkg._id
+                }">Edit</button>
+                <button class="btn-danger-outline" data-id="${
+                  pkg._id
+                }">Delete</button>
               </td>
             `;
             packageListBody.appendChild(row);
@@ -952,7 +1633,8 @@
 
         const packageModal = document.getElementById("edit-package-modal");
         const editPackageForm = document.getElementById("edit-package-form");
-        const packageModalCloseButtons = packageModal?.querySelectorAll(".package-close-btn") || [];
+        const packageModalCloseButtons =
+          packageModal?.querySelectorAll(".package-close-btn") || [];
 
         const listToString = (value) => {
           if (!value) return "";
@@ -964,20 +1646,35 @@
           document.getElementById("edit-package-id").value = pkg._id;
           document.getElementById("edit-package-name").value = pkg.name || "";
           document.getElementById("edit-package-slug").value = pkg.slug || "";
-          document.getElementById("edit-package-category").value = pkg.category || "PC";
+          document.getElementById("edit-package-category").value =
+            pkg.category || "PC";
           document.getElementById("edit-package-type").value = pkg.type || "";
-          document.getElementById("edit-package-base-price").value = pkg.basePrice ?? "";
-          document.getElementById("edit-package-period").value = pkg.period || "";
-          document.getElementById("edit-package-discount-label").value = pkg.discountLabel || "";
+          document.getElementById("edit-package-base-price").value =
+            pkg.basePrice ?? "";
+          document.getElementById("edit-package-period").value =
+            pkg.period || "";
+          document.getElementById("edit-package-discount-label").value =
+            pkg.discountLabel || "";
           document.getElementById("edit-package-discount-percent").value =
             pkg.discountPercent ?? "";
-          document.getElementById("edit-package-features").value = listToString(pkg.features);
-          document.getElementById("edit-package-tags").value = listToString(pkg.tags);
+          document.getElementById("edit-package-features").value = listToString(
+            pkg.features
+          );
+          document.getElementById("edit-package-tags").value = listToString(
+            pkg.tags
+          );
           if (addonSections.edit.list) {
-            renderAddonList(addonSections.edit.list, Array.isArray(pkg.addons) ? pkg.addons : []);
-            syncAddonsField(addonSections.edit.list, addonSections.edit.hiddenInput);
+            renderAddonList(
+              addonSections.edit.list,
+              Array.isArray(pkg.addons) ? pkg.addons : []
+            );
+            syncAddonsField(
+              addonSections.edit.list,
+              addonSections.edit.hiddenInput
+            );
           }
-          document.getElementById("edit-package-seasonal").checked = !!pkg.isSeasonalOffer;
+          document.getElementById("edit-package-seasonal").checked =
+            !!pkg.isSeasonalOffer;
           packageModal.classList.add("active");
         }
 
@@ -985,7 +1682,9 @@
           packageModal?.classList.remove("active");
         }
 
-        packageModalCloseButtons.forEach((btn) => btn.addEventListener("click", closePackageModal));
+        packageModalCloseButtons.forEach((btn) =>
+          btn.addEventListener("click", closePackageModal)
+        );
 
         packageListBody?.addEventListener("click", (event) => {
           const target = event.target;
@@ -999,7 +1698,9 @@
                 .then((res) => {
                   if (!res.ok) {
                     return res.json().then((err) => {
-                      throw new Error(err.message || "Failed to delete package");
+                      throw new Error(
+                        err.message || "Failed to delete package"
+                      );
                     });
                   }
                 })
@@ -1023,7 +1724,10 @@
 
         editPackageForm?.addEventListener("submit", (event) => {
           event.preventDefault();
-          syncAddonsField(addonSections.edit.list, addonSections.edit.hiddenInput);
+          syncAddonsField(
+            addonSections.edit.list,
+            addonSections.edit.hiddenInput
+          );
           const formData = new FormData(editPackageForm);
           const payload = buildPackagePayload(formData);
           const packageId = formData.get("packageId");
@@ -1061,25 +1765,25 @@
           // Hàm để cập nhật giá trị period
           const updatePeriod = () => {
             const selectedType = typeSelect.value;
-            let periodValue = '';
+            let periodValue = "";
             switch (selectedType) {
-              case 'Hourly':
-                periodValue = '/hour';
+              case "Hourly":
+                periodValue = "/hour";
                 break;
-              case 'Daily':
-                periodValue = '/day';
+              case "Daily":
+                periodValue = "/day";
                 break;
-              case 'Monthly':
-                periodValue = '/month';
+              case "Monthly":
+                periodValue = "/month";
                 break;
               default:
-                periodValue = '/month'; // Giá trị mặc định
+                periodValue = "/month"; // Giá trị mặc định
             }
             periodInput.value = periodValue;
           };
 
           // Lắng nghe sự kiện thay đổi và gọi hàm cập nhật
-          typeSelect.addEventListener('change', updatePeriod);
+          typeSelect.addEventListener("change", updatePeriod);
         }
 
         // --- Event Management ---
@@ -1091,7 +1795,9 @@
           console.log("Submitting new event:", eventData);
           // In a real app, you would send this to the backend:
           // fetch('/api/events', { method: 'POST', body: JSON.stringify(eventData), ... });
-          alert(`Event "${eventData.eventName}" submitted! (Check console for data)`);
+          alert(
+            `Event "${eventData.eventName}" submitted! (Check console for data)`
+          );
           addEventForm.reset();
         });
 
@@ -1101,42 +1807,49 @@
           e.preventDefault();
           const formData = new FormData(addDiscountForm);
           const discountData = Object.fromEntries(formData.entries());
-          
-          fetch('/api/crm/discounts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(discountData)
+
+          fetch("/api/crm/discounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(discountData),
           })
-          .then(res => {
-            if (!res.ok) {
-              return res.json().then(err => { throw new Error(err.message || 'Failed to add discount') });
-            }
-            return res.json();
-          })
-          .then(newDiscount => {
-            alert(`Discount "${newDiscount.code}" added successfully!`);
-            addDiscountForm.reset();
-            loadDiscounts(); // Tải lại danh sách
-          })
-          .catch(error => {
-            console.error("Error adding discount:", error);
-            alert(`Error: ${error.message}`);
-          });
+            .then((res) => {
+              if (!res.ok) {
+                return res.json().then((err) => {
+                  throw new Error(err.message || "Failed to add discount");
+                });
+              }
+              return res.json();
+            })
+            .then((newDiscount) => {
+              alert(`Discount "${newDiscount.code}" added successfully!`);
+              addDiscountForm.reset();
+              loadDiscounts(); // Tải lại danh sách
+            })
+            .catch((error) => {
+              console.error("Error adding discount:", error);
+              alert(`Error: ${error.message}`);
+            });
         });
 
         const discountListBody = document.getElementById("discount-list-body");
 
         async function loadDiscounts() {
-          const searchTerm = document.getElementById('discount-search').value;
-          const statusFilter = document.getElementById('discount-status-filter').value;
-          const url = new URL('/api/crm/discounts', window.location.origin);
-          if (searchTerm) url.searchParams.set('search', searchTerm);
-          if (statusFilter !== 'all') url.searchParams.set('status', statusFilter);
+          const searchTerm = document.getElementById("discount-search").value;
+          const statusFilter = document.getElementById(
+            "discount-status-filter"
+          ).value;
+          const url = new URL("/api/crm/discounts", window.location.origin);
+          if (searchTerm) url.searchParams.set("search", searchTerm);
+          if (statusFilter !== "all")
+            url.searchParams.set("status", statusFilter);
 
-          discountListBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted);">Loading discounts...</td></tr>';
+          discountListBody.innerHTML =
+            '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted);">Loading discounts...</td></tr>';
           try {
             const response = await fetch(url);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok)
+              throw new Error(`HTTP error! status: ${response.status}`);
             const discounts = await response.json();
             renderDiscounts(discounts);
           } catch (error) {
@@ -1147,22 +1860,30 @@
 
         // Thêm event listener cho tìm kiếm và lọc discount
         let discountSearchTimeout;
-        document.getElementById('discount-search').addEventListener('input', () => { clearTimeout(discountSearchTimeout); discountSearchTimeout = setTimeout(loadDiscounts, 300); });
-        document.getElementById('discount-status-filter').addEventListener('change', loadDiscounts);
-
+        document
+          .getElementById("discount-search")
+          .addEventListener("input", () => {
+            clearTimeout(discountSearchTimeout);
+            discountSearchTimeout = setTimeout(loadDiscounts, 300);
+          });
+        document
+          .getElementById("discount-status-filter")
+          .addEventListener("change", loadDiscounts);
 
         function renderDiscounts(discounts) {
           discountListBody.innerHTML = "";
           if (discounts.length === 0) {
-            discountListBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted);">No discounts found.</td></tr>';
+            discountListBody.innerHTML =
+              '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted);">No discounts found.</td></tr>';
             return;
           }
 
-          discounts.forEach(discount => {
+          discounts.forEach((discount) => {
             const row = document.createElement("tr");
             // Tính toán trạng thái: Mã chỉ "Active" khi isActive=true VÀ chưa hết hạn.
-            const status = discount.isActive ? 'Active' : 'Inactive';
-            const statusColor = status === 'Active' ? 'var(--success)' : 'var(--muted)';
+            const status = discount.isActive ? "Active" : "Inactive";
+            const statusColor =
+              status === "Active" ? "var(--success)" : "var(--muted)";
 
             row.innerHTML = `
               <td><strong>${discount.code}</strong></td>
@@ -1170,8 +1891,12 @@
               <td>${new Date(discount.expiryDate).toLocaleDateString()}</td>
               <td><span style="color: ${statusColor}; font-weight: 600;">${status}</span></td>
               <td>
-                <button class="btn-edit-outline" data-id="${discount._id}">Edit</button>
-                <button class="btn-danger-outline" data-id="${discount._id}">Delete</button>
+                <button class="btn-edit-outline" data-id="${
+                  discount._id
+                }">Edit</button>
+                <button class="btn-danger-outline" data-id="${
+                  discount._id
+                }">Delete</button>
               </td>
             `;
             discountListBody.appendChild(row);
@@ -1179,60 +1904,79 @@
         }
 
         // --- Discount Modal Logic ---
-        const discountModal = document.getElementById('edit-discount-modal');
-        const editDiscountForm = document.getElementById('edit-discount-form');
-        const discountModalCloseBtns = discountModal.querySelectorAll('.modal-close-btn');
+        const discountModal = document.getElementById("edit-discount-modal");
+        const editDiscountForm = document.getElementById("edit-discount-form");
+        const discountModalCloseBtns =
+          discountModal.querySelectorAll(".modal-close-btn");
 
         function openEditModal(discount) {
-          document.getElementById('edit-discount-id').value = discount._id;
-          document.getElementById('edit-discount-code').value = discount.code;
-          document.getElementById('edit-discount-percent').value = discount.discountPercent;
+          document.getElementById("edit-discount-id").value = discount._id;
+          document.getElementById("edit-discount-code").value = discount.code;
+          document.getElementById("edit-discount-percent").value =
+            discount.discountPercent;
           // Format date for input type="date" (YYYY-MM-DD)
-          document.getElementById('edit-discount-is-active').checked = discount.isActive;
-          document.getElementById('edit-discount-expiry').value = new Date(discount.expiryDate).toISOString().split('T')[0];
-          discountModal.classList.add('active');
+          document.getElementById("edit-discount-is-active").checked =
+            discount.isActive;
+          document.getElementById("edit-discount-expiry").value = new Date(
+            discount.expiryDate
+          )
+            .toISOString()
+            .split("T")[0];
+          discountModal.classList.add("active");
         }
 
-        function closeEditModal() { discountModal.classList.remove('active'); }
-        discountModalCloseBtns.forEach(btn => btn.addEventListener('click', closeEditModal));
+        function closeEditModal() {
+          discountModal.classList.remove("active");
+        }
+        discountModalCloseBtns.forEach((btn) =>
+          btn.addEventListener("click", closeEditModal)
+        );
 
         // Xử lý sự kiện click trên bảng discount (Edit và Delete)
-        discountListBody.addEventListener('click', (e) => {
-          if (e.target.matches('.btn-danger-outline')) { // --- Delete Logic ---
+        discountListBody.addEventListener("click", (e) => {
+          if (e.target.matches(".btn-danger-outline")) {
+            // --- Delete Logic ---
             const discountId = e.target.dataset.id;
-            const row = e.target.closest('tr');
-            const code = row.querySelector('td:first-child').textContent;
+            const row = e.target.closest("tr");
+            const code = row.querySelector("td:first-child").textContent;
 
-            if (confirm(`Are you sure you want to delete the discount code "${code}"?`)) {
-              fetch(`/api/crm/discounts/${discountId}`, { method: 'DELETE' })
-                .then(res => {
-                  if (!res.ok) throw new Error('Failed to delete');
+            if (
+              confirm(
+                `Are you sure you want to delete the discount code "${code}"?`
+              )
+            ) {
+              fetch(`/api/crm/discounts/${discountId}`, { method: "DELETE" })
+                .then((res) => {
+                  if (!res.ok) throw new Error("Failed to delete");
                   row.remove(); // Xóa hàng khỏi bảng
-                  alert('Discount deleted successfully.');
+                  alert("Discount deleted successfully.");
                 })
-                .catch(err => {
-                  console.error('Delete error:', err);
-                  alert('An error occurred while deleting the discount.');
+                .catch((err) => {
+                  console.error("Delete error:", err);
+                  alert("An error occurred while deleting the discount.");
                 });
             }
-          } else if (e.target.matches('.btn-edit-outline')) { // --- Edit Logic ---
+          } else if (e.target.matches(".btn-edit-outline")) {
+            // --- Edit Logic ---
             const discountId = e.target.dataset.id;
             // Lấy thông tin chi tiết của discount từ API hoặc cache (ở đây ta gọi API cho đơn giản)
             fetch(`/api/crm/discounts`)
-              .then(res => res.json())
-              .then(discounts => {
-                const discountToEdit = discounts.find(d => d._id === discountId);
+              .then((res) => res.json())
+              .then((discounts) => {
+                const discountToEdit = discounts.find(
+                  (d) => d._id === discountId
+                );
                 if (discountToEdit) {
                   openEditModal(discountToEdit);
                 } else {
-                  alert('Could not find discount details.');
+                  alert("Could not find discount details.");
                 }
               });
           }
         });
 
         // Xử lý submit form chỉnh sửa
-        editDiscountForm.addEventListener('submit', (e) => {
+        editDiscountForm.addEventListener("submit", (e) => {
           e.preventDefault();
           const formData = new FormData(editDiscountForm);
           const discountData = Object.fromEntries(formData.entries());
@@ -1244,27 +1988,30 @@
           }
 
           fetch(`/api/crm/discounts/${discountId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(discountData)
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(discountData),
           })
-          .then(res => {
-            if (!res.ok) return res.json().then(err => { throw new Error(err.message || 'Failed to update') });
-            return res.json();
-          })
-          .then(() => {
-            closeEditModal();
-            loadDiscounts(); // Tải lại danh sách để thấy thay đổi
-          })
-          .catch(err => alert(`Error: ${err.message}`));
+            .then((res) => {
+              if (!res.ok)
+                return res.json().then((err) => {
+                  throw new Error(err.message || "Failed to update");
+                });
+              return res.json();
+            })
+            .then(() => {
+              closeEditModal();
+              loadDiscounts(); // Tải lại danh sách để thấy thay đổi
+            })
+            .catch((err) => alert(`Error: ${err.message}`));
         });
 
         // Initial load
         loadCustomers();
 
         // Kích hoạt đồng bộ cho cả hai form
-        syncPeriodWithType('package-type', 'package-period');
-        syncPeriodWithType('edit-package-type', 'edit-package-period');
+        syncPeriodWithType("package-type", "package-period");
+        syncPeriodWithType("edit-package-type", "edit-package-period");
         // Không cần loadDiscounts() ban đầu vì tab đó không active
       });
     </script>

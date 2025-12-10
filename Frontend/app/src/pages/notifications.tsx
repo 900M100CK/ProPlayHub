@@ -106,7 +106,14 @@ const NotificationsScreen = () => {
         ) : (
           <FlatList
             data={sorted}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item, index) => {
+              const key = item?.id || item?._id || item?.createdAt;
+              return typeof key === 'string'
+                ? key
+                : key
+                ? `notif-${key}`
+                : `notif-${index}`;
+            }}
             renderItem={renderItem}
             contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl * 2 }}
           />

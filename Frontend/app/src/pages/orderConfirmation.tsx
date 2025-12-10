@@ -109,6 +109,12 @@ const OrderConfirmationScreen = () => {
           >
             <Text style={styles.secondaryButtonText}>Back to Home</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.PDFButton}
+          >
+            <Text style={styles.PDFButtonText}>Download PDF Invoice</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
@@ -208,11 +214,26 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 999,
     paddingVertical: 12,
+    paddingBottom: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+  },
+    PDFButton: {
+    width: "100%",
+    margin: 10,
+    borderRadius: 999,
+    paddingVertical: 12,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#D1D5DB",
   },
   secondaryButtonText: {
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  PDFButtonText: {
     color: "#111827",
     fontSize: 15,
     fontWeight: "500",
